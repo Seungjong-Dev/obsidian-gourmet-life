@@ -1,0 +1,9 @@
+{
+	"id": "gourmet-life",
+	"name": "Gourmet Life",
+	"version": "0.1.0",
+	"minAppVersion": "1.9.0",
+	"description": "Culinary life management — recipes, ingredients, and restaurants",
+	"author": "",
+	"isDesktopOnly": false
+}

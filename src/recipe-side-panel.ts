@@ -1,0 +1,452 @@
+import type { App } from "obsidian";
+import type { RecipeFrontmatter, RecipeViewMode } from "./types";
+import { DIFFICULTY_OPTIONS } from "./types";
+import {
+	extractCooklangIngredientsGrouped,
+	extractCooklangTools,
+	extractCooklangTimers,
+	calculateTotalTime,
+	type CooklangIngredient,
+} from "./cooklang-parser";
+import { normalizeImages } from "./frontmatter-utils";
+import { ImageSuggestModal } from "./image-suggest-modal";
+
+export interface SidePanelCallbacks {
+	onIngredientHover: (name: string | null) => void;
+	onInput: () => void;
+}
+
+export interface SideState {
+	images: string[];
+	cuisine: string;
+	difficulty: string;
+	servings: string;
+	prep_time: string;
+	cook_time: string;
+	rating: string;
+	source: string;
+}
+
+/**
+ * Render the side panel in viewer or editor mode.
+ */
+export function renderSidePanel(
+	container: HTMLElement,
+	fm: RecipeFrontmatter,
+	bodyContent: string,
+	resourcePath: (path: string) => string,
+	mode: RecipeViewMode,
+	callbacks: SidePanelCallbacks,
+	app?: App
+): void {
+	container.empty();
+
+	if (mode === "viewer") {
+		renderSidePanelViewer(container, fm, bodyContent, resourcePath, callbacks);
+	} else {
+		renderSidePanelEditor(container, fm, bodyContent, resourcePath, callbacks, app);
+	}
+}
+
+/**
+ * Viewer mode: read-only metadata display.
+ */
+function renderSidePanelViewer(
+	container: HTMLElement,
+	fm: RecipeFrontmatter,
+	bodyContent: string,
+	resourcePath: (path: string) => string,
+	callbacks: SidePanelCallbacks
+): void {
+	// Images — display gallery
+	const images = normalizeImages(fm);
+	if (images.length > 0) {
+		const imageSection = container.createDiv({ cls: "gl-recipe__meta" });
+		for (const imgPath of images) {
+			const img = imageSection.createEl("img", {
+				cls: "gl-recipe__image",
+			});
+			img.src = resourcePath(imgPath);
+		}
+	}
+
+	// Metadata — read-only rows
+	const metaSection = container.createDiv({ cls: "gl-recipe__meta" });
+	metaSection.createEl("h3", { text: "Metadata" });
+
+	if (fm.cuisine) addViewRow(metaSection, "Cuisine", fm.cuisine);
+	if (fm.difficulty) {
+		const label = fm.difficulty.charAt(0).toUpperCase() + fm.difficulty.slice(1);
+		addViewRow(metaSection, "Difficulty", label);
+	}
+	if (fm.servings != null) addViewRow(metaSection, "Servings", String(fm.servings));
+	if (fm.prep_time != null) addViewRow(metaSection, "Prep time", `${fm.prep_time} min`);
+	if (fm.cook_time != null) addViewRow(metaSection, "Cook time", `${fm.cook_time} min`);
+	if (fm.rating != null) addViewRow(metaSection, "Rating", renderStars(fm.rating));
+	if (fm.source) addViewRow(metaSection, "Source", fm.source);
+
+	// Side data — ingredients/tools/time (same as editor)
+	const sideData = container.createDiv({ cls: "gl-recipe__side-data" });
+	renderSideDataContent(sideData, bodyContent, fm, callbacks);
+}
+
+/**
+ * Editor mode: editable input fields + live side data.
+ */
+function renderSidePanelEditor(
+	container: HTMLElement,
+	fm: RecipeFrontmatter,
+	bodyContent: string,
+	resourcePath: (path: string) => string,
+	callbacks: SidePanelCallbacks,
+	app?: App
+): void {
+	// Images — list with add/remove
+	const imageSection = container.createDiv({ cls: "gl-recipe__meta" });
+	imageSection.createEl("h3", { text: "Images" });
+
+	const imageList = imageSection.createDiv({ cls: "gl-recipe__image-list" });
+	const images = normalizeImages(fm);
+
+	const renderImageItems = () => {
+		imageList.empty();
+		for (let i = 0; i < images.length; i++) {
+			const imgPath = images[i];
+			const item = imageList.createDiv({ cls: "gl-recipe__image-item" });
+			item.dataset.imagePath = imgPath;
+
+			const preview = item.createEl("img", {
+				cls: "gl-recipe__image gl-recipe__image--thumb",
+			});
+			preview.src = resourcePath(imgPath);
+
+			const pathLabel = item.createSpan({
+				cls: "gl-recipe__image-path",
+				text: imgPath,
+			});
+
+			const removeBtn = item.createEl("button", {
+				cls: "gl-recipe__image-remove",
+				text: "\u00d7",
+			});
+			removeBtn.title = "Remove image";
+			removeBtn.addEventListener("click", () => {
+				images.splice(i, 1);
+				renderImageItems();
+				callbacks.onInput();
+			});
+		}
+	};
+	renderImageItems();
+
+	const addBtn = imageSection.createEl("button", {
+		cls: "gl-recipe__add-btn",
+		text: "+ Add image",
+	});
+	addBtn.addEventListener("click", () => {
+		if (app) {
+			new ImageSuggestModal(app, (file) => {
+				if (!images.includes(file.path)) {
+					images.push(file.path);
+					renderImageItems();
+					callbacks.onInput();
+				}
+			}).open();
+		}
+	});
+
+	// Metadata — input fields
+	const metaSection = container.createDiv({ cls: "gl-recipe__meta" });
+	metaSection.createEl("h3", { text: "Metadata" });
+
+	addEditField(metaSection, "Cuisine", "cuisine", fm.cuisine || "", callbacks.onInput);
+	addDropdownField(
+		metaSection,
+		"Difficulty",
+		"difficulty",
+		["", ...DIFFICULTY_OPTIONS],
+		fm.difficulty || "",
+		callbacks.onInput
+	);
+	addEditField(
+		metaSection,
+		"Servings",
+		"servings",
+		fm.servings != null ? String(fm.servings) : "",
+		callbacks.onInput
+	);
+	addEditField(
+		metaSection,
+		"Prep time (min)",
+		"prep_time",
+		fm.prep_time != null ? String(fm.prep_time) : "",
+		callbacks.onInput
+	);
+	addEditField(
+		metaSection,
+		"Cook time (min)",
+		"cook_time",
+		fm.cook_time != null ? String(fm.cook_time) : "",
+		callbacks.onInput
+	);
+	addEditField(
+		metaSection,
+		"Rating (1-5)",
+		"rating",
+		fm.rating != null ? String(fm.rating) : "",
+		callbacks.onInput
+	);
+	addEditField(metaSection, "Source", "source", fm.source || "", callbacks.onInput);
+
+	// Side data wrapper — live ingredients/tools/time
+	const sideData = container.createDiv({ cls: "gl-recipe__side-data" });
+	renderSideDataContent(sideData, bodyContent, fm, callbacks);
+}
+
+/**
+ * Re-render only the side data section (ingredients/tools/time).
+ * Does not touch metadata input fields.
+ */
+export function refreshSideData(
+	container: HTMLElement,
+	bodyContent: string,
+	fm: RecipeFrontmatter,
+	callbacks: SidePanelCallbacks
+): void {
+	const sideData = container.querySelector(".gl-recipe__side-data") as HTMLElement | null;
+	if (!sideData) return;
+	sideData.empty();
+	renderSideDataContent(sideData, bodyContent, fm, callbacks);
+}
+
+/**
+ * Render ingredients, tools, and total time into a container.
+ */
+function renderSideDataContent(
+	container: HTMLElement,
+	bodyContent: string,
+	fm: RecipeFrontmatter,
+	callbacks: SidePanelCallbacks
+): void {
+	const sectionTitle = (parent: HTMLElement, text: string) => {
+		parent.createEl("h3", {
+			text,
+			cls: "gl-recipe__section-title",
+		});
+	};
+
+	// Ingredients — extracted from @markers
+	const grouped = extractCooklangIngredientsGrouped(bodyContent);
+	const hasIngredients = Array.from(grouped.values()).some((arr) => arr.length > 0);
+
+	if (hasIngredients) {
+		const ingredientsSection = container.createDiv({
+			cls: "gl-recipe__ingredients",
+		});
+		sectionTitle(ingredientsSection, "Ingredients");
+
+		for (const [sectionName, items] of grouped) {
+			if (grouped.size > 1 || sectionName) {
+				const sDiv = ingredientsSection.createDiv({
+					cls: "gl-recipe__section",
+				});
+				sDiv.createEl("h4", { text: sectionName || "Main" });
+			}
+
+			const merged = mergeIngredients(items);
+
+			for (const ing of merged) {
+				const item = ingredientsSection.createDiv({
+					cls: "gl-recipe__item",
+				});
+				const nameEl = item.createSpan({
+					text: ing.name,
+				});
+				const qtyText =
+					[ing.quantity, ing.unit].filter(Boolean).join(" ");
+				if (qtyText) {
+					item.createSpan({
+						text: qtyText,
+						cls: "gl-recipe__meta-label",
+					});
+				}
+
+				// Hover interaction
+				item.addEventListener("mouseenter", () => {
+					item.addClass("gl-recipe__item--highlight");
+					callbacks.onIngredientHover(ing.name);
+				});
+				item.addEventListener("mouseleave", () => {
+					item.removeClass("gl-recipe__item--highlight");
+					callbacks.onIngredientHover(null);
+				});
+
+				// Store for external highlighting
+				nameEl.dataset.ingredient = ing.name.toLowerCase();
+			}
+		}
+	}
+
+	// Tools — extracted from #markers
+	const tools = extractCooklangTools(bodyContent);
+	if (tools.length > 0) {
+		const toolsSection = container.createDiv({
+			cls: "gl-recipe__tools",
+		});
+		sectionTitle(toolsSection, "Tools");
+		const list = toolsSection.createEl("ul");
+		for (const tool of tools) {
+			list.createEl("li", { text: tool.name });
+		}
+	}
+
+	// Total time — frontmatter first, then timer sum
+	const fmTotalTime = (fm.prep_time || 0) + (fm.cook_time || 0);
+	const timers = extractCooklangTimers(bodyContent);
+	const timerTotal = calculateTotalTime(timers);
+	const totalTime = fmTotalTime > 0 ? fmTotalTime : timerTotal;
+
+	if (totalTime && totalTime > 0) {
+		const timeSection = container.createDiv({
+			cls: "gl-recipe__time",
+		});
+		sectionTitle(timeSection, "Total Time");
+		timeSection.createEl("p", { text: `${totalTime} minutes` });
+	}
+}
+
+/**
+ * Highlight ingredients in the side panel by names used in a step.
+ */
+export function highlightSideIngredients(
+	container: HTMLElement,
+	names: string[]
+): void {
+	const lowerNames = names.map((n) => n.toLowerCase());
+	const items = container.querySelectorAll(".gl-recipe__item");
+	for (const item of Array.from(items)) {
+		const nameEl = item.querySelector("[data-ingredient]") as HTMLElement;
+		if (
+			nameEl &&
+			lowerNames.includes(nameEl.dataset.ingredient || "")
+		) {
+			item.addClass("gl-recipe__item--highlight");
+		} else {
+			item.removeClass("gl-recipe__item--highlight");
+		}
+	}
+}
+
+/**
+ * Clear all ingredient highlights.
+ */
+export function clearSideHighlights(container: HTMLElement): void {
+	const items = container.querySelectorAll(
+		".gl-recipe__item--highlight"
+	);
+	for (const item of Array.from(items)) {
+		item.removeClass("gl-recipe__item--highlight");
+	}
+}
+
+/**
+ * Collect the current state from the side panel inputs.
+ */
+export function collectSideState(
+	container: HTMLElement
+): SideState {
+	const getField = (field: string): string => {
+		const el = container.querySelector(
+			`[data-field="${field}"]`
+		) as HTMLInputElement | HTMLSelectElement | null;
+		return el?.value?.trim() || "";
+	};
+
+	// Collect images from image list items
+	const imageItems = container.querySelectorAll(".gl-recipe__image-item");
+	const images: string[] = [];
+	for (const item of Array.from(imageItems)) {
+		const path = (item as HTMLElement).dataset.imagePath;
+		if (path) images.push(path);
+	}
+
+	return {
+		images,
+		cuisine: getField("cuisine"),
+		difficulty: getField("difficulty"),
+		servings: getField("servings"),
+		prep_time: getField("prep_time"),
+		cook_time: getField("cook_time"),
+		rating: getField("rating"),
+		source: getField("source"),
+	};
+}
+
+// ── Helpers ──
+
+function addViewRow(parent: HTMLElement, label: string, value: string): void {
+	const row = parent.createDiv({ cls: "gl-recipe__meta-row" });
+	row.createSpan({ text: label, cls: "gl-recipe__meta-label" });
+	row.createSpan({ text: value });
+}
+
+function renderStars(rating: number): string {
+	const clamped = Math.max(0, Math.min(5, Math.round(rating)));
+	return "\u2605".repeat(clamped) + "\u2606".repeat(5 - clamped);
+}
+
+function addEditField(
+	parent: HTMLElement,
+	label: string,
+	field: string,
+	value: string,
+	onInput: () => void
+): void {
+	const row = parent.createDiv({ cls: "gl-recipe__meta-row" });
+	row.createSpan({ text: label, cls: "gl-recipe__meta-label" });
+	const input = row.createEl("input", {
+		cls: "gl-recipe__edit-input",
+		type: "text",
+		value,
+	}) as HTMLInputElement;
+	input.dataset.field = field;
+	input.addEventListener("input", onInput);
+}
+
+function addDropdownField(
+	parent: HTMLElement,
+	label: string,
+	field: string,
+	options: readonly string[],
+	value: string,
+	onInput: () => void
+): void {
+	const row = parent.createDiv({ cls: "gl-recipe__meta-row" });
+	row.createSpan({ text: label, cls: "gl-recipe__meta-label" });
+	const select = row.createEl("select", {
+		cls: "gl-recipe__edit-input dropdown",
+	}) as HTMLSelectElement;
+	select.dataset.field = field;
+	for (const opt of options) {
+		const option = select.createEl("option", {
+			text: opt || "\u2014",
+			value: opt,
+		});
+		if (opt === value) option.selected = true;
+	}
+	select.addEventListener("change", onInput);
+}
+
+/**
+ * Merge duplicate ingredients by name, combining quantities.
+ */
+function mergeIngredients(items: CooklangIngredient[]): CooklangIngredient[] {
+	const map = new Map<string, CooklangIngredient>();
+	for (const ing of items) {
+		const key = ing.name.toLowerCase();
+		if (!map.has(key)) {
+			map.set(key, { ...ing });
+		}
+	}
+	return Array.from(map.values());
+}
