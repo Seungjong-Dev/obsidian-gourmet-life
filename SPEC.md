@@ -58,14 +58,15 @@ Files outside these folders are ignored entirely.
 **Recipe**
 ```yaml
 type: recipe
-cuisine: Korean          # free-text cuisine type
+cuisine: [Korean]        # string[] — cuisine types (supports multiple for fusion)
+category: main           # main | side | soup | dessert | drink | snack | bread | sauce | other
 difficulty: easy         # easy | medium | hard
 servings: 2              # number
 prep_time: 15            # minutes
 cook_time: 30            # minutes
 rating: 4                # 1–5 integer
-tags: [pasta, quick]     # free-text tags
-image: path/to/image.jpg # vault-relative path
+tags: [pasta, quick]     # free-text tags (editable in Recipe View)
+image: path/to/image.jpg # vault-relative path (single image)
 source: https://...      # URL or text
 created: 2026-03-01      # YYYY-MM-DD
 ```
@@ -183,7 +184,7 @@ Three commands register in the command palette:
 
 Each opens a **modal** with type-specific form fields:
 
-**Recipe modal**: Name, Cuisine, Difficulty (dropdown), Servings, Prep time, Cook time, Source
+**Recipe modal**: Name, Cuisine (comma-separated), Category (dropdown), Difficulty (dropdown), Servings, Prep time, Cook time, Source
 **Ingredient modal**: Name, Category (dropdown), Season (multi-select), Aliases (comma-separated)
 **Restaurant modal**: Name, Cuisine, Location, Price range (dropdown), URL
 
@@ -325,6 +326,8 @@ src/
 ├── recipe-view.ts           # Recipe 2-column ItemView (viewer + editor)
 ├── recipe-side-panel.ts     # Side panel rendering (ingredients, metadata, tools)
 ├── recipe-main-panel.ts     # Main panel rendering (steps, references, actions)
+├── textarea-suggest.ts      # Generic textarea inline autocomplete (image embed, etc.)
+├── image-suggest-modal.ts   # FuzzySuggestModal for image selection (metadata)
 ├── note-create-modal.ts     # Note creation modal
 ├── ingredient-suggest.ts    # EditorSuggest for ingredient auto-link
 └── template-utils.ts        # Note type markdown body templates
@@ -388,6 +391,17 @@ src/
 - `onStepFocus(stepIndex)`: Emits event for Side to highlight used ingredients
 - `highlightSteps(ingredientName)`: Highlights steps using a given ingredient
 - `renderActionBar(container)`: View Source / Cancel / Save buttons (Editor mode only)
+- Attaches `TextareaSuggest` to all three textareas (recipe body, notes, reviews) for `![[image]]` inline autocomplete
+
+**textarea-suggest.ts** — Generic textarea inline autocomplete
+- `TextareaSuggest<T>` class: Trigger detection, cursor position calculation (mirror div technique), popup rendering, keyboard navigation (Arrow/Enter/Tab/Escape), blur-to-close
+- `TextareaSuggestConfig<T>`: Configurable trigger string, closing string, item source, rendering, and selection callback — reusable for future triggers beyond `![[`
+- `sortImageFiles(files, recipePath?)`: Sorts images with recipe-folder files first, then by most-recently-modified (descending)
+- `createImageSuggest(textarea, getFiles, recipePath?)`: Pre-configured `TextareaSuggest<TFile>` for `![[` image embed autocomplete
+
+**image-suggest-modal.ts** — Image selection modal
+- Extends `FuzzySuggestModal<TFile>` for metadata image field (side panel)
+- Filters vault files to image extensions, sorted by recipe-folder-first + most-recently-modified (via shared `sortImageFiles`)
 
 **note-create-modal.ts** — Creation modal
 - Extends `Modal`, renders type-specific form fields
@@ -478,6 +492,12 @@ gl-recipe__step--highlight — Highlighted step (interaction)
 gl-recipe__chip        — Ingredient chip inline in step text
 gl-recipe__refs        — References section
 gl-recipe__actions     — Action bar (View Source / Cancel / Save)
+gl-suggest             — Textarea autocomplete popup (position: fixed)
+gl-suggest__item       — Popup item row
+gl-suggest__item--active — Keyboard/hover-selected item
+gl-suggest__name       — Item display name
+gl-suggest__path       — Item full path (muted)
+gl-suggest-mirror      — Hidden mirror div for cursor position calculation
 ```
 
 Responsive breakpoints:
@@ -515,3 +535,4 @@ These features are NOT part of MVP but may be added later:
 | **Side panel** | Left column (30%) showing image, metadata, ingredients, tools, and time |
 | **Main panel** | Right column (70%) showing title, steps, references, and action bar |
 | **Ingredient chip** | Inline UI element in step text representing a linked ingredient with quantity |
+| **TextareaSuggest** | Generic inline autocomplete system for textarea elements, used for `![[image]]` embed suggestions; positioned via mirror div technique |

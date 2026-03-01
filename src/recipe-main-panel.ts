@@ -1,4 +1,4 @@
-import { setIcon } from "obsidian";
+import { setIcon, type App } from "obsidian";
 import type { RecipeViewMode } from "./types";
 import {
 	parseCooklangBody,
@@ -6,6 +6,8 @@ import {
 	parseReviewsSection,
 	type CooklangSegment,
 } from "./cooklang-parser";
+import { createImageSuggest, type TextareaSuggest } from "./textarea-suggest";
+import type { TFile } from "obsidian";
 
 export interface MainPanelCallbacks {
 	onStepHover: (ingredientNames: string[]) => void;
@@ -33,8 +35,17 @@ export function renderMainPanel(
 	bodyContent: string,
 	source: string | undefined,
 	mode: RecipeViewMode,
-	callbacks: MainPanelCallbacks
+	callbacks: MainPanelCallbacks,
+	app?: App,
+	recipePath?: string
 ): void {
+	// Clean up previous TextareaSuggest instances
+	const prev = (container as any).__glSuggests as TextareaSuggest<unknown>[] | undefined;
+	if (prev) {
+		for (const s of prev) s.destroy();
+		(container as any).__glSuggests = null;
+	}
+
 	container.empty();
 
 	// Title row — title + mode toggle + view source
@@ -81,7 +92,7 @@ export function renderMainPanel(
 	if (mode === "viewer") {
 		renderMainPanelViewer(container, bodyContent, source, callbacks);
 	} else {
-		renderMainPanelEditor(container, bodyContent, source, callbacks);
+		renderMainPanelEditor(container, bodyContent, source, callbacks, app, recipePath);
 	}
 }
 
@@ -136,7 +147,9 @@ function renderMainPanelEditor(
 	container: HTMLElement,
 	bodyContent: string,
 	source: string | undefined,
-	callbacks: MainPanelCallbacks
+	callbacks: MainPanelCallbacks,
+	app?: App,
+	recipePath?: string
 ): void {
 	// Recipe section — toolbar + textarea
 	const bodySection = container.createDiv({ cls: "gl-recipe__steps" });
@@ -182,6 +195,12 @@ function renderMainPanelEditor(
 	bodyArea.addEventListener("input", () => {
 		callbacks.onBodyInput(bodyArea.value);
 	});
+
+	// ── Image autocomplete ──
+	const suggests: TextareaSuggest<TFile>[] = [];
+	if (app) {
+		suggests.push(createImageSuggest(bodyArea, () => app.vault.getFiles(), recipePath));
+	}
 
 	// ── Toolbar button handlers ──
 	const clearForm = () => {
@@ -243,6 +262,9 @@ function renderMainPanelEditor(
 	notesArea.addEventListener("input", () => {
 		callbacks.onNotesInput();
 	});
+	if (app) {
+		suggests.push(createImageSuggest(notesArea, () => app.vault.getFiles(), recipePath));
+	}
 
 	// Reviews textarea
 	const reviewsSection = container.createDiv();
@@ -256,6 +278,12 @@ function renderMainPanelEditor(
 	reviewsArea.addEventListener("input", () => {
 		callbacks.onReviewsInput();
 	});
+	if (app) {
+		suggests.push(createImageSuggest(reviewsArea, () => app.vault.getFiles(), recipePath));
+	}
+
+	// Store all suggests for cleanup on re-render
+	(container as any).__glSuggests = suggests;
 }
 
 /**

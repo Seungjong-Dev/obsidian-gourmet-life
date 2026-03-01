@@ -1,20 +1,22 @@
 import { FuzzySuggestModal, TFile, type App } from "obsidian";
-
-const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
+import { IMAGE_EXTENSIONS, sortImageFiles } from "./textarea-suggest";
 
 export class ImageSuggestModal extends FuzzySuggestModal<TFile> {
 	private onChoose: (file: TFile) => void;
+	private recipePath?: string;
 
-	constructor(app: App, onChoose: (file: TFile) => void) {
+	constructor(app: App, onChoose: (file: TFile) => void, recipePath?: string) {
 		super(app);
 		this.onChoose = onChoose;
+		this.recipePath = recipePath;
 		this.setPlaceholder("Search for an image file...");
 	}
 
 	getItems(): TFile[] {
-		return this.app.vault
+		const images = this.app.vault
 			.getFiles()
 			.filter((f) => IMAGE_EXTENSIONS.includes(f.extension.toLowerCase()));
+		return sortImageFiles(images, this.recipePath);
 	}
 
 	getItemText(file: TFile): string {

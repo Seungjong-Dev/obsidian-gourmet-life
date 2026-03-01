@@ -1,6 +1,6 @@
 import type { App } from "obsidian";
 import type { RecipeFrontmatter, RecipeViewMode } from "./types";
-import { DIFFICULTY_OPTIONS } from "./types";
+import { DIFFICULTY_OPTIONS, RECIPE_CATEGORIES } from "./types";
 import {
 	extractCooklangIngredientsGrouped,
 	extractCooklangTools,
@@ -8,7 +8,6 @@ import {
 	calculateTotalTime,
 	type CooklangIngredient,
 } from "./cooklang-parser";
-import { normalizeImages } from "./frontmatter-utils";
 import { ImageSuggestModal } from "./image-suggest-modal";
 
 export interface SidePanelCallbacks {
@@ -17,13 +16,15 @@ export interface SidePanelCallbacks {
 }
 
 export interface SideState {
-	images: string[];
+	image: string;
 	cuisine: string;
+	category: string;
 	difficulty: string;
 	servings: string;
 	prep_time: string;
 	cook_time: string;
 	rating: string;
+	tags: string;
 	source: string;
 }
 
@@ -37,14 +38,15 @@ export function renderSidePanel(
 	resourcePath: (path: string) => string,
 	mode: RecipeViewMode,
 	callbacks: SidePanelCallbacks,
-	app?: App
+	app?: App,
+	recipePath?: string
 ): void {
 	container.empty();
 
 	if (mode === "viewer") {
 		renderSidePanelViewer(container, fm, bodyContent, resourcePath, callbacks);
 	} else {
-		renderSidePanelEditor(container, fm, bodyContent, resourcePath, callbacks, app);
+		renderSidePanelEditor(container, fm, bodyContent, resourcePath, callbacks, app, recipePath);
 	}
 }
 
@@ -58,23 +60,24 @@ function renderSidePanelViewer(
 	resourcePath: (path: string) => string,
 	callbacks: SidePanelCallbacks
 ): void {
-	// Images — display gallery
-	const images = normalizeImages(fm);
-	if (images.length > 0) {
+	// Image — single display
+	if (fm.image) {
 		const imageSection = container.createDiv({ cls: "gl-recipe__meta" });
-		for (const imgPath of images) {
-			const img = imageSection.createEl("img", {
-				cls: "gl-recipe__image",
-			});
-			img.src = resourcePath(imgPath);
-		}
+		const img = imageSection.createEl("img", {
+			cls: "gl-recipe__image",
+		});
+		img.src = resourcePath(fm.image);
 	}
 
 	// Metadata — read-only rows
 	const metaSection = container.createDiv({ cls: "gl-recipe__meta" });
 	metaSection.createEl("h3", { text: "Metadata" });
 
-	if (fm.cuisine) addViewRow(metaSection, "Cuisine", fm.cuisine);
+	if (fm.cuisine) {
+		const cuisineDisplay = Array.isArray(fm.cuisine) ? fm.cuisine.join(", ") : fm.cuisine;
+		addViewRow(metaSection, "Cuisine", cuisineDisplay);
+	}
+	if (fm.category) addViewRow(metaSection, "Category", fm.category);
 	if (fm.difficulty) {
 		const label = fm.difficulty.charAt(0).toUpperCase() + fm.difficulty.slice(1);
 		addViewRow(metaSection, "Difficulty", label);
@@ -83,6 +86,14 @@ function renderSidePanelViewer(
 	if (fm.prep_time != null) addViewRow(metaSection, "Prep time", `${fm.prep_time} min`);
 	if (fm.cook_time != null) addViewRow(metaSection, "Cook time", `${fm.cook_time} min`);
 	if (fm.rating != null) addViewRow(metaSection, "Rating", renderStars(fm.rating));
+	if (fm.tags && fm.tags.length > 0) {
+		const tagsRow = metaSection.createDiv({ cls: "gl-recipe__meta-row" });
+		tagsRow.createSpan({ text: "Tags", cls: "gl-recipe__meta-label" });
+		const tagsContainer = tagsRow.createSpan();
+		for (const tag of fm.tags) {
+			tagsContainer.createSpan({ text: tag, cls: "gl-recipe__tag-chip" });
+		}
+	}
 	if (fm.source) addViewRow(metaSection, "Source", fm.source);
 
 	// Side data — ingredients/tools/time (same as editor)
@@ -99,30 +110,30 @@ function renderSidePanelEditor(
 	bodyContent: string,
 	resourcePath: (path: string) => string,
 	callbacks: SidePanelCallbacks,
-	app?: App
+	app?: App,
+	recipePath?: string
 ): void {
-	// Images — list with add/remove
+	// Image — single with change/remove
 	const imageSection = container.createDiv({ cls: "gl-recipe__meta" });
-	imageSection.createEl("h3", { text: "Images" });
+	imageSection.createEl("h3", { text: "Image" });
 
-	const imageList = imageSection.createDiv({ cls: "gl-recipe__image-list" });
-	const images = normalizeImages(fm);
+	const imageContainer = imageSection.createDiv({ cls: "gl-recipe__image-single" });
+	let currentImage = fm.image || "";
 
-	const renderImageItems = () => {
-		imageList.empty();
-		for (let i = 0; i < images.length; i++) {
-			const imgPath = images[i];
-			const item = imageList.createDiv({ cls: "gl-recipe__image-item" });
-			item.dataset.imagePath = imgPath;
+	const renderImageEditor = () => {
+		imageContainer.empty();
+		if (currentImage) {
+			const item = imageContainer.createDiv({ cls: "gl-recipe__image-item" });
+			item.dataset.imagePath = currentImage;
 
 			const preview = item.createEl("img", {
 				cls: "gl-recipe__image gl-recipe__image--thumb",
 			});
-			preview.src = resourcePath(imgPath);
+			preview.src = resourcePath(currentImage);
 
-			const pathLabel = item.createSpan({
+			item.createSpan({
 				cls: "gl-recipe__image-path",
-				text: imgPath,
+				text: currentImage,
 			});
 
 			const removeBtn = item.createEl("button", {
@@ -131,35 +142,43 @@ function renderSidePanelEditor(
 			});
 			removeBtn.title = "Remove image";
 			removeBtn.addEventListener("click", () => {
-				images.splice(i, 1);
-				renderImageItems();
+				currentImage = "";
+				renderImageEditor();
 				callbacks.onInput();
 			});
 		}
-	};
-	renderImageItems();
 
-	const addBtn = imageSection.createEl("button", {
-		cls: "gl-recipe__add-btn",
-		text: "+ Add image",
-	});
-	addBtn.addEventListener("click", () => {
-		if (app) {
-			new ImageSuggestModal(app, (file) => {
-				if (!images.includes(file.path)) {
-					images.push(file.path);
-					renderImageItems();
+		const btnText = currentImage ? "Change image" : "+ Add image";
+		const addBtn = imageContainer.createEl("button", {
+			cls: "gl-recipe__add-btn",
+			text: btnText,
+		});
+		addBtn.addEventListener("click", () => {
+			if (app) {
+				new ImageSuggestModal(app, (file) => {
+					currentImage = file.path;
+					renderImageEditor();
 					callbacks.onInput();
-				}
-			}).open();
-		}
-	});
+				}, recipePath).open();
+			}
+		});
+	};
+	renderImageEditor();
 
 	// Metadata — input fields
 	const metaSection = container.createDiv({ cls: "gl-recipe__meta" });
 	metaSection.createEl("h3", { text: "Metadata" });
 
-	addEditField(metaSection, "Cuisine", "cuisine", fm.cuisine || "", callbacks.onInput);
+	const cuisineValue = Array.isArray(fm.cuisine) ? fm.cuisine.join(", ") : (fm.cuisine || "");
+	addEditField(metaSection, "Cuisine", "cuisine", cuisineValue, callbacks.onInput);
+	addDropdownField(
+		metaSection,
+		"Category",
+		"category",
+		["", ...RECIPE_CATEGORIES],
+		fm.category || "",
+		callbacks.onInput
+	);
 	addDropdownField(
 		metaSection,
 		"Difficulty",
@@ -196,6 +215,8 @@ function renderSidePanelEditor(
 		fm.rating != null ? String(fm.rating) : "",
 		callbacks.onInput
 	);
+	const tagsValue = fm.tags ? fm.tags.join(", ") : "";
+	addEditField(metaSection, "Tags", "tags", tagsValue, callbacks.onInput);
 	addEditField(metaSection, "Source", "source", fm.source || "", callbacks.onInput);
 
 	// Side data wrapper — live ingredients/tools/time
@@ -362,22 +383,20 @@ export function collectSideState(
 		return el?.value?.trim() || "";
 	};
 
-	// Collect images from image list items
-	const imageItems = container.querySelectorAll(".gl-recipe__image-item");
-	const images: string[] = [];
-	for (const item of Array.from(imageItems)) {
-		const path = (item as HTMLElement).dataset.imagePath;
-		if (path) images.push(path);
-	}
+	// Collect single image from image item
+	const imageItem = container.querySelector(".gl-recipe__image-item") as HTMLElement | null;
+	const image = imageItem?.dataset.imagePath || "";
 
 	return {
-		images,
+		image,
 		cuisine: getField("cuisine"),
+		category: getField("category"),
 		difficulty: getField("difficulty"),
 		servings: getField("servings"),
 		prep_time: getField("prep_time"),
 		cook_time: getField("cook_time"),
 		rating: getField("rating"),
+		tags: getField("tags"),
 		source: getField("source"),
 	};
 }

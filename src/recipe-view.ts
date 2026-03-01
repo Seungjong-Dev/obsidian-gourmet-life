@@ -193,7 +193,8 @@ export class RecipeView extends ItemView {
 					this.scheduleAutoSave();
 				},
 			},
-			this.app
+			this.app,
+			this.filePath
 		);
 
 		// Main panel
@@ -270,7 +271,9 @@ export class RecipeView extends ItemView {
 			bodyContent,
 			fm.source,
 			this.mode,
-			this.mode === "viewer" ? viewerCallbacks : editorCallbacks
+			this.mode === "viewer" ? viewerCallbacks : editorCallbacks,
+			this.app,
+			this.filePath
 		);
 
 		// Restore scroll positions
@@ -314,7 +317,13 @@ export class RecipeView extends ItemView {
 
 		// Build frontmatter
 		const fmData: Record<string, unknown> = { type: "recipe" };
-		if (sideState.cuisine) fmData.cuisine = sideState.cuisine;
+		if (sideState.cuisine) {
+			fmData.cuisine = sideState.cuisine
+				.split(",")
+				.map((s: string) => s.trim())
+				.filter(Boolean);
+		}
+		if (sideState.category) fmData.category = sideState.category;
 		if (sideState.difficulty) fmData.difficulty = sideState.difficulty;
 		const servings = parseInt(sideState.servings, 10);
 		if (!isNaN(servings)) fmData.servings = servings;
@@ -324,13 +333,18 @@ export class RecipeView extends ItemView {
 		if (!isNaN(cookTime)) fmData.cook_time = cookTime;
 		const rating = parseInt(sideState.rating, 10);
 		if (!isNaN(rating) && rating >= 1 && rating <= 5) fmData.rating = rating;
-		if (sideState.images.length > 0) fmData.images = sideState.images;
+		if (sideState.tags) {
+			fmData.tags = sideState.tags
+				.split(",")
+				.map((s: string) => s.trim())
+				.filter(Boolean);
+		}
+		if (sideState.image) fmData.image = sideState.image;
 		if (sideState.source) fmData.source = sideState.source;
 
-		// Preserve original fields that aren't editable here
+		// Preserve created date from original frontmatter
 		const cache = this.app.metadataCache.getFileCache(file);
 		const origFm = cache?.frontmatter;
-		if (origFm?.tags) fmData.tags = origFm.tags;
 		if (origFm?.created) fmData.created = origFm.created;
 
 		const frontmatter = buildFrontmatterString(fmData);
