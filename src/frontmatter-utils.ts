@@ -3,7 +3,6 @@ import type {
 	GourmetFrontmatter,
 	GourmetLifeSettings,
 	GourmetNoteType,
-	RecipeFrontmatter,
 } from "./types";
 
 /**
@@ -76,18 +75,6 @@ export function buildFrontmatterString(
 	}
 	lines.push("---");
 	return lines.join("\n");
-}
-
-/**
- * Normalize legacy `image` (string) into `images` (string[]).
- * If both exist, `images` takes precedence; `image` is appended if not duplicate.
- */
-export function normalizeImages(fm: RecipeFrontmatter): string[] {
-	const images = fm.images ? [...fm.images] : [];
-	if (fm.image && !images.includes(fm.image)) {
-		images.unshift(fm.image);
-	}
-	return images;
 }
 
 function formatYamlValue(value: unknown): string {

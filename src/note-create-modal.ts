@@ -3,6 +3,7 @@ import type { GourmetLifeSettings, GourmetNoteType } from "./types";
 import {
 	DIFFICULTY_OPTIONS,
 	INGREDIENT_CATEGORIES,
+	RECIPE_CATEGORIES,
 	SEASONS,
 	PRICE_RANGES,
 } from "./types";
@@ -79,7 +80,11 @@ export class NoteCreateModal extends Modal {
 	}
 
 	private buildRecipeForm(el: HTMLElement): void {
-		this.addTextField(el, "Cuisine", "cuisine");
+		this.addTextField(el, "Cuisine (comma-separated)", "cuisine");
+		this.addDropdown(el, "Category", "category", [
+			"",
+			...RECIPE_CATEGORIES,
+		]);
 		this.addDropdown(el, "Difficulty", "difficulty", [
 			"",
 			...DIFFICULTY_OPTIONS,
@@ -225,8 +230,15 @@ export class NoteCreateModal extends Modal {
 
 		switch (this.noteType) {
 			case "recipe": {
-				if (this.formData["cuisine"])
-					data.cuisine = this.formData["cuisine"];
+				const cuisineStr = (this.formData["cuisine"] as string || "").trim();
+				if (cuisineStr) {
+					data.cuisine = cuisineStr
+						.split(",")
+						.map((s: string) => s.trim())
+						.filter(Boolean);
+				}
+				if (this.formData["category"])
+					data.category = this.formData["category"];
 				if (this.formData["difficulty"])
 					data.difficulty = this.formData["difficulty"];
 				const servings = parseInt(

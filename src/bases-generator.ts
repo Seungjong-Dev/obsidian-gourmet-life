@@ -83,6 +83,7 @@ views:
     coverProperty: image
     properties:
       - cuisine
+      - category
       - difficulty
       - rating
       - cook_time
@@ -92,11 +93,13 @@ views:
     type: table
     properties:
       - cuisine
+      - category
       - difficulty
       - servings
       - prep_time
       - cook_time
       - rating
+      - tags
       - created
     order:
       - file.mtime DESC

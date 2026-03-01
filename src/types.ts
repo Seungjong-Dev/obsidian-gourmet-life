@@ -10,7 +10,8 @@ export type GourmetNoteType = "recipe" | "ingredient" | "restaurant";
 
 export interface RecipeFrontmatter {
 	type: "recipe";
-	cuisine?: string;
+	cuisine?: string | string[];
+	category?: string;
 	difficulty?: "easy" | "medium" | "hard";
 	servings?: number;
 	prep_time?: number;
@@ -18,7 +19,6 @@ export interface RecipeFrontmatter {
 	rating?: number;
 	tags?: string[];
 	image?: string;
-	images?: string[];
 	source?: string;
 	created?: string;
 }
@@ -102,3 +102,15 @@ export const INGREDIENT_CATEGORIES = [
 export const SEASONS = ["spring", "summer", "fall", "winter"] as const;
 
 export const PRICE_RANGES = ["$", "$$", "$$$", "$$$$"] as const;
+
+export const RECIPE_CATEGORIES = [
+	"main",
+	"side",
+	"soup",
+	"dessert",
+	"drink",
+	"snack",
+	"bread",
+	"sauce",
+	"other",
+] as const;
