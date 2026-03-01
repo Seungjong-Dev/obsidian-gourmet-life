@@ -206,6 +206,13 @@
 	border-radius: 0 4px 4px 0;
 }
 
+.gl-recipe__inline-image {
+	max-width: 100%;
+	border-radius: 6px;
+	margin: 8px 0;
+	display: block;
+}
+
 .gl-recipe__edit-textarea--full {
 	min-height: 300px;
 	font-family: var(--font-monospace);

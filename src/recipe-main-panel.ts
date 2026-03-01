@@ -37,7 +37,8 @@ export function renderMainPanel(
 	mode: RecipeViewMode,
 	callbacks: MainPanelCallbacks,
 	app?: App,
-	recipePath?: string
+	recipePath?: string,
+	resourcePath?: (path: string) => string
 ): void {
 	// Clean up previous TextareaSuggest instances
 	const prev = (container as any).__glSuggests as TextareaSuggest<unknown>[] | undefined;
@@ -90,7 +91,7 @@ export function renderMainPanel(
 	viewSourceBtn.addEventListener("click", callbacks.onViewSource);
 
 	if (mode === "viewer") {
-		renderMainPanelViewer(container, bodyContent, source, callbacks);
+		renderMainPanelViewer(container, bodyContent, source, callbacks, resourcePath);
 	} else {
 		renderMainPanelEditor(container, bodyContent, source, callbacks, app, recipePath);
 	}
@@ -103,7 +104,8 @@ function renderMainPanelViewer(
 	container: HTMLElement,
 	bodyContent: string,
 	source: string | undefined,
-	callbacks: MainPanelCallbacks
+	callbacks: MainPanelCallbacks,
+	resourcePath?: (path: string) => string
 ): void {
 	// References
 	if (source) {
@@ -121,14 +123,14 @@ function renderMainPanelViewer(
 	// Recipe section — rendered chips
 	const bodySection = container.createDiv({ cls: "gl-recipe__steps" });
 	bodySection.createEl("h2", { text: "Recipe" });
-	renderPreviewContent(bodySection, getRecipeEditableContent(bodyContent), callbacks);
+	renderPreviewContent(bodySection, getRecipeEditableContent(bodyContent), callbacks, resourcePath);
 
 	// Notes
 	const notesContent = parseNotesSection(bodyContent);
 	if (notesContent.trim()) {
 		const notesSection = container.createDiv();
 		notesSection.createEl("h2", { text: "Notes" });
-		renderTextContent(notesSection, notesContent);
+		renderTextContent(notesSection, notesContent, resourcePath);
 	}
 
 	// Reviews
@@ -136,7 +138,7 @@ function renderMainPanelViewer(
 	if (reviewsContent.trim()) {
 		const reviewsSection = container.createDiv();
 		reviewsSection.createEl("h2", { text: "Reviews" });
-		renderTextContent(reviewsSection, reviewsContent);
+		renderTextContent(reviewsSection, reviewsContent, resourcePath);
 	}
 }
 
@@ -292,7 +294,8 @@ function renderMainPanelEditor(
 function renderPreviewContent(
 	container: HTMLElement,
 	recipeBody: string,
-	callbacks: MainPanelCallbacks
+	callbacks: MainPanelCallbacks,
+	resourcePath?: (path: string) => string
 ): void {
 	const parsed = parseCooklangBody(recipeBody);
 
@@ -318,7 +321,7 @@ function renderPreviewContent(
 			const commentEl = container.createDiv({
 				cls: "gl-recipe__comment",
 			});
-			renderSegments(commentEl, step.segments, callbacks);
+			renderSegments(commentEl, step.segments, callbacks, resourcePath);
 			continue;
 		}
 
@@ -326,7 +329,7 @@ function renderPreviewContent(
 			cls: "gl-recipe__step",
 		});
 
-		renderSegments(stepEl, step.segments, callbacks);
+		renderSegments(stepEl, step.segments, callbacks, resourcePath);
 
 		const ingredientNames = step.segments
 			.filter((s): s is Extract<CooklangSegment, { type: "ingredient" }> => s.type === "ingredient")
@@ -350,10 +353,15 @@ function renderPreviewContent(
 /**
  * Render plain text content as paragraphs.
  */
-function renderTextContent(container: HTMLElement, text: string): void {
+function renderTextContent(
+	container: HTMLElement,
+	text: string,
+	resourcePath?: (path: string) => string
+): void {
 	for (const line of text.split("\n")) {
 		if (line.trim()) {
-			container.createEl("p", { text: line });
+			const p = container.createEl("p");
+			renderTextWithEmbeds(p, line, resourcePath);
 		}
 	}
 }
@@ -400,6 +408,45 @@ export function collectMainState(container: HTMLElement): MainState {
 	};
 }
 
+// ── Embed Rendering ──
+
+const EMBED_RE = /!\[\[([^\]]+)\]\]/g;
+const IMAGE_EXTS = ["png", "jpg", "jpeg", "gif", "bmp", "svg", "webp"];
+
+function renderTextWithEmbeds(
+	container: HTMLElement,
+	text: string,
+	resourcePath?: (path: string) => string
+): void {
+	if (!resourcePath) {
+		container.appendText(text);
+		return;
+	}
+
+	let lastIndex = 0;
+	for (const match of text.matchAll(EMBED_RE)) {
+		if (match.index! > lastIndex) {
+			container.appendText(text.slice(lastIndex, match.index!));
+		}
+
+		const filePath = match[1];
+		const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+		if (IMAGE_EXTS.includes(ext)) {
+			const img = container.createEl("img", {
+				cls: "gl-recipe__inline-image",
+			});
+			img.src = resourcePath(filePath);
+			img.alt = filePath;
+		} else {
+			container.appendText(match[0]);
+		}
+		lastIndex = match.index! + match[0].length;
+	}
+	if (lastIndex < text.length) {
+		container.appendText(text.slice(lastIndex));
+	}
+}
+
 // ── Segment Rendering ──
 
 /**
@@ -409,12 +456,13 @@ export function collectMainState(container: HTMLElement): MainState {
 function renderSegments(
 	container: HTMLElement,
 	segments: CooklangSegment[],
-	callbacks: MainPanelCallbacks
+	callbacks: MainPanelCallbacks,
+	resourcePath?: (path: string) => string
 ): void {
 	for (const seg of segments) {
 		switch (seg.type) {
 			case "text":
-				container.appendText(seg.value);
+				renderTextWithEmbeds(container, seg.value, resourcePath);
 				break;
 
 			case "ingredient": {

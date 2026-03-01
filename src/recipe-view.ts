@@ -273,7 +273,8 @@ export class RecipeView extends ItemView {
 			this.mode,
 			this.mode === "viewer" ? viewerCallbacks : editorCallbacks,
 			this.app,
-			this.filePath
+			this.filePath,
+			(path) => this.app.vault.adapter.getResourcePath(path)
 		);
 
 		// Restore scroll positions
