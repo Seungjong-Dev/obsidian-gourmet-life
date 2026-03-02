@@ -206,13 +206,18 @@
 	border-radius: 0 4px 4px 0;
 }
 
+.gl-recipe__gallery {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 8px 0;
+}
+
 .gl-recipe__inline-image {
 	max-width: 150px;
 	max-height: 150px;
 	object-fit: cover;
 	border-radius: 6px;
-	margin: 8px 0;
-	display: block;
 	cursor: zoom-in;
 }
 

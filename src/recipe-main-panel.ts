@@ -424,27 +424,45 @@ function renderTextWithEmbeds(
 	}
 
 	let lastIndex = 0;
-	for (const match of text.matchAll(EMBED_RE)) {
-		if (match.index! > lastIndex) {
-			container.appendText(text.slice(lastIndex, match.index!));
+	let pendingImages: { src: string; alt: string }[] = [];
+
+	const flushGallery = () => {
+		if (pendingImages.length === 0) return;
+		const gallery = container.createDiv({ cls: "gl-recipe__gallery" });
+		for (const { src, alt } of pendingImages) {
+			const img = gallery.createEl("img", {
+				cls: "gl-recipe__inline-image",
+			});
+			img.src = src;
+			img.alt = alt;
+			img.addEventListener("click", () =>
+				showImageLightbox(img.src, img.alt)
+			);
 		}
+		pendingImages = [];
+	};
+
+	for (const match of text.matchAll(EMBED_RE)) {
+		const textBefore = text.slice(lastIndex, match.index!);
+		if (textBefore.trim()) {
+			flushGallery();
+			container.appendText(textBefore);
+		} else if (textBefore && pendingImages.length === 0) {
+			container.appendText(textBefore);
+		}
+		// whitespace between consecutive images → skip (gallery gap handles spacing)
 
 		const filePath = match[1];
 		const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
 		if (IMAGE_EXTS.includes(ext)) {
-			const img = container.createEl("img", {
-				cls: "gl-recipe__inline-image",
-			});
-			img.src = resourcePath(filePath);
-			img.alt = filePath;
-			img.addEventListener("click", () => {
-				showImageLightbox(img.src, img.alt);
-			});
+			pendingImages.push({ src: resourcePath(filePath), alt: filePath });
 		} else {
+			flushGallery();
 			container.appendText(match[0]);
 		}
 		lastIndex = match.index! + match[0].length;
 	}
+	flushGallery();
 	if (lastIndex < text.length) {
 		container.appendText(text.slice(lastIndex));
 	}
