@@ -80,18 +80,18 @@ filters:
 views:
   - name: Cards
     type: cards
-    coverProperty: image
-    properties:
+    image: image
+    fitImage: cover
+    order:
+      - file.name
       - cuisine
       - category
       - difficulty
       - rating
       - cook_time
-    order:
-      - file.mtime DESC
   - name: Table
     type: table
-    properties:
+    order:
       - cuisine
       - category
       - difficulty
@@ -101,7 +101,6 @@ views:
       - rating
       - tags
       - created
-    order:
       - file.mtime DESC
 `;
 }
@@ -115,16 +114,16 @@ filters:
 views:
   - name: Table
     type: table
-    properties:
+    order:
       - category
       - season
       - rating
       - aliases
-    order:
       - file.mtime DESC
   - name: Cards
     type: cards
-    properties:
+    order:
+      - file.name
       - category
       - season
       - rating
@@ -140,23 +139,22 @@ filters:
 views:
   - name: Cards
     type: cards
-    coverProperty: image
-    properties:
+    image: image
+    fitImage: cover
+    order:
+      - file.name
       - cuisine
       - price_range
       - rating
       - location
-    order:
-      - file.mtime DESC
   - name: Table
     type: table
-    properties:
+    order:
       - cuisine
       - location
       - price_range
       - rating
       - url
-    order:
       - file.mtime DESC
 `;
 }
