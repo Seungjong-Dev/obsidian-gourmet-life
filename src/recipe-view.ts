@@ -178,15 +178,14 @@ export class RecipeView extends ItemView {
 		const sideScroll = this.sideContainer?.scrollTop ?? 0;
 		const mainScroll = this.mainContainer?.scrollTop ?? 0;
 
+		const resourcePath = (path: string) => this.resolveResourcePath(path);
+
 		// Side panel
 		renderSidePanel(
 			this.sideContainer,
 			fm,
 			bodyContent,
-			(path) => {
-				const resolved = this.app.metadataCache.getFirstLinkpathDest(path, this.filePath ?? "");
-				return this.app.vault.adapter.getResourcePath(resolved?.path ?? path);
-			},
+			resourcePath,
 			this.mode,
 			{
 				onIngredientHover: (name) => {
@@ -277,15 +276,26 @@ export class RecipeView extends ItemView {
 			this.mode === "viewer" ? viewerCallbacks : editorCallbacks,
 			this.app,
 			this.filePath,
-			(path) => {
-				const resolved = this.app.metadataCache.getFirstLinkpathDest(path, this.filePath ?? "");
-				return this.app.vault.adapter.getResourcePath(resolved?.path ?? path);
-			}
+			resourcePath
 		);
 
 		// Restore scroll positions
 		this.sideContainer.scrollTop = sideScroll;
 		this.mainContainer.scrollTop = mainScroll;
+	}
+
+	// ── Resource resolution ──
+
+	private resolveResourcePath(path: string): string {
+		// Strip [[wikilink]] brackets if present
+		const cleaned = path.replace(/^\[\[|\]\]$/g, "");
+		const resolved = this.app.metadataCache.getFirstLinkpathDest(cleaned, this.filePath ?? "");
+		if (resolved) {
+			return this.app.vault.adapter.getResourcePath(resolved.path);
+		}
+		// Fallback: search vault files by name (for filename-only image references)
+		const match = this.app.vault.getFiles().find(f => f.name === cleaned || f.path === cleaned);
+		return this.app.vault.adapter.getResourcePath(match?.path ?? cleaned);
 	}
 
 	// ── Auto-save ──
