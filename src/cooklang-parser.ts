@@ -66,8 +66,9 @@ export function parseCooklangBody(body: string): CooklangParseResult {
 			continue;
 		}
 
-		// Section header (== name ==)
-		const sectionMatch = trimmed.match(/^==\s*(.+?)\s*==$/);
+		// Section header (== name == or ### name)
+		const sectionMatch = trimmed.match(/^==\s*(.+?)\s*==$/)
+			|| trimmed.match(/^###\s+(.+)$/);
 		if (sectionMatch) {
 			currentSection = sectionMatch[1];
 			sections.push(currentSection);
@@ -86,8 +87,9 @@ export function parseCooklangBody(body: string): CooklangParseResult {
 			continue;
 		}
 
-		// Regular step line — parse for @, #, ~ markers
-		const segments = parseCooklangLine(trimmed);
+		// Regular step line — strip bullet prefix, parse for @, #, ~ markers
+		const stepText = trimmed.startsWith("- ") ? trimmed.slice(2) : trimmed;
+		const segments = parseCooklangLine(stepText);
 
 		// Collect ingredients, tools, timers
 		for (const seg of segments) {
@@ -260,7 +262,8 @@ export function extractCooklangIngredientsGrouped(
 		const trimmed = line.trim();
 		if (!trimmed) continue;
 
-		const sectionMatch = trimmed.match(/^==\s*(.+?)\s*==$/);
+		const sectionMatch = trimmed.match(/^==\s*(.+?)\s*==$/)
+			|| trimmed.match(/^###\s+(.+)$/);
 		if (sectionMatch) {
 			currentSection = sectionMatch[1];
 			continue;
@@ -268,7 +271,8 @@ export function extractCooklangIngredientsGrouped(
 
 		if (trimmed.startsWith("--") || trimmed.startsWith(">")) continue;
 
-		const segments = parseCooklangLine(trimmed);
+		const stepText = trimmed.startsWith("- ") ? trimmed.slice(2) : trimmed;
+		const segments = parseCooklangLine(stepText);
 		for (const seg of segments) {
 			if (seg.type === "ingredient") {
 				const key = currentSection || "";

@@ -175,7 +175,7 @@ function renderMainPanelEditor(
 	});
 	const btnSection = toolbar.createEl("button", {
 		cls: "gl-toolbar__btn",
-		text: "== Section",
+		text: "Section",
 	});
 	const btnComment = toolbar.createEl("button", {
 		cls: "gl-toolbar__btn",
@@ -850,7 +850,7 @@ function renderSectionForm(
 	const doInsert = () => {
 		const name = nameInput.value.trim();
 		if (!name) return;
-		insertAtCursor(textarea, `== ${name} ==`, true);
+		insertAtCursor(textarea, `### ${name}`, true);
 		onDone();
 		textarea.focus();
 	};
