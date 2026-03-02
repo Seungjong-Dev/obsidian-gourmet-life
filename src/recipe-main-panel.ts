@@ -307,6 +307,7 @@ function renderPreviewContent(
 	let currentSection = "";
 	let stepIndex = 0;
 	let pendingImageSteps: CooklangStep[] = [];
+	let stepGroup = container.createDiv({ cls: "gl-recipe__step-group" });
 
 	const flushImageSteps = () => {
 		if (pendingImageSteps.length === 0) return;
@@ -314,7 +315,7 @@ function renderPreviewContent(
 			.flatMap((s) => s.segments)
 			.map((s) => (s as { type: "text"; value: string }).value)
 			.join(" ");
-		renderTextWithEmbeds(container, combined, resourcePath);
+		renderTextWithEmbeds(stepGroup, combined, resourcePath);
 		pendingImageSteps = [];
 	};
 
@@ -328,6 +329,7 @@ function renderPreviewContent(
 					cls: "gl-recipe__section-header",
 				});
 			}
+			stepGroup = container.createDiv({ cls: "gl-recipe__step-group" });
 		}
 
 		if (isImageOnlyStep(step)) {
@@ -338,14 +340,14 @@ function renderPreviewContent(
 		flushImageSteps();
 
 		if (step.isComment) {
-			const commentEl = container.createDiv({
+			const commentEl = stepGroup.createDiv({
 				cls: "gl-recipe__comment",
 			});
 			renderSegments(commentEl, step.segments, callbacks, resourcePath);
 			continue;
 		}
 
-		const stepEl = container.createDiv({
+		const stepEl = stepGroup.createDiv({
 			cls: "gl-recipe__step",
 		});
 
@@ -558,19 +560,26 @@ function renderSegments(
 				break;
 
 			case "ingredient": {
-				const chip = container.createSpan({
-					text: seg.value.name,
-					cls: "gl-recipe__chip gl-recipe__chip--ingredient",
-				});
-				chip.dataset.ingredient = seg.value.name.toLowerCase();
-
 				const qtyText = [seg.value.quantity, seg.value.unit]
 					.filter(Boolean)
 					.join(" ");
+
+				const wrap = qtyText
+					? container.createSpan({ cls: "gl-recipe__chip-wrap" })
+					: container;
+
+				const chip = wrap.createSpan({
+					text: seg.value.name,
+					cls: "gl-recipe__chip gl-recipe__chip--ingredient",
+				});
 				if (qtyText) {
+					wrap.createSpan({
+						text: qtyText,
+						cls: "gl-recipe__chip-qty",
+					});
 					chip.title = qtyText;
 				}
-
+				chip.dataset.ingredient = seg.value.name.toLowerCase();
 				chip.addEventListener("click", (e) => {
 					e.stopPropagation();
 					callbacks.onIngredientChipClick(seg.value.name);
