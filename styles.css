@@ -30,10 +30,17 @@
 /* ── Recipe View ── */
 
 .gl-recipe {
+	--gl-warm-accent: #d97706;
+	--gl-warm-accent-soft: #fef3c7;
 	display: flex;
 	gap: 16px;
 	height: 100%;
 	overflow: hidden;
+}
+
+.theme-dark .gl-recipe {
+	--gl-warm-accent: #f59e0b;
+	--gl-warm-accent-soft: rgba(245, 158, 11, 0.08);
 }
 
 .gl-recipe--single {
@@ -71,9 +78,37 @@
 
 /* Side panel sections */
 
+.gl-recipe__image-wrap {
+	position: relative;
+	border-radius: 12px;
+	overflow: hidden;
+	margin-bottom: 16px;
+}
+
+.gl-recipe__image-wrap::after {
+	content: "";
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: 40%;
+	background: linear-gradient(to top, rgba(0, 0, 0, 0.35), transparent);
+	pointer-events: none;
+}
+
+.gl-recipe__image-wrap .gl-recipe__image {
+	margin-bottom: 0;
+	border-radius: 0;
+}
+
+.gl-recipe--single .gl-recipe__image-wrap {
+	margin: -20px -20px 16px;
+	border-radius: 0;
+}
+
 .gl-recipe__image {
 	width: 100%;
-	max-height: 300px;
+	aspect-ratio: 4/3;
 	object-fit: cover;
 	border-radius: 12px;
 	margin-bottom: 16px;
@@ -150,6 +185,77 @@
 	padding: 12px;
 }
 
+/* Accordion header */
+
+.gl-recipe__ingredients-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.gl-recipe__ingredients-chevron {
+	display: none;
+	font-size: 0.7em;
+	transition: transform 0.3s ease;
+	flex-shrink: 0;
+}
+
+.gl-recipe__ingredients-body {
+	/* 2-column: always visible */
+}
+
+/* Single-column accordion behavior */
+
+.gl-recipe--single .gl-recipe__ingredients-header {
+	cursor: pointer;
+}
+
+.gl-recipe--single .gl-recipe__ingredients-chevron {
+	display: inline-block;
+}
+
+.gl-recipe--single .gl-recipe__ingredients-body {
+	max-height: 0;
+	overflow: hidden;
+	transition: max-height 0.3s ease;
+}
+
+.gl-recipe--single .gl-recipe__ingredients--open .gl-recipe__ingredients-body {
+	max-height: 2000px;
+}
+
+.gl-recipe--single .gl-recipe__ingredients--open .gl-recipe__ingredients-chevron {
+	transform: rotate(90deg);
+}
+
+/* FAB — Ingredients floating button */
+
+.gl-recipe__ingredients-fab {
+	display: none;
+}
+
+.gl-recipe--single ~ .gl-recipe__ingredients-fab {
+	display: block;
+	position: absolute;
+	bottom: 16px;
+	right: 16px;
+	background: var(--gl-warm-accent);
+	color: #fff;
+	border-radius: 20px;
+	padding: 8px 16px;
+	font-size: 0.85em;
+	font-weight: 600;
+	cursor: pointer;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+	z-index: 10;
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.gl-recipe--single ~ .gl-recipe__ingredients-fab:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
 .gl-recipe__section h4 {
 	margin: 8px 0 4px;
 	font-size: 0.85em;
@@ -172,6 +278,20 @@
 
 .gl-recipe__item--highlight {
 	background: var(--background-modifier-hover);
+}
+
+.gl-recipe__item-checkbox {
+	flex-shrink: 0;
+	accent-color: var(--gl-warm-accent);
+}
+
+.gl-recipe__item--checked {
+	opacity: 0.5;
+}
+
+.gl-recipe__item--checked > span:first-of-type {
+	text-decoration: line-through;
+	color: var(--text-muted);
 }
 
 /* Quantity pill inside ingredient item */
@@ -223,6 +343,59 @@
 	margin: 4px 0 0;
 }
 
+/* Metadata chips (cuisine / category) */
+
+.gl-recipe__meta-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 10px;
+}
+
+.gl-recipe__meta-chip {
+	display: inline-block;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-radius: 12px;
+	padding: 3px 12px;
+	font-size: 0.82em;
+	font-weight: 600;
+}
+
+/* Rating display */
+
+.gl-recipe__rating-display {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	font-size: 1.4em;
+	margin-bottom: 10px;
+	color: var(--gl-warm-accent);
+}
+
+.gl-recipe__rating-label {
+	font-size: 0.55em;
+	color: var(--text-muted);
+}
+
+/* Source link */
+
+.gl-recipe__source-link {
+	display: inline-block;
+	font-size: 0.85em;
+	color: var(--text-accent);
+	text-decoration: none;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 100%;
+	margin-bottom: 10px;
+}
+
+.gl-recipe__source-link:hover {
+	text-decoration: underline;
+}
+
 /* Tag chips */
 
 .gl-recipe__tag-chip {
@@ -265,7 +438,7 @@
 	margin-bottom: 16px;
 }
 
-/* Main panel h2 — consistent small uppercase labels */
+/* Main panel h2 — consistent small uppercase labels with accent bar */
 
 .gl-recipe__main h2 {
 	font-size: 1.1em;
@@ -273,28 +446,46 @@
 	letter-spacing: 0.08em;
 	color: var(--text-muted);
 	font-weight: 600;
-	margin: 16px 0 8px;
+	margin: 24px 0 12px;
+	border-left: 3px solid var(--interactive-accent);
+	padding-left: 12px;
+}
+
+.gl-recipe__main h2:first-child {
+	margin-top: 0;
 }
 
 .gl-recipe__step-group {
 	counter-reset: gl-step;
 	margin-bottom: 24px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	padding: 8px 4px;
 }
 
 .gl-recipe__step {
-	padding: 12px;
+	padding: 14px;
 	padding-left: 52px;
-	border-radius: 4px;
+	border-radius: 6px;
 	margin-bottom: 4px;
 	counter-increment: gl-step;
 	position: relative;
+	line-height: 1.6;
+}
+
+.gl-recipe__step:nth-child(even) {
+	background: rgba(0, 0, 0, 0.02);
+}
+
+.theme-dark .gl-recipe__step:nth-child(even) {
+	background: rgba(255, 255, 255, 0.02);
 }
 
 .gl-recipe__step::before {
 	content: counter(gl-step);
 	position: absolute;
 	left: 12px;
-	top: 10px;
+	top: 12px;
 	font-size: 0.8em;
 	font-weight: 700;
 	color: var(--text-on-accent);
@@ -363,11 +554,11 @@
 	gap: 12px;
 	font-weight: 600;
 	color: var(--text-muted);
-	margin: 16px 0 8px;
+	margin: 20px 0 10px;
 	padding-bottom: 4px;
 	text-transform: uppercase;
 	letter-spacing: 0.08em;
-	font-size: 1em;
+	font-size: 1.05em;
 	border-bottom: none;
 }
 
@@ -720,4 +911,58 @@
 	overflow: hidden;
 	white-space: pre-wrap;
 	word-wrap: break-word;
+}
+
+/* ── Review Timeline ── */
+
+.gl-recipe__review-timeline {
+	position: relative;
+	padding-left: 20px;
+}
+
+.gl-recipe__review-timeline::before {
+	content: "";
+	position: absolute;
+	left: 6px;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background: var(--background-modifier-border);
+}
+
+.gl-recipe__review-card {
+	position: relative;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	padding: 12px 16px;
+	margin-bottom: 12px;
+	background: var(--background-primary);
+}
+
+.gl-recipe__review-card::before {
+	content: "";
+	position: absolute;
+	left: -18px;
+	top: 16px;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--gl-warm-accent);
+}
+
+.gl-recipe__review-date {
+	display: inline-block;
+	background: var(--gl-warm-accent);
+	color: #fff;
+	font-size: 0.78em;
+	font-weight: 600;
+	padding: 2px 10px;
+	border-radius: 10px;
+	margin-bottom: 8px;
+}
+
+.gl-recipe__review-body {
+	line-height: 1.6;
+	color: var(--text-normal);
+	font-size: 0.92em;
 }

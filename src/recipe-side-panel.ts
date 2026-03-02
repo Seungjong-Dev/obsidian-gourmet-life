@@ -62,8 +62,8 @@ function renderSidePanelViewer(
 ): void {
 	// Image — single display
 	if (fm.image) {
-		const imageSection = container.createDiv({ cls: "gl-recipe__meta" });
-		const img = imageSection.createEl("img", {
+		const imageWrap = container.createDiv({ cls: "gl-recipe__image-wrap" });
+		const img = imageWrap.createEl("img", {
 			cls: "gl-recipe__image",
 		});
 		img.src = resourcePath(fm.image);
@@ -85,12 +85,51 @@ function renderSidePanelViewer(
 	// Metadata — remaining fields
 	const metaSection = container.createDiv({ cls: "gl-recipe__meta" });
 
-	if (fm.cuisine) {
-		const cuisineDisplay = Array.isArray(fm.cuisine) ? fm.cuisine.join(", ") : fm.cuisine;
-		addViewRow(metaSection, "Cuisine", cuisineDisplay);
+	// Cuisine + Category as chips
+	const hasCuisineOrCategory = fm.cuisine || fm.category;
+	if (hasCuisineOrCategory) {
+		const chipsWrap = metaSection.createDiv({ cls: "gl-recipe__meta-chips" });
+		if (fm.cuisine) {
+			const cuisines = Array.isArray(fm.cuisine) ? fm.cuisine : [fm.cuisine];
+			for (const c of cuisines) {
+				chipsWrap.createSpan({ text: c, cls: "gl-recipe__meta-chip" });
+			}
+		}
+		if (fm.category) {
+			chipsWrap.createSpan({ text: fm.category, cls: "gl-recipe__meta-chip" });
+		}
 	}
-	if (fm.category) addViewRow(metaSection, "Category", fm.category);
-	if (fm.rating != null) addViewRow(metaSection, "Rating", renderStars(fm.rating));
+
+	// Rating — large star display
+	if (fm.rating != null) {
+		const ratingWrap = metaSection.createDiv({ cls: "gl-recipe__rating-display" });
+		ratingWrap.createSpan({ text: renderStars(fm.rating) });
+		ratingWrap.createSpan({ text: ` ${fm.rating}/5`, cls: "gl-recipe__rating-label" });
+	}
+
+	// Source — truncated URL link
+	if (fm.source) {
+		if (fm.source.startsWith("http")) {
+			const sourceWrap = metaSection.createDiv();
+			let displayUrl = fm.source;
+			try {
+				const url = new URL(fm.source);
+				displayUrl = url.hostname.replace(/^www\./, "") + (url.pathname.length > 1 ? url.pathname : "");
+				if (displayUrl.length > 40) displayUrl = displayUrl.slice(0, 37) + "...";
+			} catch { /* use raw */ }
+			const link = sourceWrap.createEl("a", {
+				text: displayUrl,
+				href: fm.source,
+				cls: "gl-recipe__source-link",
+			});
+			link.setAttr("target", "_blank");
+			link.setAttr("rel", "noopener");
+		} else {
+			addViewRow(metaSection, "Source", fm.source);
+		}
+	}
+
+	// Tags
 	if (fm.tags && fm.tags.length > 0) {
 		const tagsRow = metaSection.createDiv({ cls: "gl-recipe__meta-row" });
 		tagsRow.createSpan({ text: "Tags", cls: "gl-recipe__meta-label" });
@@ -99,11 +138,10 @@ function renderSidePanelViewer(
 			tagsContainer.createSpan({ text: tag, cls: "gl-recipe__tag-chip" });
 		}
 	}
-	if (fm.source) addViewRow(metaSection, "Source", fm.source);
 
 	// Side data — ingredients/tools/time (same as editor)
 	const sideData = container.createDiv({ cls: "gl-recipe__side-data" });
-	renderSideDataContent(sideData, bodyContent, fm, callbacks);
+	renderSideDataContent(sideData, bodyContent, fm, callbacks, "viewer");
 }
 
 /**
@@ -226,7 +264,7 @@ function renderSidePanelEditor(
 
 	// Side data wrapper — live ingredients/tools/time
 	const sideData = container.createDiv({ cls: "gl-recipe__side-data" });
-	renderSideDataContent(sideData, bodyContent, fm, callbacks);
+	renderSideDataContent(sideData, bodyContent, fm, callbacks, "editor");
 }
 
 /**
@@ -237,12 +275,13 @@ export function refreshSideData(
 	container: HTMLElement,
 	bodyContent: string,
 	fm: RecipeFrontmatter,
-	callbacks: SidePanelCallbacks
+	callbacks: SidePanelCallbacks,
+	mode: RecipeViewMode = "editor"
 ): void {
 	const sideData = container.querySelector(".gl-recipe__side-data") as HTMLElement | null;
 	if (!sideData) return;
 	sideData.empty();
-	renderSideDataContent(sideData, bodyContent, fm, callbacks);
+	renderSideDataContent(sideData, bodyContent, fm, callbacks, mode);
 }
 
 /**
@@ -252,7 +291,8 @@ function renderSideDataContent(
 	container: HTMLElement,
 	bodyContent: string,
 	fm: RecipeFrontmatter,
-	callbacks: SidePanelCallbacks
+	callbacks: SidePanelCallbacks,
+	mode: RecipeViewMode = "editor"
 ): void {
 	const sectionTitle = (parent: HTMLElement, text: string) => {
 		parent.createEl("h3", {
@@ -269,11 +309,23 @@ function renderSideDataContent(
 		const ingredientsSection = container.createDiv({
 			cls: "gl-recipe__ingredients",
 		});
-		sectionTitle(ingredientsSection, "Ingredients");
+
+		// Accordion header
+		const header = ingredientsSection.createDiv({ cls: "gl-recipe__ingredients-header" });
+		header.createSpan({ cls: "gl-recipe__ingredients-chevron", text: "\u25B6" });
+		sectionTitle(header, "Ingredients");
+
+		header.addEventListener("click", () => {
+			ingredientsSection.toggleClass("gl-recipe__ingredients--open",
+				!ingredientsSection.hasClass("gl-recipe__ingredients--open"));
+		});
+
+		// Accordion body
+		const accordionBody = ingredientsSection.createDiv({ cls: "gl-recipe__ingredients-body" });
 
 		for (const [sectionName, items] of grouped) {
 			if (grouped.size > 1 || sectionName) {
-				const sDiv = ingredientsSection.createDiv({
+				const sDiv = accordionBody.createDiv({
 					cls: "gl-recipe__section",
 				});
 				sDiv.createEl("h4", { text: sectionName || "Main" });
@@ -282,9 +334,26 @@ function renderSideDataContent(
 			const merged = mergeIngredients(items);
 
 			for (const ing of merged) {
-				const item = ingredientsSection.createDiv({
+				const item = accordionBody.createDiv({
 					cls: "gl-recipe__item",
 				});
+
+				// Checkbox (viewer mode only)
+				if (mode === "viewer") {
+					const checkbox = item.createEl("input", {
+						type: "checkbox",
+						cls: "gl-recipe__item-checkbox",
+					}) as HTMLInputElement;
+					checkbox.addEventListener("click", (e) => e.stopPropagation());
+					checkbox.addEventListener("change", () => {
+						if (checkbox.checked) {
+							item.addClass("gl-recipe__item--checked");
+						} else {
+							item.removeClass("gl-recipe__item--checked");
+						}
+					});
+				}
+
 				const nameEl = item.createSpan({
 					text: ing.name,
 				});

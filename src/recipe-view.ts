@@ -82,6 +82,19 @@ export class RecipeView extends ItemView {
 			cls: "gl-recipe__main",
 		});
 
+		// FAB — Ingredients button (visible only in single-column mode)
+		const fab = container.createDiv({
+			cls: "gl-recipe__ingredients-fab",
+			text: "Ingredients",
+		});
+		fab.addEventListener("click", () => {
+			const section = this.rootContainer.querySelector(".gl-recipe__ingredients") as HTMLElement | null;
+			if (section) {
+				section.addClass("gl-recipe__ingredients--open");
+				section.scrollIntoView({ behavior: "smooth" });
+			}
+		});
+
 		// Responsive layout
 		this.resizeObserver = new ResizeObserver((entries) => {
 			for (const entry of entries) {
@@ -250,7 +263,7 @@ export class RecipeView extends ItemView {
 					onInput: () => {
 						this.scheduleAutoSave();
 					},
-				});
+				}, this.mode);
 				this.scheduleAutoSave();
 			},
 			onNotesInput: () => {
