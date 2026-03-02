@@ -96,6 +96,29 @@ created: 2026-03-01
 
 All fields are optional except `type`. Missing fields are treated as undefined/unset.
 
+### Recipe Note Body Structure
+
+Recipe notes use `##` headings to delineate sections:
+
+```markdown
+---
+frontmatter
+---
+
+## Recipe
+(Cooklang recipe body — steps, sections, ingredients, tools, timers)
+
+## Notes
+(optional tips and remarks)
+
+## Reviews
+(optional tasting notes with dates)
+```
+
+- `## Recipe` is inserted automatically when saving from Recipe View's editor
+- The parser strips the `## Recipe` heading before Cooklang parsing (prevents `#` being misinterpreted as a tool marker)
+- Backward-compatible: notes without `## Recipe` are parsed normally (everything before `## Notes` / `## Reviews` is treated as recipe content)
+
 ---
 
 ## 4. Note Type Classification
@@ -286,7 +309,7 @@ When a recipe note is opened, the plugin renders a **2-column layout** replacing
 The recipe view is an `ItemView` registered with `VIEW_TYPE_RECIPE`. It activates when a recipe note is opened (detected by `type: recipe` frontmatter in a file within `recipesFolder`).
 
 - **Viewer mode** (default): Read-only rendering of the recipe
-- **Editor mode**: Activated via `Edit` button or `Gourmet Life: Edit Recipe` command
+- **Editor mode**: Activated via `Edit` button or `Gourmet Life: Open recipe view` command
 
 ---
 
@@ -325,6 +348,7 @@ src/
 ├── note-index.ts            # Vault scanner/indexer (for auto-link + recipe view)
 ├── frontmatter-utils.ts     # Frontmatter read/write helpers
 ├── bases-generator.ts       # Auto-generate .base files for dashboard
+├── cooklang-parser.ts       # Cooklang body parser (steps, ingredients, tools, timers)
 ├── recipe-view.ts           # Recipe 2-column ItemView (viewer + editor)
 ├── recipe-side-panel.ts     # Side panel rendering (ingredients, metadata, tools)
 ├── recipe-main-panel.ts     # Main panel rendering (steps, references, actions)
@@ -372,12 +396,22 @@ src/
 - `buildRestaurantsBase(folder)`: Generate Restaurants.base YAML (cards with cover image + table)
 - Does NOT overwrite user-modified `.base` files (checks `# generated: gourmet-life` marker)
 
+**cooklang-parser.ts** — Cooklang body parser
+- `parseCooklangBody(body)`: Parse recipe body into steps, ingredients, tools, timers, comments, sections
+- `parseCooklangLine(line)`: Scanner-based segment parser for `@ingredient{qty%unit}`, `#tool{}`, `~{time%unit}` markers
+- `getRecipeContentZone(body)`: Extract recipe content (before `## Notes` / `## Reviews`), skipping `## Recipe` heading
+- `extractCooklangIngredientsGrouped(body)`: Ingredients grouped by section
+- `parseNotesSection(body)` / `parseReviewsSection(body)`: Extract section content
+- `calculateTotalTime(timers)`: Sum timers to total minutes
+- Section headers via `== name ==` or `### name`; visible comments via `> text`; hidden comments via `-- text`
+
 **recipe-view.ts** — Recipe 2-column view
 - Extends `ItemView`, registered as `VIEW_TYPE_RECIPE`
 - Manages Viewer/Editor mode toggle
 - Creates 2-column flex layout: Side Panel (30%) + Main Panel (70%)
 - Delegates to `recipe-side-panel.ts` and `recipe-main-panel.ts`
 - Coordinates Side-Main interactions (hover highlights, qty sync)
+- `buildRecipeBody()`: Assembles note body with `## Recipe`, `## Notes`, `## Reviews` headings on save
 - Responsive: collapses to 1-column below breakpoint
 
 **recipe-side-panel.ts** — Side panel rendering

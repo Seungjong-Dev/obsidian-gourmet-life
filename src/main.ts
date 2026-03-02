@@ -96,12 +96,12 @@ export default class GourmetLifePlugin extends Plugin {
 		});
 
 		this.addCommand({
-			id: "edit-recipe",
-			name: "Edit recipe",
+			id: "open-recipe-view",
+			name: "Open recipe view",
 			checkCallback: (checking) => {
 				const file = this.app.workspace.getActiveFile();
 				if (!file || !file.path.startsWith(this.settings.recipesFolder + "/")) return false;
-				if (!checking) this.openRecipeView(file, "editor");
+				if (!checking) this.openRecipeView(file);
 				return true;
 			},
 		});
