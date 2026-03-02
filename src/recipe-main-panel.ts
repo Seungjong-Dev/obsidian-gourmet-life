@@ -5,6 +5,7 @@ import {
 	parseNotesSection,
 	parseReviewsSection,
 	type CooklangSegment,
+	type CooklangStep,
 } from "./cooklang-parser";
 import { createImageSuggest, type TextareaSuggest } from "./textarea-suggest";
 import type { TFile } from "obsidian";
@@ -305,9 +306,21 @@ function renderPreviewContent(
 
 	let currentSection = "";
 	let stepIndex = 0;
+	let pendingImageSteps: CooklangStep[] = [];
+
+	const flushImageSteps = () => {
+		if (pendingImageSteps.length === 0) return;
+		const combined = pendingImageSteps
+			.flatMap((s) => s.segments)
+			.map((s) => (s as { type: "text"; value: string }).value)
+			.join(" ");
+		renderTextWithEmbeds(container, combined, resourcePath);
+		pendingImageSteps = [];
+	};
 
 	for (const step of parsed.steps) {
 		if (step.section !== currentSection) {
+			flushImageSteps();
 			currentSection = step.section;
 			if (currentSection) {
 				container.createEl("h3", {
@@ -316,6 +329,13 @@ function renderPreviewContent(
 				});
 			}
 		}
+
+		if (isImageOnlyStep(step)) {
+			pendingImageSteps.push(step);
+			continue;
+		}
+
+		flushImageSteps();
 
 		if (step.isComment) {
 			const commentEl = container.createDiv({
@@ -348,22 +368,65 @@ function renderPreviewContent(
 		stepEl.dataset.ingredients = ingredientNames.join(",");
 		stepIndex++;
 	}
+	flushImageSteps();
+}
+
+/**
+ * Check if a line contains only image embeds (and whitespace).
+ */
+function isImageOnlyLine(line: string): boolean {
+	if (!line.trim()) return false;
+	const withoutImages = line.replace(
+		/!\[\[([^\]]+)\]\]/g,
+		(m, filePath: string) => {
+			const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+			return IMAGE_EXTS.includes(ext) ? "" : m;
+		}
+	);
+	return !withoutImages.trim();
+}
+
+/**
+ * Check if a Cooklang step contains only image embeds (text-only segments, all images).
+ */
+function isImageOnlyStep(step: CooklangStep): boolean {
+	if (step.isComment) return false;
+	if (!step.segments.every((s) => s.type === "text")) return false;
+	const combined = step.segments
+		.map((s) => (s as { type: "text"; value: string }).value)
+		.join("");
+	return isImageOnlyLine(combined);
 }
 
 /**
  * Render plain text content as paragraphs.
+ * Consecutive image-only lines are joined so they form a single gallery.
  */
 function renderTextContent(
 	container: HTMLElement,
 	text: string,
 	resourcePath?: (path: string) => string
 ): void {
-	for (const line of text.split("\n")) {
-		if (line.trim()) {
+	const lines = text.split("\n");
+	let pendingImageLines: string[] = [];
+
+	const flushImages = () => {
+		if (pendingImageLines.length === 0) return;
+		renderTextWithEmbeds(container, pendingImageLines.join(" "), resourcePath);
+		pendingImageLines = [];
+	};
+
+	for (const line of lines) {
+		if (!line.trim()) continue;
+		if (isImageOnlyLine(line)) {
+			pendingImageLines.push(line);
+		} else {
+			flushImages();
 			const p = container.createEl("p");
 			renderTextWithEmbeds(p, line, resourcePath);
 		}
 	}
+	flushImages();
 }
 
 /**
