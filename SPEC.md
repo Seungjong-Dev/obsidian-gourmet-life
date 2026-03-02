@@ -201,10 +201,11 @@ If Bases cannot express the desired UX in the future, the dashboard can be repla
 
 ### 5.2 Note Creation
 
-Three commands register in the command palette:
+Commands register in the command palette:
 - `Gourmet Life: New recipe`
 - `Gourmet Life: New ingredient`
 - `Gourmet Life: New restaurant`
+- `Gourmet Life: Search recipes` — Fuzzy search across all recipe notes; selecting a result opens it in Recipe View
 
 Each opens a **modal** with type-specific form fields:
 

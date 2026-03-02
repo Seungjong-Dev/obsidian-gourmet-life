@@ -14,6 +14,7 @@ import {
 	batchLinkIngredients,
 } from "./ingredient-suggest";
 import { RecipeView } from "./recipe-view";
+import { RecipeSearchModal } from "./recipe-search-modal";
 import { isGourmetNote } from "./frontmatter-utils";
 
 export default class GourmetLifePlugin extends Plugin {
@@ -103,6 +104,17 @@ export default class GourmetLifePlugin extends Plugin {
 				if (!file || !file.path.startsWith(this.settings.recipesFolder + "/")) return false;
 				if (!checking) this.openRecipeView(file);
 				return true;
+			},
+		});
+
+		this.addCommand({
+			id: "search-recipes",
+			name: "Search recipes",
+			callback: () => {
+				new RecipeSearchModal(this.app, this.noteIndex, (note) => {
+					const file = this.app.vault.getFileByPath(note.path);
+					if (file) this.openRecipeView(file);
+				}).open();
 			},
 		});
 
