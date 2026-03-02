@@ -207,10 +207,34 @@
 }
 
 .gl-recipe__inline-image {
-	max-width: 100%;
+	max-width: 150px;
+	max-height: 150px;
+	object-fit: cover;
 	border-radius: 6px;
 	margin: 8px 0;
 	display: block;
+	cursor: zoom-in;
+}
+
+/* Lightbox overlay */
+
+.gl-lightbox {
+	position: fixed;
+	inset: 0;
+	z-index: var(--layer-modal, 400);
+	background: rgba(0, 0, 0, 0.8);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: zoom-out;
+}
+
+.gl-lightbox__image {
+	max-width: 90vw;
+	max-height: 90vh;
+	object-fit: contain;
+	border-radius: 8px;
+	box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
 }
 
 .gl-recipe__edit-textarea--full {

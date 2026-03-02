@@ -437,6 +437,9 @@ function renderTextWithEmbeds(
 			});
 			img.src = resourcePath(filePath);
 			img.alt = filePath;
+			img.addEventListener("click", () => {
+				showImageLightbox(img.src, img.alt);
+			});
 		} else {
 			container.appendText(match[0]);
 		}
@@ -445,6 +448,14 @@ function renderTextWithEmbeds(
 	if (lastIndex < text.length) {
 		container.appendText(text.slice(lastIndex));
 	}
+}
+
+function showImageLightbox(src: string, alt: string): void {
+	const overlay = document.body.createDiv({ cls: "gl-lightbox" });
+	const img = overlay.createEl("img", { cls: "gl-lightbox__image" });
+	img.src = src;
+	img.alt = alt;
+	overlay.addEventListener("click", () => overlay.remove());
 }
 
 // ── Segment Rendering ──
