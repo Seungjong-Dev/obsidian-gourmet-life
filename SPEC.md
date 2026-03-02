@@ -489,6 +489,7 @@ gl-recipe__item--highlight — Highlighted ingredient (interaction)
 gl-recipe__tools       — Tools list (auto-extracted)
 gl-recipe__time        — Total time display
 gl-recipe__steps       — Steps container
+gl-recipe__step-group  — Step group wrapper (counter-reset scope per section)
 gl-recipe__step        — Single step
 gl-recipe__step--highlight — Highlighted step (interaction)
 gl-recipe__chip        — Ingredient chip inline in step text
