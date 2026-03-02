@@ -308,7 +308,7 @@ export function createImageSuggest(
 				getFiles().filter((f) => IMAGE_EXTENSIONS.includes(f.extension)),
 				recipePath
 			),
-		getItemText: (file) => file.path,
+		getItemText: (file) => file.name,
 		renderItem: (file, el) => {
 			el.createDiv({ text: file.name, cls: "gl-suggest__name" });
 			el.createDiv({ text: file.path, cls: "gl-suggest__path" });
@@ -316,7 +316,7 @@ export function createImageSuggest(
 		onSelect: (file, ta, start, end) => {
 			const before = ta.value.substring(0, start);
 			const after = ta.value.substring(end);
-			const insertion = `![[${file.path}]]`;
+			const insertion = `![[${file.name}]]`;
 
 			ta.value = before + insertion + after;
 			const cursorPos = start + insertion.length;

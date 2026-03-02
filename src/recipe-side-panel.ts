@@ -156,7 +156,7 @@ function renderSidePanelEditor(
 		addBtn.addEventListener("click", () => {
 			if (app) {
 				new ImageSuggestModal(app, (file) => {
-					currentImage = file.path;
+					currentImage = file.name;
 					renderImageEditor();
 					callbacks.onInput();
 				}, recipePath).open();

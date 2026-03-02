@@ -183,7 +183,10 @@ export class RecipeView extends ItemView {
 			this.sideContainer,
 			fm,
 			bodyContent,
-			(path) => this.app.vault.adapter.getResourcePath(path),
+			(path) => {
+				const resolved = this.app.metadataCache.getFirstLinkpathDest(path, this.filePath ?? "");
+				return this.app.vault.adapter.getResourcePath(resolved?.path ?? path);
+			},
 			this.mode,
 			{
 				onIngredientHover: (name) => {
@@ -274,7 +277,10 @@ export class RecipeView extends ItemView {
 			this.mode === "viewer" ? viewerCallbacks : editorCallbacks,
 			this.app,
 			this.filePath,
-			(path) => this.app.vault.adapter.getResourcePath(path)
+			(path) => {
+				const resolved = this.app.metadataCache.getFirstLinkpathDest(path, this.filePath ?? "");
+				return this.app.vault.adapter.getResourcePath(resolved?.path ?? path);
+			}
 		);
 
 		// Restore scroll positions
