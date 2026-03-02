@@ -124,41 +124,42 @@ On plugin load (and when folder settings change), the plugin creates/updates the
 
 | File | Filter | Default View | Visible Properties |
 |------|--------|--------------|-------------------|
-| `{recipesFolder}/Recipes.base` | `type == "recipe"` | Cards (cover: `image`) | cuisine, difficulty, rating, cook_time |
+| `{recipesFolder}/Recipes.base` | `type == "recipe"` | Cards (cover: `image`, fit: cover) | file.name, cuisine, category, difficulty, rating, cook_time |
 | `{ingredientsFolder}/Ingredients.base` | `type == "ingredient"` | Table | category, season, rating, aliases |
-| `{restaurantsFolder}/Restaurants.base` | `type == "restaurant"` | Cards (cover: `image`) | cuisine, price_range, rating, location |
+| `{restaurantsFolder}/Restaurants.base` | `type == "restaurant"` | Cards (cover: `image`, fit: cover) | file.name, cuisine, price_range, rating, location |
 
 #### `.base` File Format (example: Recipes)
 
 ```yaml
 filters:
-  conjunction: and
-  conditions:
-    - field: type
-      operator: eq
-      value: recipe
+  and:
+    - file.inFolder("Gourmet/Recipes")
+    - type == "recipe"
 views:
   - name: Cards
     type: cards
-    coverProperty: image
-    properties:
+    image: image
+    fitImage: cover
+    order:
+      - file.name
       - cuisine
+      - category
       - difficulty
       - rating
       - cook_time
-    sort:
-      - field: file.mtime
-        order: desc
   - name: Table
     type: table
-    properties:
+    order:
       - cuisine
+      - category
       - difficulty
       - servings
       - prep_time
       - cook_time
       - rating
+      - tags
       - created
+      - file.mtime DESC
 ```
 
 #### User Customization
@@ -169,7 +170,7 @@ Since `.base` files are standard Obsidian files, users can:
 - Add formula properties (e.g., total time = `prep_time + cook_time`)
 - Create their own `.base` files for custom queries (e.g., "Korean recipes rated 4+")
 
-The plugin only regenerates `.base` files if they don't exist or if folder settings change. User customizations are preserved.
+The plugin regenerates `.base` files on each load, but only overwrites files containing the `# generated: gourmet-life` marker. User-modified files (marker removed) are preserved.
 
 #### Transition to Self-Built Dashboard
 
@@ -365,11 +366,10 @@ src/
 
 **bases-generator.ts** — Bases file generation
 - `generateBaseFiles(vault, settings)`: Create/update `.base` files for each note type
-- `buildRecipesBase(settings)`: Generate Recipes.base YAML content
-- `buildIngredientsBase(settings)`: Generate Ingredients.base YAML content
-- `buildRestaurantsBase(settings)`: Generate Restaurants.base YAML content
-- `shouldRegenerate(vault, path, settings)`: Check if `.base` file needs regeneration (missing or settings changed)
-- Does NOT overwrite user-modified `.base` files (checks a `generated: true` marker in the file)
+- `buildRecipesBase(folder)`: Generate Recipes.base YAML (cards with cover image + table)
+- `buildIngredientsBase(folder)`: Generate Ingredients.base YAML (table + cards)
+- `buildRestaurantsBase(folder)`: Generate Restaurants.base YAML (cards with cover image + table)
+- Does NOT overwrite user-modified `.base` files (checks `# generated: gourmet-life` marker)
 
 **recipe-view.ts** — Recipe 2-column view
 - Extends `ItemView`, registered as `VIEW_TYPE_RECIPE`
@@ -392,6 +392,8 @@ src/
 - `highlightSteps(ingredientName)`: Highlights steps using a given ingredient
 - `renderActionBar(container)`: View Source / Cancel / Save buttons (Editor mode only)
 - Attaches `TextareaSuggest` to all three textareas (recipe body, notes, reviews) for `![[image]]` inline autocomplete
+- Inline image rendering: `![[image.ext]]` embeds rendered as thumbnails with click-to-expand lightbox
+- Gallery grouping: Consecutive image-only lines/steps are merged into a single `.gl-recipe__gallery` flex container for horizontal layout (applies to both Cooklang steps and notes/reviews text)
 
 **textarea-suggest.ts** — Generic textarea inline autocomplete
 - `TextareaSuggest<T>` class: Trigger detection, cursor position calculation (mirror div technique), popup rendering, keyboard navigation (Arrow/Enter/Tab/Escape), blur-to-close
@@ -490,8 +492,12 @@ gl-recipe__steps       — Steps container
 gl-recipe__step        — Single step
 gl-recipe__step--highlight — Highlighted step (interaction)
 gl-recipe__chip        — Ingredient chip inline in step text
+gl-recipe__gallery     — Flex container grouping consecutive inline images
+gl-recipe__inline-image — Image thumbnail in gallery (click to expand)
 gl-recipe__refs        — References section
 gl-recipe__actions     — Action bar (View Source / Cancel / Save)
+gl-lightbox            — Fullscreen image lightbox overlay (click to dismiss)
+gl-lightbox__image     — Lightbox displayed image
 gl-suggest             — Textarea autocomplete popup (position: fixed)
 gl-suggest__item       — Popup item row
 gl-suggest__item--active — Keyboard/hover-selected item
