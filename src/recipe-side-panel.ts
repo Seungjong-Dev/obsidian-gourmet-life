@@ -69,22 +69,27 @@ function renderSidePanelViewer(
 		img.src = resourcePath(fm.image);
 	}
 
-	// Metadata — read-only rows
+	// Stats grid — prep_time, cook_time, servings, difficulty
+	const hasStats = fm.prep_time != null || fm.cook_time != null || fm.servings != null || fm.difficulty;
+	if (hasStats) {
+		const statsGrid = container.createDiv({ cls: "gl-recipe__stats-grid" });
+		if (fm.prep_time != null) addStatCell(statsGrid, "Prep", `${fm.prep_time} min`);
+		if (fm.cook_time != null) addStatCell(statsGrid, "Cook", `${fm.cook_time} min`);
+		if (fm.servings != null) addStatCell(statsGrid, "Servings", String(fm.servings));
+		if (fm.difficulty) {
+			const label = fm.difficulty.charAt(0).toUpperCase() + fm.difficulty.slice(1);
+			addStatCell(statsGrid, "Level", label);
+		}
+	}
+
+	// Metadata — remaining fields
 	const metaSection = container.createDiv({ cls: "gl-recipe__meta" });
-	metaSection.createEl("h3", { text: "Metadata" });
 
 	if (fm.cuisine) {
 		const cuisineDisplay = Array.isArray(fm.cuisine) ? fm.cuisine.join(", ") : fm.cuisine;
 		addViewRow(metaSection, "Cuisine", cuisineDisplay);
 	}
 	if (fm.category) addViewRow(metaSection, "Category", fm.category);
-	if (fm.difficulty) {
-		const label = fm.difficulty.charAt(0).toUpperCase() + fm.difficulty.slice(1);
-		addViewRow(metaSection, "Difficulty", label);
-	}
-	if (fm.servings != null) addViewRow(metaSection, "Servings", String(fm.servings));
-	if (fm.prep_time != null) addViewRow(metaSection, "Prep time", `${fm.prep_time} min`);
-	if (fm.cook_time != null) addViewRow(metaSection, "Cook time", `${fm.cook_time} min`);
 	if (fm.rating != null) addViewRow(metaSection, "Rating", renderStars(fm.rating));
 	if (fm.tags && fm.tags.length > 0) {
 		const tagsRow = metaSection.createDiv({ cls: "gl-recipe__meta-row" });
@@ -402,6 +407,12 @@ export function collectSideState(
 }
 
 // ── Helpers ──
+
+function addStatCell(parent: HTMLElement, label: string, value: string): void {
+	const cell = parent.createDiv({ cls: "gl-recipe__stat-cell" });
+	cell.createDiv({ text: label, cls: "gl-recipe__stat-label" });
+	cell.createDiv({ text: value, cls: "gl-recipe__stat-value" });
+}
 
 function addViewRow(parent: HTMLElement, label: string, value: string): void {
 	const row = parent.createDiv({ cls: "gl-recipe__meta-row" });
