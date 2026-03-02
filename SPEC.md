@@ -250,7 +250,8 @@ When a recipe note is opened, the plugin renders a **2-column layout** replacing
 **Main Panel** (right, scrollable):
 - Recipe title
 - Steps — the core editing area, organized by sections
-- References / source links
+- Reviews — tasting notes and impressions (optional)
+- References / source links (bottom of panel)
 - Action bar: `[View Source]` `[Cancel]` `[Save]` (Editor mode only)
 
 #### Mode-Specific Side Panel Content
@@ -386,7 +387,7 @@ src/
 - `highlightIngredients(names)`: Highlights ingredients used in focused step
 
 **recipe-main-panel.ts** — Main panel rendering
-- `renderMainViewer(container, note)`: Read-only steps with highlighted ingredient text
+- `renderMainViewer(container, note)`: Read-only steps, reviews, and references (in that order) with highlighted ingredient text
 - `renderMainEditor(container, note)`: Editable steps with ingredient chip insertion
 - `onStepFocus(stepIndex)`: Emits event for Side to highlight used ingredients
 - `highlightSteps(ingredientName)`: Highlights steps using a given ingredient
@@ -492,7 +493,7 @@ gl-recipe__steps       — Steps container
 gl-recipe__step-group  — Step group wrapper (counter-reset scope per section)
 gl-recipe__step        — Single step
 gl-recipe__step--highlight — Highlighted step (interaction)
-gl-recipe__chip        — Ingredient chip inline in step text
+gl-recipe__chip        — Lightweight tag-style chip inline in step text (thin padding, no shadow)
 gl-recipe__gallery     — Flex container grouping consecutive inline images
 gl-recipe__inline-image — Image thumbnail in gallery (click to expand)
 gl-recipe__refs        — References section
@@ -541,5 +542,5 @@ These features are NOT part of MVP but may be added later:
 | **Recipe view** | 2-column ItemView (Side + Main) for viewing and editing individual recipes |
 | **Side panel** | Left column (30%) showing image, metadata, ingredients, tools, and time |
 | **Main panel** | Right column (70%) showing title, steps, references, and action bar |
-| **Ingredient chip** | Inline UI element in step text representing a linked ingredient with quantity |
+| **Ingredient chip** | Lightweight inline tag in step text representing a linked ingredient with quantity (translucent background, thin padding) |
 | **TextareaSuggest** | Generic inline autocomplete system for textarea elements, used for `![[image]]` embed suggestions; positioned via mirror div technique |
