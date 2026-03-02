@@ -92,6 +92,7 @@
 .gl-recipe__meta-row {
 	display: flex;
 	justify-content: space-between;
+	gap: 12px;
 	padding: 4px 0;
 	font-size: 0.9em;
 	min-width: 0;
@@ -264,14 +265,15 @@
 	margin-bottom: 16px;
 }
 
-/* "Recipe" h2 → small uppercase label */
+/* Main panel h2 — consistent small uppercase labels */
 
-.gl-recipe__steps > h2 {
+.gl-recipe__main h2 {
 	font-size: 1.1em;
 	text-transform: uppercase;
 	letter-spacing: 0.08em;
 	color: var(--text-muted);
 	font-weight: 600;
+	margin: 16px 0 8px;
 }
 
 .gl-recipe__step-group {
@@ -312,24 +314,22 @@
 
 .gl-recipe__chip {
 	display: inline-block;
-	padding: 2px 8px;
-	border-radius: 10px;
+	padding: 1px 6px;
+	border-radius: 6px;
 	font-size: 0.85em;
 	font-weight: 600;
 	cursor: pointer;
 	vertical-align: baseline;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-	transition: transform 0.15s ease, box-shadow 0.15s ease;
+	transition: transform 0.15s ease;
 }
 
 .gl-recipe__chip:hover {
 	transform: translateY(-1px);
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .gl-recipe__chip--ingredient {
-	background: var(--interactive-accent);
-	color: var(--text-on-accent);
+	background: rgba(0, 0, 0, 0.06);
+	color: var(--text-normal);
 }
 
 .gl-recipe__chip-wrap {
@@ -367,11 +367,10 @@
 	padding-bottom: 4px;
 	text-transform: uppercase;
 	letter-spacing: 0.08em;
-	font-size: 0.85em;
+	font-size: 1em;
 	border-bottom: none;
 }
 
-.gl-recipe__section-header::before,
 .gl-recipe__section-header::after {
 	content: "";
 	flex: 1;
@@ -455,8 +454,8 @@
 	justify-content: space-between;
 	gap: 8px;
 	border-bottom: 1px solid var(--background-modifier-border);
-	padding-bottom: 16px;
-	margin-bottom: 16px;
+	padding-bottom: 12px;
+	margin-bottom: 4px;
 }
 
 .gl-recipe__title-btns {
@@ -495,14 +494,26 @@
 	margin-top: 16px;
 }
 
-/* Section title in side data */
+/* Section title in side data — cookbook style with side lines */
 
 .gl-recipe__section-title {
-	font-size: 0.85em;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 0.8em;
 	text-transform: uppercase;
 	letter-spacing: 0.06em;
 	color: var(--text-muted);
-	margin: 0 0 6px;
+	font-weight: 600;
+	margin: 0 0 8px;
+}
+
+.gl-recipe__section-title::before,
+.gl-recipe__section-title::after {
+	content: "";
+	flex: 1;
+	height: 1px;
+	background: var(--background-modifier-border);
 }
 
 /* Editor mode inputs */

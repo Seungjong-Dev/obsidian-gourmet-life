@@ -108,19 +108,6 @@ function renderMainPanelViewer(
 	callbacks: MainPanelCallbacks,
 	resourcePath?: (path: string) => string
 ): void {
-	// References
-	if (source) {
-		const refsSection = container.createDiv({ cls: "gl-recipe__refs" });
-		refsSection.createEl("h2", { text: "References" });
-		if (source.startsWith("http")) {
-			const link = refsSection.createEl("a", { text: source, href: source });
-			link.setAttr("target", "_blank");
-			link.setAttr("rel", "noopener");
-		} else {
-			refsSection.createEl("p", { text: source });
-		}
-	}
-
 	// Recipe section — rendered chips
 	const bodySection = container.createDiv({ cls: "gl-recipe__steps" });
 	bodySection.createEl("h2", { text: "Recipe" });
@@ -140,6 +127,19 @@ function renderMainPanelViewer(
 		const reviewsSection = container.createDiv();
 		reviewsSection.createEl("h2", { text: "Reviews" });
 		renderTextContent(reviewsSection, reviewsContent, resourcePath);
+	}
+
+	// References — at the bottom
+	if (source) {
+		const refsSection = container.createDiv({ cls: "gl-recipe__refs" });
+		refsSection.createEl("h2", { text: "References" });
+		if (source.startsWith("http")) {
+			const link = refsSection.createEl("a", { text: source, href: source });
+			link.setAttr("target", "_blank");
+			link.setAttr("rel", "noopener");
+		} else {
+			refsSection.createEl("p", { text: source });
+		}
 	}
 }
 
