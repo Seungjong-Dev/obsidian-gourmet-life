@@ -914,6 +914,9 @@ function getRecipeEditableContent(body: string): string {
 		if (match && endSections.includes(match[1].trim().toLowerCase())) {
 			break;
 		}
+		if (match && match[1].trim().toLowerCase() === "recipe") {
+			continue;
+		}
 		resultLines.push(line);
 	}
 

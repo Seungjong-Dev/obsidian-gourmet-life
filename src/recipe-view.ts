@@ -419,6 +419,8 @@ function buildRecipeBody(
 ): string {
 	const lines: string[] = [];
 
+	lines.push("## Recipe");
+	lines.push("");
 	if (recipeBody.trim()) {
 		lines.push(recipeBody.trim());
 	}
