@@ -307,7 +307,14 @@ function renderPreviewContent(
 	let currentSection = "";
 	let stepIndex = 0;
 	let pendingImageSteps: CooklangStep[] = [];
-	let stepGroup = container.createDiv({ cls: "gl-recipe__step-group" });
+	let stepGroup: HTMLElement | null = null;
+
+	const ensureStepGroup = (): HTMLElement => {
+		if (!stepGroup) {
+			stepGroup = container.createDiv({ cls: "gl-recipe__step-group" });
+		}
+		return stepGroup;
+	};
 
 	const flushImageSteps = () => {
 		if (pendingImageSteps.length === 0) return;
@@ -315,7 +322,7 @@ function renderPreviewContent(
 			.flatMap((s) => s.segments)
 			.map((s) => (s as { type: "text"; value: string }).value)
 			.join(" ");
-		renderTextWithEmbeds(stepGroup, combined, resourcePath);
+		renderTextWithEmbeds(ensureStepGroup(), combined, resourcePath);
 		pendingImageSteps = [];
 	};
 
@@ -340,14 +347,14 @@ function renderPreviewContent(
 		flushImageSteps();
 
 		if (step.isComment) {
-			const commentEl = stepGroup.createDiv({
+			const commentEl = ensureStepGroup().createDiv({
 				cls: "gl-recipe__comment",
 			});
 			renderSegments(commentEl, step.segments, callbacks, resourcePath);
 			continue;
 		}
 
-		const stepEl = stepGroup.createDiv({
+		const stepEl = ensureStepGroup().createDiv({
 			cls: "gl-recipe__step",
 		});
 
