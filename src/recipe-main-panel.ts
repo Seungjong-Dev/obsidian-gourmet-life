@@ -596,7 +596,7 @@ function renderTextWithEmbeds(
 	}
 }
 
-function showImageLightbox(src: string, alt: string): void {
+export function showImageLightbox(src: string, alt: string): void {
 	const overlay = document.body.createDiv({ cls: "gl-lightbox" });
 	const img = overlay.createEl("img", { cls: "gl-lightbox__image" });
 	img.src = src;

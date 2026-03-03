@@ -8,6 +8,7 @@ import {
 	calculateTotalTime,
 	type CooklangIngredient,
 } from "./cooklang-parser";
+import { showImageLightbox } from "./recipe-main-panel";
 import { ImageSuggestModal } from "./image-suggest-modal";
 
 export interface SidePanelCallbacks {
@@ -67,6 +68,7 @@ function renderSidePanelViewer(
 			cls: "gl-recipe__image",
 		});
 		img.src = resourcePath(fm.image);
+		img.addEventListener("click", () => showImageLightbox(img.src, fm.title || ""));
 	}
 
 	// Stats grid — prep_time, cook_time, servings, difficulty
