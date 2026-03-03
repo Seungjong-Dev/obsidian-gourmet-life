@@ -14,6 +14,7 @@ import {
 	highlightMainSteps,
 } from "./recipe-main-panel";
 import { buildFrontmatterString } from "./frontmatter-utils";
+import { exportShareCard } from "./recipe-share-card";
 import type GourmetLifePlugin from "./main";
 
 interface RecipeViewState {
@@ -229,6 +230,9 @@ export class RecipeView extends ItemView {
 				this.toggleMode();
 			},
 			onTitleChange: () => {},
+			onShareCard: () => {
+				exportShareCard(this.app, this.filePath, fm, bodyContent, title(this.filePath));
+			},
 		};
 
 		const editorCallbacks = {

@@ -206,6 +206,7 @@ Commands register in the command palette:
 - `Gourmet Life: New ingredient`
 - `Gourmet Life: New restaurant`
 - `Gourmet Life: Search recipes` — Fuzzy search across all recipe notes; selecting a result opens it in Recipe View
+- `Gourmet Life: Share recipe as image` — Export the active recipe as a share card image (clipboard or native share)
 
 Each opens a **modal** with type-specific form fields:
 
@@ -299,6 +300,7 @@ When a recipe note is opened, the plugin renders a **2-column layout** replacing
 **Title Row** (full-width, above both panels):
 - Recipe title (read-only display or editable input depending on mode)
 - Mode toggle button (Viewer ↔ Editor via Ctrl/Cmd+E)
+- Share as image button (Viewer mode only — `share-2` icon)
 - View Source button
 
 **Main Panel** (right, scrollable):
@@ -346,6 +348,86 @@ The recipe view is an `ItemView` registered with `VIEW_TYPE_RECIPE`. It activate
 - **Viewer mode** (default): Read-only rendering of the recipe
 - **Editor mode**: Activated via `Edit` button or `Gourmet Life: Open recipe view` command
 
+### 5.5 Recipe Share Card
+
+Exports a recipe as a single shareable image (PNG) for pasting into messengers or social media. The card is built from raw recipe data (frontmatter + body), not a screenshot of the view.
+
+#### Approach
+
+An offscreen DOM card is constructed using `document.createElement`, styled with hardcoded colors that mirror the recipe view's light theme. The card is converted to PNG via `html-to-image` (`toPng` at 2× pixel ratio) and output to clipboard (desktop) or native share sheet (mobile via `navigator.share()`).
+
+Key design decision: **separate DOM build, not view capture**. This ensures the card always includes all content regardless of scroll position, accordion state, or viewport size, rendered at a fixed 600px width.
+
+#### Card Layout
+
+```
+┌──────────────────────────────────────┐
+│         [Recipe Image]               │  4:3, object-fit cover
+│         gradient overlay             │  (or accent bar if no image)
+├──────────────────────────────────────┤
+│  Recipe Title                        │
+│  ★★★★☆ 4/5                          │  rating display
+│  [Korean] [Main]                     │  accent pill chips
+│                                      │
+│  ┌─────┬─────┬─────┬─────┐          │
+│  │Prep │Cook │Serve│Level│          │  2×2 stats grid
+│  │15min│30min│  2  │Easy │          │
+│  └─────┴─────┴─────┴─────┘          │
+│                                      │
+│  ┃ INGREDIENTS                       │  left accent border header
+│  ┌────────────────────────────┐      │
+│  │ flour              200g   │      │  card with qty pills
+│  │ eggs               2      │      │
+│  └────────────────────────────┘      │
+│                                      │
+│  ┃ STEPS                             │  left accent border header
+│  ┌────────────────────────────┐      │
+│  │ ① First step plain text   │      │  accent number badges
+│  │ ② Second step plain text  │      │  Cooklang markers removed
+│  └────────────────────────────┘      │
+│                                      │
+│  👨‍🍳 Gourmet Life                    │  footer branding
+└──────────────────────────────────────┘
+```
+
+#### Visual Consistency with Recipe View
+
+The card uses hardcoded colors derived from the recipe view's light theme CSS variables:
+
+| Recipe View Variable | Share Card Value | Usage |
+|---------------------|-----------------|-------|
+| `--background-primary` | `#ffffff` | Card background |
+| `--background-secondary` | `#f8f8f8` | Stats cells, ingredient card, footer |
+| `--background-modifier-border` | `#e5e5e5` | Borders, qty pills |
+| `--text-normal` | `#1a1a1a` | Primary text |
+| `--text-muted` | `#999999` | Labels, secondary text |
+| `--gl-warm-accent` | `#d97706` | Chips, number badges, accent borders |
+| `--text-on-accent` | `#ffffff` | Text on accent backgrounds |
+
+Design elements mirror the recipe view: 4:3 image with gradient overlay, accent-colored pill chips, 2×2 stats grid, ingredient card with qty pills, step number circles (28px accent badges), and left-border section headers.
+
+#### Image Handling
+
+Recipe images referenced via `fm.image` are resolved through `vault.readBinary()` and converted to base64 data URLs, since `html-to-image` cannot access Obsidian's `app://` protocol URLs. If the image file is missing or unresolvable, a thin accent-colored bar replaces it.
+
+#### Platform Output
+
+| Platform | Method | Result |
+|----------|--------|--------|
+| Desktop | `navigator.clipboard.write([ClipboardItem])` | PNG in clipboard, paste into any app |
+| Mobile (`.is-mobile`) | `navigator.share({ files })` | Native share sheet (AirDrop, Messages, etc.) |
+
+#### Edge Cases
+
+| Case | Handling |
+|------|----------|
+| No image | Accent bar instead of image area |
+| Image file missing | `resolveImageDataUrl` → null → accent bar |
+| No ingredients/steps | Section omitted |
+| Mobile share cancelled | `AbortError` caught and ignored |
+| `html-to-image` failure | Error logged, `Notice` shown, offscreen DOM cleaned up |
+| Clipboard permission denied | Error caught, `Notice` shown |
+
 ---
 
 ## 6. Settings
@@ -371,7 +453,7 @@ The recipe view is an `ItemView` registered with `VIEW_TYPE_RECIPE`. It activate
 - **Styling**: Single `styles.css` with `gl-` prefix
 - **API**: Obsidian Plugin API (ItemView, EditorSuggest, Modal, MetadataCache)
 - **Dashboard**: Obsidian Bases core plugin (`.base` file generation, no custom dashboard UI)
-- **External dependencies**: None (Bases is a core plugin, not a dependency)
+- **External dependencies**: `html-to-image` (~8KB gzip, zero deps — DOM→PNG conversion for share card)
 
 ### 7.2 File Structure
 
@@ -387,6 +469,7 @@ src/
 ├── recipe-view.ts           # Recipe 2-column ItemView (viewer + editor)
 ├── recipe-side-panel.ts     # Side panel rendering (ingredients, metadata, tools)
 ├── recipe-main-panel.ts     # Main panel rendering (steps, references, actions)
+├── recipe-share-card.ts     # Share card export (DOM build → PNG → clipboard/share)
 ├── textarea-suggest.ts      # Generic textarea inline autocomplete (image embed, etc.)
 ├── image-suggest-modal.ts   # FuzzySuggestModal for image selection (metadata)
 ├── note-create-modal.ts     # Note creation modal
@@ -457,7 +540,7 @@ src/
 - `highlightIngredients(names)`: Highlights ingredients used in focused step
 
 **recipe-main-panel.ts** — Main panel rendering
-- `renderTitleRow(titleRow, title, mode, callbacks)`: Renders title (display or input) + mode toggle + view source button into the root-level title row element
+- `renderTitleRow(titleRow, title, mode, callbacks)`: Renders title (display or input) + mode toggle + share button (viewer only) + view source button into the root-level title row element
 - `renderMainViewer(container, note)`: Read-only steps, reviews, and references (in that order) with highlighted ingredient text
 - `renderMainEditor(container, note)`: Editable steps with ingredient chip insertion
 - `onStepFocus(stepIndex)`: Emits event for Side to highlight used ingredients
@@ -465,6 +548,14 @@ src/
 - Attaches `TextareaSuggest` to all three textareas (recipe body, notes, reviews) for `![[image]]` inline autocomplete
 - Inline image rendering: `![[image.ext]]` embeds rendered as thumbnails with click-to-expand lightbox
 - Gallery grouping: Consecutive image-only lines/steps are merged into a single `.gl-recipe__gallery` flex container for horizontal layout (applies to both Cooklang steps and notes/reviews text)
+
+**recipe-share-card.ts** — Share card export
+- `exportShareCard(app, filePath, fm, bodyContent, title)`: Public entry point — builds card DOM, captures PNG, outputs to clipboard or native share
+- `resolveImageDataUrl(app, imagePath, filePath)`: Resolves vault image to base64 data URL (required because `html-to-image` cannot access `app://` protocol)
+- `buildShareCardDOM(title, fm, bodyContent, imageDataUrl)`: Constructs offscreen card DOM with hardcoded styles mirroring recipe view light theme
+- `segmentsToPlainText(segments)`: Strips Cooklang markers from segments, returning plain text for step display
+- `copyOrShare(blob, title)`: Platform-specific output — `navigator.clipboard.write` on desktop, `navigator.share` on mobile
+- Reuses `parseCooklangBody()` and `extractCooklangIngredientsGrouped()` from cooklang-parser
 
 **textarea-suggest.ts** — Generic textarea inline autocomplete
 - `TextareaSuggest<T>` class: Trigger detection, cursor position calculation (mirror div technique), popup rendering, keyboard navigation (Arrow/Enter/Tab/Escape), blur-to-close
@@ -580,6 +671,16 @@ gl-suggest__item--active — Keyboard/hover-selected item
 gl-suggest__name       — Item display name
 gl-suggest__path       — Item full path (muted)
 gl-suggest-mirror      — Hidden mirror div for cursor position calculation
+gl-recipe__share-btn   — Share as image button in title row (viewer only)
+gl-share-card          — Share card root (600px fixed, hardcoded light palette)
+gl-share-card__image-wrap — Image container with gradient overlay
+gl-share-card__rating  — Rating stars display (accent color)
+gl-share-card__chips   — Meta pill chips row (cuisine, category)
+gl-share-card__stats   — 2×2 stats grid
+gl-share-card__ing-card — Ingredient list card
+gl-share-card__step-group — Steps container with border
+gl-share-card__step-num — Accent circle number badge (28px)
+gl-share-card__footer  — Branding footer
 ```
 
 Responsive breakpoints:

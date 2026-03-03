@@ -19,6 +19,7 @@ export interface MainPanelCallbacks {
 	onViewSource: () => void;
 	onToggleMode: () => void;
 	onTitleChange: (newTitle: string) => void;
+	onShareCard?: () => void;
 }
 
 export interface MainState {
@@ -69,6 +70,13 @@ export function renderTitleRow(
 	toggleBtn.title = mode === "viewer" ? "Edit" : "View";
 	setIcon(toggleBtn, mode === "viewer" ? "pencil" : "eye");
 	toggleBtn.addEventListener("click", callbacks.onToggleMode);
+
+	if (mode === "viewer" && callbacks.onShareCard) {
+		const shareBtn = btnGroup.createEl("button", { cls: "gl-recipe__share-btn" });
+		shareBtn.title = "Share as image";
+		setIcon(shareBtn, "share-2");
+		shareBtn.addEventListener("click", callbacks.onShareCard);
+	}
 
 	const viewSourceBtn = btnGroup.createEl("button", {
 		text: "</>",

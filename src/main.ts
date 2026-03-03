@@ -15,6 +15,7 @@ import {
 } from "./ingredient-suggest";
 import { RecipeView } from "./recipe-view";
 import { RecipeSearchModal } from "./recipe-search-modal";
+import { exportShareCard } from "./recipe-share-card";
 import { isGourmetNote } from "./frontmatter-utils";
 
 export default class GourmetLifePlugin extends Plugin {
@@ -115,6 +116,29 @@ export default class GourmetLifePlugin extends Plugin {
 					const file = this.app.vault.getFileByPath(note.path);
 					if (file) this.openRecipeView(file);
 				}).open();
+			},
+		});
+
+		this.addCommand({
+			id: "share-recipe-image",
+			name: "Share recipe as image",
+			checkCallback: (checking) => {
+				const view = this.app.workspace.getActiveViewOfType(RecipeView);
+				if (!view) return false;
+				const state = view.getState();
+				if (!state.file) return false;
+				if (checking) return true;
+				const file = this.app.vault.getAbstractFileByPath(state.file);
+				if (!file || !(file instanceof TFile)) return false;
+				const cache = this.app.metadataCache.getFileCache(file as TFile);
+				const fm = cache?.frontmatter;
+				if (!fm || fm.type !== "recipe") return false;
+				this.app.vault.read(file as TFile).then((content) => {
+					const match = content.match(/^---\n[\s\S]*?\n---\n?/);
+					const body = match ? content.substring(match[0].length) : content;
+					exportShareCard(this.app, state.file, fm as any, body, (file as TFile).basename);
+				});
+				return true;
 			},
 		});
 
