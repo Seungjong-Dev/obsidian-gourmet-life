@@ -303,6 +303,7 @@ When a recipe note is opened, the plugin renders a **2-column layout** replacing
 #### Responsive Behavior
 
 - **Narrow viewport** (mobile, narrow split): Side Panel collapses above Main as a 1-column fallback
+- **Narrow side panel** (≤300px): Ingredient names switch from center-aligned to left-aligned via CSS container query, preventing text/chip overlap
 - **Tab toggle**: In narrow mode, Side can be toggled as an overlay via a tab button
 
 #### View Registration
@@ -520,7 +521,7 @@ gl-recipe__image       — Image area
 gl-recipe__meta        — Metadata section
 gl-recipe__ingredients — Ingredient list container
 gl-recipe__section     — Ingredient section group
-gl-recipe__item        — Single ingredient row
+gl-recipe__item        — Single ingredient row (grid overlay layout; center-aligned, left-aligned fallback via container query ≤300px)
 gl-recipe__item--highlight — Highlighted ingredient (interaction)
 gl-recipe__tools       — Tools list (auto-extracted)
 gl-recipe__time        — Total time display
@@ -546,6 +547,7 @@ gl-suggest-mirror      — Hidden mirror div for cursor position calculation
 Responsive breakpoints:
 - Mobile (< 600px): Recipe view 1-column fallback
 - Tablet/Desktop (≥ 600px): Recipe view 2-column (30/70)
+- Side panel ≤300px (container query): Ingredient names left-aligned instead of centered
 
 ---
 
