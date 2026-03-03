@@ -28,30 +28,16 @@ export interface MainState {
 }
 
 /**
- * Render the main panel in viewer or editor mode.
+ * Render the title row into the given container.
  */
-export function renderMainPanel(
-	container: HTMLElement,
+export function renderTitleRow(
+	titleRow: HTMLElement,
 	title: string,
-	bodyContent: string,
-	source: string | undefined,
 	mode: RecipeViewMode,
-	callbacks: MainPanelCallbacks,
-	app?: App,
-	recipePath?: string,
-	resourcePath?: (path: string) => string
+	callbacks: MainPanelCallbacks
 ): void {
-	// Clean up previous TextareaSuggest instances
-	const prev = (container as any).__glSuggests as TextareaSuggest<unknown>[] | undefined;
-	if (prev) {
-		for (const s of prev) s.destroy();
-		(container as any).__glSuggests = null;
-	}
+	titleRow.empty();
 
-	container.empty();
-
-	// Title row — title + mode toggle + view source
-	const titleRow = container.createDiv({ cls: "gl-recipe__title-row" });
 	if (mode === "editor") {
 		const titleInput = titleRow.createEl("input", {
 			cls: "gl-recipe__title-input",
@@ -90,6 +76,29 @@ export function renderMainPanel(
 	});
 	viewSourceBtn.title = "View Source";
 	viewSourceBtn.addEventListener("click", callbacks.onViewSource);
+}
+
+/**
+ * Render the main panel in viewer or editor mode.
+ */
+export function renderMainPanel(
+	container: HTMLElement,
+	bodyContent: string,
+	source: string | undefined,
+	mode: RecipeViewMode,
+	callbacks: MainPanelCallbacks,
+	app?: App,
+	recipePath?: string,
+	resourcePath?: (path: string) => string
+): void {
+	// Clean up previous TextareaSuggest instances
+	const prev = (container as any).__glSuggests as TextareaSuggest<unknown>[] | undefined;
+	if (prev) {
+		for (const s of prev) s.destroy();
+		(container as any).__glSuggests = null;
+	}
+
+	container.empty();
 
 	if (mode === "viewer") {
 		renderMainPanelViewer(container, bodyContent, source, callbacks, resourcePath);

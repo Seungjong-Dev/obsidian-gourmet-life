@@ -9,6 +9,7 @@ import {
 } from "./recipe-side-panel";
 import {
 	renderMainPanel,
+	renderTitleRow,
 	collectMainState,
 	highlightMainSteps,
 } from "./recipe-main-panel";
@@ -24,6 +25,7 @@ export class RecipeView extends ItemView {
 	private plugin: GourmetLifePlugin;
 	private filePath: string = "";
 	private mode: RecipeViewMode = "viewer";
+	private titleRow: HTMLElement = null!;
 	private sideContainer: HTMLElement = null!;
 	private mainContainer: HTMLElement = null!;
 	private rootContainer: HTMLElement = null!;
@@ -75,24 +77,14 @@ export class RecipeView extends ItemView {
 		container.style.position = "relative";
 
 		this.rootContainer = container.createDiv({ cls: "gl-recipe" });
+		this.titleRow = this.rootContainer.createDiv({
+			cls: "gl-recipe__title-row",
+		});
 		this.sideContainer = this.rootContainer.createDiv({
 			cls: "gl-recipe__side",
 		});
 		this.mainContainer = this.rootContainer.createDiv({
 			cls: "gl-recipe__main",
-		});
-
-		// FAB — Ingredients button (visible only in single-column mode)
-		const fab = container.createDiv({
-			cls: "gl-recipe__ingredients-fab",
-			text: "Ingredients",
-		});
-		fab.addEventListener("click", () => {
-			const section = this.rootContainer.querySelector(".gl-recipe__ingredients") as HTMLElement | null;
-			if (section) {
-				section.addClass("gl-recipe__ingredients--open");
-				section.scrollIntoView({ behavior: "smooth" });
-			}
 		});
 
 		// Responsive layout
@@ -187,6 +179,9 @@ export class RecipeView extends ItemView {
 
 		this.lastSavedContent = content;
 
+		// Mode class for CSS targeting
+		this.rootContainer.toggleClass("gl-recipe--editor", this.mode === "editor");
+
 		// Preserve scroll positions
 		const sideScroll = this.sideContainer?.scrollTop ?? 0;
 		const mainScroll = this.mainContainer?.scrollTop ?? 0;
@@ -280,13 +275,16 @@ export class RecipeView extends ItemView {
 			},
 		};
 
+		// Title row — at root level, above side/main
+		const callbacks = this.mode === "viewer" ? viewerCallbacks : editorCallbacks;
+		renderTitleRow(this.titleRow, title(this.filePath), this.mode, callbacks);
+
 		renderMainPanel(
 			this.mainContainer,
-			title(this.filePath),
 			bodyContent,
 			fm.source,
 			this.mode,
-			this.mode === "viewer" ? viewerCallbacks : editorCallbacks,
+			callbacks,
 			this.app,
 			this.filePath,
 			resourcePath

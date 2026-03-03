@@ -158,11 +158,27 @@ function renderSidePanelEditor(
 	app?: App,
 	recipePath?: string
 ): void {
-	// Image — single with change/remove
-	const imageSection = container.createDiv({ cls: "gl-recipe__meta" });
-	imageSection.createEl("h3", { text: "Image" });
+	// Editor metadata card — accordion wrapper for Image + Metadata
+	const editorMeta = container.createDiv({ cls: "gl-recipe__editor-meta" });
 
-	const imageContainer = imageSection.createDiv({ cls: "gl-recipe__image-single" });
+	// Accordion header
+	const metaHeader = editorMeta.createDiv({ cls: "gl-recipe__editor-meta-header" });
+	metaHeader.createSpan({ cls: "gl-recipe__ingredients-chevron", text: "\u25B6" });
+	metaHeader.createEl("h3", { text: "Metadata", cls: "gl-recipe__section-title" });
+
+	metaHeader.addEventListener("click", () => {
+		editorMeta.toggleClass("gl-recipe__editor-meta--open",
+			!editorMeta.hasClass("gl-recipe__editor-meta--open"));
+	});
+
+	// Accordion body
+	const metaBody = editorMeta.createDiv({ cls: "gl-recipe__editor-meta-body" });
+
+	// Image — h3 visible only in 2-column (hidden in single-column by CSS)
+	metaBody.createEl("h3", { text: "Image", cls: "gl-recipe__editor-meta-label" });
+
+	// Image — single with change/remove
+	const imageContainer = metaBody.createDiv({ cls: "gl-recipe__image-single" });
 	let currentImage = fm.image || "";
 
 	const renderImageEditor = () => {
@@ -210,14 +226,14 @@ function renderSidePanelEditor(
 	};
 	renderImageEditor();
 
-	// Metadata — input fields
-	const metaSection = container.createDiv({ cls: "gl-recipe__meta" });
-	metaSection.createEl("h3", { text: "Metadata" });
+	// Metadata — h3 visible only in 2-column (hidden in single-column by CSS)
+	metaBody.createEl("h3", { text: "Metadata", cls: "gl-recipe__editor-meta-label" });
 
+	// Metadata — input fields
 	const cuisineValue = Array.isArray(fm.cuisine) ? fm.cuisine.join(", ") : (fm.cuisine || "");
-	addEditField(metaSection, "Cuisine", "cuisine", cuisineValue, callbacks.onInput);
+	addEditField(metaBody, "Cuisine", "cuisine", cuisineValue, callbacks.onInput);
 	addDropdownField(
-		metaSection,
+		metaBody,
 		"Category",
 		"category",
 		["", ...RECIPE_CATEGORIES],
@@ -225,7 +241,7 @@ function renderSidePanelEditor(
 		callbacks.onInput
 	);
 	addDropdownField(
-		metaSection,
+		metaBody,
 		"Difficulty",
 		"difficulty",
 		["", ...DIFFICULTY_OPTIONS],
@@ -233,36 +249,36 @@ function renderSidePanelEditor(
 		callbacks.onInput
 	);
 	addEditField(
-		metaSection,
+		metaBody,
 		"Servings",
 		"servings",
 		fm.servings != null ? String(fm.servings) : "",
 		callbacks.onInput
 	);
 	addEditField(
-		metaSection,
+		metaBody,
 		"Prep time (min)",
 		"prep_time",
 		fm.prep_time != null ? String(fm.prep_time) : "",
 		callbacks.onInput
 	);
 	addEditField(
-		metaSection,
+		metaBody,
 		"Cook time (min)",
 		"cook_time",
 		fm.cook_time != null ? String(fm.cook_time) : "",
 		callbacks.onInput
 	);
 	addEditField(
-		metaSection,
+		metaBody,
 		"Rating (1-5)",
 		"rating",
 		fm.rating != null ? String(fm.rating) : "",
 		callbacks.onInput
 	);
 	const tagsValue = fm.tags ? fm.tags.join(", ") : "";
-	addEditField(metaSection, "Tags", "tags", tagsValue, callbacks.onInput);
-	addEditField(metaSection, "Source", "source", fm.source || "", callbacks.onInput);
+	addEditField(metaBody, "Tags", "tags", tagsValue, callbacks.onInput);
+	addEditField(metaBody, "Source", "source", fm.source || "", callbacks.onInput);
 
 	// Side data wrapper — live ingredients/tools/time
 	const sideData = container.createDiv({ cls: "gl-recipe__side-data" });

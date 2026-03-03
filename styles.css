@@ -32,8 +32,9 @@
 .gl-recipe {
 	--gl-warm-accent: #d97706;
 	--gl-warm-accent-soft: #fef3c7;
-	display: flex;
-	gap: 16px;
+	display: grid;
+	grid-template-columns: minmax(220px, 30%) 1fr;
+	grid-template-rows: auto 1fr;
 	height: 100%;
 	overflow: hidden;
 }
@@ -44,14 +45,16 @@
 }
 
 .gl-recipe--single {
+	display: flex;
 	flex-direction: column;
+	height: auto;
+	min-height: 100%;
 	overflow-y: auto;
 }
 
 .gl-recipe__side {
 	container-type: inline-size;
-	width: 30%;
-	min-width: 220px;
+	grid-row: 1 / -1;
 	overflow-y: auto;
 	padding: 20px;
 	border-right: 1px solid var(--background-modifier-border);
@@ -59,8 +62,6 @@
 }
 
 .gl-recipe--single .gl-recipe__side {
-	width: 100%;
-	min-width: unset;
 	border-right: none;
 	border-bottom: 1px solid var(--background-modifier-border);
 	overflow-y: visible;
@@ -68,7 +69,6 @@
 }
 
 .gl-recipe__main {
-	flex: 1;
 	overflow-y: auto;
 	padding: 16px;
 }
@@ -206,56 +206,28 @@
 	/* 2-column: always visible */
 }
 
-/* Single-column accordion behavior */
+/* Single-column accordion behavior (editor mode only) */
 
-.gl-recipe--single .gl-recipe__ingredients-header {
+.gl-recipe--single.gl-recipe--editor .gl-recipe__ingredients-header {
 	cursor: pointer;
 }
 
-.gl-recipe--single .gl-recipe__ingredients-chevron {
+.gl-recipe--single.gl-recipe--editor .gl-recipe__ingredients-chevron {
 	display: inline-block;
 }
 
-.gl-recipe--single .gl-recipe__ingredients-body {
+.gl-recipe--single.gl-recipe--editor .gl-recipe__ingredients-body {
 	max-height: 0;
 	overflow: hidden;
 	transition: max-height 0.3s ease;
 }
 
-.gl-recipe--single .gl-recipe__ingredients--open .gl-recipe__ingredients-body {
+.gl-recipe--single.gl-recipe--editor .gl-recipe__ingredients--open .gl-recipe__ingredients-body {
 	max-height: 2000px;
 }
 
-.gl-recipe--single .gl-recipe__ingredients--open .gl-recipe__ingredients-chevron {
+.gl-recipe--single.gl-recipe--editor .gl-recipe__ingredients--open .gl-recipe__ingredients-chevron {
 	transform: rotate(90deg);
-}
-
-/* FAB — Ingredients floating button */
-
-.gl-recipe__ingredients-fab {
-	display: none;
-}
-
-.gl-recipe--single ~ .gl-recipe__ingredients-fab {
-	display: block;
-	position: absolute;
-	bottom: 16px;
-	right: 16px;
-	background: var(--gl-warm-accent);
-	color: #fff;
-	border-radius: 20px;
-	padding: 8px 16px;
-	font-size: 0.85em;
-	font-weight: 600;
-	cursor: pointer;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-	z-index: 10;
-	transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.gl-recipe--single ~ .gl-recipe__ingredients-fab:hover {
-	transform: translateY(-2px);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
 .gl-recipe__section h4 {
@@ -675,8 +647,7 @@
 	justify-content: space-between;
 	gap: 8px;
 	border-bottom: 1px solid var(--background-modifier-border);
-	padding-bottom: 12px;
-	margin-bottom: 4px;
+	padding: 16px 16px 12px;
 }
 
 .gl-recipe__title-btns {
@@ -707,6 +678,75 @@
 
 .gl-recipe__view-source:hover {
 	color: var(--text-normal);
+}
+
+/* Single-column: sticky title row */
+
+.gl-recipe--single .gl-recipe__title-row {
+	position: sticky;
+	top: 0;
+	z-index: 5;
+	background: var(--background-primary);
+	padding: 8px 20px;
+}
+
+.gl-recipe--single .gl-recipe__mode-toggle,
+.gl-recipe--single .gl-recipe__view-source {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+}
+
+/* Editor metadata card — unstyled wrapper in 2-column */
+
+.gl-recipe__editor-meta {
+	margin-bottom: 16px;
+}
+
+/* Accordion header: hidden in 2-column */
+.gl-recipe__editor-meta-header {
+	display: none;
+}
+
+/* Desktop h3 labels: visible in 2-column */
+.gl-recipe__editor-meta-label {
+	/* shown by default */
+}
+
+/* Single-column: card + accordion behavior */
+.gl-recipe--single .gl-recipe__editor-meta {
+	background: var(--background-primary);
+	border-radius: 10px;
+	padding: 12px;
+}
+
+.gl-recipe--single .gl-recipe__editor-meta-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	cursor: pointer;
+}
+
+.gl-recipe--single .gl-recipe__editor-meta-header .gl-recipe__ingredients-chevron {
+	display: inline-block;
+}
+
+.gl-recipe--single .gl-recipe__editor-meta-label {
+	display: none;
+}
+
+.gl-recipe--single .gl-recipe__editor-meta-body {
+	max-height: 0;
+	overflow: hidden;
+	transition: max-height 0.3s ease;
+}
+
+.gl-recipe--single .gl-recipe__editor-meta--open .gl-recipe__editor-meta-body {
+	max-height: 2000px;
+}
+
+.gl-recipe--single .gl-recipe__editor-meta--open .gl-recipe__ingredients-chevron {
+	transform: rotate(90deg);
 }
 
 /* Side data */
@@ -995,4 +1035,14 @@
 	line-height: 1.6;
 	color: var(--text-normal);
 	font-size: 0.92em;
+}
+
+/* ── Mobile: pad bottom for Obsidian's floating navigation bar ── */
+
+.is-mobile .gl-recipe {
+	padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.is-mobile .gl-recipe--single {
+	padding-bottom: 48px;
 }
