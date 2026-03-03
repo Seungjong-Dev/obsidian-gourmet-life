@@ -49,6 +49,7 @@
 }
 
 .gl-recipe__side {
+	container-type: inline-size;
 	width: 30%;
 	min-width: 220px;
 	overflow-y: auto;
@@ -265,12 +266,35 @@
 }
 
 .gl-recipe__item {
-	display: flex;
-	justify-content: space-between;
+	display: grid;
+	grid-template-columns: 1fr;
+	align-items: center;
 	padding: 6px 8px;
 	border-radius: 4px;
 	cursor: default;
 	border-bottom: 1px solid var(--background-modifier-border);
+	position: relative;
+}
+
+/* Stack all children in same grid cell so checkbox never shifts the name */
+.gl-recipe__item > * {
+	grid-column: 1;
+	grid-row: 1;
+}
+
+.gl-recipe__item > span:first-of-type {
+	text-align: center;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	padding: 0 72px;
+}
+
+@container (max-width: 300px) {
+	.gl-recipe__item > span:first-of-type {
+		text-align: left;
+		padding: 0 72px 0 28px;
+	}
 }
 
 .gl-recipe__item:last-child {
@@ -282,7 +306,8 @@
 }
 
 .gl-recipe__item-checkbox {
-	flex-shrink: 0;
+	justify-self: start;
+	z-index: 1;
 	accent-color: var(--gl-warm-accent);
 }
 
@@ -298,6 +323,10 @@
 /* Quantity pill inside ingredient item */
 
 .gl-recipe__item .gl-recipe__meta-label {
+	position: absolute;
+	right: 8px;
+	top: 50%;
+	transform: translateY(-50%);
 	background: var(--background-modifier-border);
 	border-radius: 10px;
 	padding: 1px 8px;
