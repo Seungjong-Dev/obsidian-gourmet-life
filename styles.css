@@ -195,6 +195,10 @@
 	gap: 6px;
 }
 
+.gl-recipe__ingredients-header .gl-recipe__section-title {
+	flex: 1;
+}
+
 .gl-recipe__ingredients-chevron {
 	display: none;
 	font-size: 0.7em;
@@ -310,6 +314,9 @@
 .gl-recipe__tools {
 	margin-bottom: 16px;
 	font-size: 0.9em;
+	background: var(--background-primary);
+	border-radius: 10px;
+	padding: 12px;
 }
 
 .gl-recipe__tools ul {

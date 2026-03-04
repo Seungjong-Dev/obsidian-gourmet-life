@@ -298,6 +298,7 @@ When a recipe note is opened, the plugin renders a **2-column layout** replacing
 - Ingredient list grouped by section, with inline editing (Editor mode)
 - Tools list (auto-extracted from steps)
 - Total time (auto-extracted from steps)
+- Ingredients, Tools, Total Time sections share a unified card style (`background-primary`, `border-radius: 10px`, `padding: 12px`) with full-width `h3` section-title underline headings
 
 **Title Row** (full-width, above both panels):
 - Recipe title (read-only display or editable input depending on mode)
@@ -650,12 +651,13 @@ gl-recipe__side        — Side panel (grid-row: 1/-1, scrollable)
 gl-recipe__main        — Main panel (scrollable)
 gl-recipe__image       — Image area
 gl-recipe__meta        — Metadata section
-gl-recipe__ingredients — Ingredient list container
+gl-recipe__ingredients — Ingredient list container (card: background-primary, rounded, padded)
+gl-recipe__ingredients-header — Flex row: section-title (flex:1 for full-width underline) + chevron
 gl-recipe__section     — Ingredient section group
 gl-recipe__item        — Single ingredient row (grid overlay layout; center-aligned, left-aligned fallback via container query ≤300px)
 gl-recipe__item--highlight — Highlighted ingredient (interaction)
-gl-recipe__tools       — Tools list (auto-extracted)
-gl-recipe__time        — Total time display
+gl-recipe__tools       — Tools list (card: background-primary, rounded, padded — same style as ingredients/time)
+gl-recipe__time        — Total time display (card: background-primary, rounded, padded)
 gl-recipe__steps       — Steps container
 gl-recipe__step-group  — Step group wrapper (counter-reset scope per section)
 gl-recipe__step        — Single step
