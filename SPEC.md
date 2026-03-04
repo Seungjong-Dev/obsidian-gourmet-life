@@ -112,7 +112,9 @@ frontmatter
 (optional tips and remarks)
 
 ## Reviews
-(optional tasting notes with dates)
+(optional tasting notes — dated or dateless list items)
+- 2026-03-04 First attempt, turned out great
+- Quick weeknight version, also good
 ```
 
 - `## Recipe` is inserted automatically when saving from Recipe View's editor
@@ -305,7 +307,7 @@ When a recipe note is opened, the plugin renders a **2-column layout** replacing
 
 **Main Panel** (right, scrollable):
 - Steps — the core editing area, organized by sections
-- Reviews — tasting notes and impressions (optional)
+- Reviews — timeline cards parsed from `- YYYY-MM-DD text` or `- text` list items; indented lines are continuation of the previous card; text before the first list item is rendered as preamble; editor textarea includes format placeholder
 - References / source links (bottom of panel)
 
 #### Mode-Specific Side Panel Content
@@ -541,7 +543,9 @@ src/
 
 **recipe-main-panel.ts** — Main panel rendering
 - `renderTitleRow(titleRow, title, mode, callbacks)`: Renders title (display or input) + mode toggle + share button (viewer only) + view source button into the root-level title row element
-- `renderMainViewer(container, note)`: Read-only steps, reviews, and references (in that order) with highlighted ingredient text
+- `renderMainViewer(container, note)`: Read-only steps, review timeline cards, and references (in that order) with highlighted ingredient text
+- `parseReviewEntries(text)`: Parses `- YYYY-MM-DD text` (dated) and `- text` (dateless) into timeline cards; colon after date is optional; indented/continuation lines belong to previous entry; pre-entry text collected as preamble
+- `renderReviewCards(container, text)`: Renders preamble (if any) then timeline cards; dateless cards omit the date badge; falls back to plain text if no list items found
 - `renderMainEditor(container, note)`: Editable steps with ingredient chip insertion
 - `onStepFocus(stepIndex)`: Emits event for Side to highlight used ingredients
 - `highlightSteps(ingredientName)`: Highlights steps using a given ingredient

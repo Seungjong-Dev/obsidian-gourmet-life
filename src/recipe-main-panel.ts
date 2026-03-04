@@ -294,6 +294,7 @@ function renderMainPanelEditor(
 		cls: "gl-recipe__edit-textarea",
 	}) as HTMLTextAreaElement;
 	reviewsArea.dataset.field = "reviews";
+	reviewsArea.placeholder = "- 2026-03-04 Write your review here";
 	reviewsArea.value = reviewsContent;
 	reviewsArea.addEventListener("input", () => {
 		callbacks.onReviewsInput();
@@ -464,24 +465,36 @@ interface ReviewEntry {
 
 /**
  * Parse review entries from text.
- * Each entry starts with `- DATE :` pattern.
- * Subsequent non-entry lines are continuation of the previous entry.
+ * Each entry starts with `- ` at line start (top-level list item).
+ * Dated entries: `- YYYY-MM-DD ...`; dateless entries: `- text`.
+ * Indented/continuation lines belong to the previous entry.
+ * Text before the first entry is collected as preamble.
  */
-function parseReviewEntries(text: string): ReviewEntry[] | null {
+function parseReviewEntries(text: string): { preamble: string; entries: ReviewEntry[] } | null {
 	const lines = text.split("\n");
 	const entries: ReviewEntry[] = [];
-	const entryRe = /^-\s*(\d{4}-\d{2}-\d{2})\s*:\s*(.*)/;
+	const preambleLines: string[] = [];
+	const datedRe = /^-\s*(\d{4}-\d{2}-\d{2})\s*:?\s*(.*)/;
+	const itemRe = /^-\s+(.*)/;
 
 	for (const line of lines) {
-		const m = line.match(entryRe);
-		if (m) {
-			entries.push({ date: m[1], lines: m[2].trim() ? [m[2].trim()] : [] });
-		} else if (entries.length > 0 && line.trim()) {
-			entries[entries.length - 1].lines.push(line.trim());
+		const dm = line.match(datedRe);
+		if (dm) {
+			entries.push({ date: dm[1], lines: dm[2].trim() ? [dm[2].trim()] : [] });
+		} else {
+			const im = line.match(itemRe);
+			if (im) {
+				entries.push({ date: "", lines: im[1].trim() ? [im[1].trim()] : [] });
+			} else if (entries.length > 0 && line.trim()) {
+				entries[entries.length - 1].lines.push(line.trim());
+			} else if (entries.length === 0 && line.trim()) {
+				preambleLines.push(line.trim());
+			}
 		}
 	}
 
-	return entries.length > 0 ? entries : null;
+	if (entries.length === 0) return null;
+	return { preamble: preambleLines.join("\n"), entries };
 }
 
 /**
@@ -493,16 +506,22 @@ function renderReviewCards(
 	text: string,
 	resourcePath?: (path: string) => string
 ): void {
-	const entries = parseReviewEntries(text);
-	if (!entries) {
+	const result = parseReviewEntries(text);
+	if (!result) {
 		renderTextContent(container, text, resourcePath);
 		return;
 	}
 
+	if (result.preamble) {
+		renderTextContent(container, result.preamble, resourcePath);
+	}
+
 	const timeline = container.createDiv({ cls: "gl-recipe__review-timeline" });
-	for (const entry of entries) {
+	for (const entry of result.entries) {
 		const card = timeline.createDiv({ cls: "gl-recipe__review-card" });
-		card.createDiv({ text: entry.date, cls: "gl-recipe__review-date" });
+		if (entry.date) {
+			card.createDiv({ text: entry.date, cls: "gl-recipe__review-date" });
+		}
 		const body = card.createDiv({ cls: "gl-recipe__review-body" });
 		const content = entry.lines.join("\n");
 		if (content) {
