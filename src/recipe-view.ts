@@ -34,6 +34,7 @@ export class RecipeView extends ItemView {
 	private autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
 	private isSaving = false;
 	private lastSavedContent = "";
+	private renderVersion = 0;
 
 	constructor(leaf: WorkspaceLeaf, plugin: GourmetLifePlugin) {
 		super(leaf);
@@ -164,15 +165,23 @@ export class RecipeView extends ItemView {
 
 	private async render(): Promise<void> {
 		if (!this.filePath) return;
+		const thisRender = ++this.renderVersion;
 
 		const file = this.app.vault.getAbstractFileByPath(this.filePath);
 		if (!file || !(file instanceof TFile)) return;
 
 		const cache = this.app.metadataCache.getFileCache(file);
 		const fm = cache?.frontmatter as unknown as RecipeFrontmatter;
-		if (!fm || fm.type !== "recipe") return;
+		if (!fm || fm.type !== "recipe") {
+			// Cache not ready — schedule one retry
+			if (thisRender === this.renderVersion) {
+				setTimeout(() => this.render(), 100);
+			}
+			return;
+		}
 
 		const content = await this.app.vault.read(file);
+		if (thisRender !== this.renderVersion) return;
 		const fmMatch = content.match(/^---\n[\s\S]*?\n---\n?/);
 		const bodyContent = fmMatch
 			? content.substring(fmMatch[0].length)

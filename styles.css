@@ -1346,6 +1346,7 @@
 	padding: 20px;
 	border-right: 1px solid var(--background-modifier-border);
 	background: var(--background-secondary);
+	min-height: 0;
 }
 
 .gl-restaurant--single .gl-restaurant__side {
@@ -1358,6 +1359,7 @@
 .gl-restaurant__main {
 	overflow-y: auto;
 	padding: 16px;
+	min-height: 0;
 }
 
 .gl-restaurant--single .gl-restaurant__main {

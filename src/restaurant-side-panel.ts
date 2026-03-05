@@ -30,6 +30,18 @@ export interface RestaurantSideState {
 	tags: string;
 }
 
+// Track active Leaflet map instances for cleanup
+const activeMaps = new WeakMap<HTMLElement, L.Map>();
+
+/** Destroy any Leaflet map previously rendered inside this container */
+export function destroyLeafletMap(container: HTMLElement): void {
+	const map = activeMaps.get(container);
+	if (map) {
+		map.remove();
+		activeMaps.delete(container);
+	}
+}
+
 // ── Render ──
 
 export function renderRestaurantSidePanel(
@@ -42,12 +54,23 @@ export function renderRestaurantSidePanel(
 	app?: App,
 	notePath?: string
 ): void {
+	destroyLeafletMap(container);
 	container.empty();
 
-	if (mode === "viewer") {
-		renderViewer(container, fm, bodyContent, resourcePath);
-	} else {
-		renderEditor(container, fm, bodyContent, resourcePath, callbacks, app, notePath);
+	try {
+		if (mode === "viewer") {
+			renderViewer(container, fm, bodyContent, resourcePath);
+		} else {
+			renderEditor(container, fm, bodyContent, resourcePath, callbacks, app, notePath);
+		}
+	} catch (err) {
+		console.error("[GourmetLife] Side panel render failed:", err);
+		if (container.childElementCount === 0) {
+			container.createDiv({
+				cls: "gl-restaurant__error",
+				text: "Side panel failed to render. Check console for details.",
+			});
+		}
 	}
 }
 
@@ -70,7 +93,7 @@ function renderViewer(
 	// Map
 	if (fm.lat != null && fm.lng != null) {
 		const mapEl = container.createDiv({ cls: "gl-restaurant__map" });
-		renderLeafletMap(mapEl, fm.lat, fm.lng, false);
+		renderLeafletMap(container, mapEl, fm.lat, fm.lng, false);
 	} else if (fm.location) {
 		const fallback = container.createDiv({ cls: "gl-restaurant__map-fallback" });
 		const link = fallback.createEl("a", {
@@ -298,7 +321,7 @@ function renderEditor(
 	const lng = fm.lng;
 	if (lat != null && lng != null) {
 		const mapEl = container.createDiv({ cls: "gl-restaurant__map" });
-		renderLeafletMap(mapEl, lat, lng, true, (coords) => {
+		renderLeafletMap(container, mapEl, lat, lng, true, (coords) => {
 			setFieldValue(container, "lat", String(coords.lat));
 			setFieldValue(container, "lng", String(coords.lng));
 			callbacks.onInput();
@@ -333,13 +356,14 @@ export function collectRestaurantSideState(container: HTMLElement): RestaurantSi
 // ── Leaflet Map ──
 
 function renderLeafletMap(
-	container: HTMLElement,
+	sideContainer: HTMLElement,
+	mapEl: HTMLElement,
 	lat: number,
 	lng: number,
 	interactive: boolean,
 	onMapClick?: (coords: GeoCoords) => void
 ): void {
-	container.style.height = "180px";
+	mapEl.style.height = "180px";
 
 	// Inject minimal Leaflet CSS if not already present
 	if (!document.getElementById("gl-leaflet-css")) {
@@ -349,38 +373,57 @@ function renderLeafletMap(
 		document.head.appendChild(style);
 	}
 
-	setTimeout(() => {
-		const map = L.map(container, {
-			zoomControl: false,
-			attributionControl: false,
-			dragging: interactive,
-			scrollWheelZoom: interactive,
-			doubleClickZoom: interactive,
-			touchZoom: interactive,
-		}).setView([lat, lng], 15);
+	// Defer Leaflet init to rAF so CSS grid has completed layout first
+	requestAnimationFrame(() => {
+		if (!mapEl.isConnected) return;
 
-		L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-			maxZoom: 19,
-		}).addTo(map);
+		try {
+			const map = L.map(mapEl, {
+				zoomControl: false,
+				attributionControl: false,
+				dragging: interactive,
+				scrollWheelZoom: interactive,
+				doubleClickZoom: interactive,
+				touchZoom: interactive,
+			}).setView([lat, lng], 15);
 
-		let marker = L.marker([lat, lng]).addTo(map);
+			// Store reference for cleanup immediately so destroyLeafletMap always finds it
+			activeMaps.set(sideContainer, map);
 
-		if (!interactive) {
-			marker.on("click", () => {
-				window.open(
-					`https://maps.google.com/maps?q=${lat},${lng}`,
-					"_blank"
-				);
+			L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+				maxZoom: 19,
+			}).addTo(map);
+
+			const marker = L.marker([lat, lng]).addTo(map);
+
+			if (!interactive) {
+				marker.on("click", () => {
+					window.open(
+						`https://maps.google.com/maps?q=${lat},${lng}`,
+						"_blank"
+					);
+				});
+			}
+
+			if (interactive && onMapClick) {
+				map.on("click", (e: L.LeafletMouseEvent) => {
+					marker.setLatLng(e.latlng);
+					onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng });
+				});
+			}
+			} catch (err) {
+			console.error("[GourmetLife] Leaflet map render failed:", err);
+			mapEl.empty();
+			mapEl.style.height = "";
+			const fallback = mapEl.createEl("a", {
+				text: `\uD83D\uDDFA\uFE0F Open in Google Maps`,
+				cls: "gl-restaurant__location-link",
 			});
+			fallback.href = `https://maps.google.com/maps?q=${lat},${lng}`;
+			fallback.setAttr("target", "_blank");
+			fallback.setAttr("rel", "noopener");
 		}
-
-		if (interactive && onMapClick) {
-			map.on("click", (e: L.LeafletMouseEvent) => {
-				marker.setLatLng(e.latlng);
-				onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng });
-			});
-		}
-	}, 0);
+	});
 }
 
 // ── Helpers ──

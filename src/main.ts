@@ -189,12 +189,21 @@ export default class GourmetLifePlugin extends Plugin {
 			this.app.workspace.on("file-open", (file) => {
 				if (!file) return;
 				const cache = this.app.metadataCache.getFileCache(file);
-				if (!isGourmetNote(file.path, cache, this.settings)) return;
+				const isGourmet = isGourmetNote(file.path, cache, this.settings);
 
-				if (file.path.startsWith(this.settings.recipesFolder + "/")) {
-					this.openRecipeView(file);
-				} else if (file.path.startsWith(this.settings.restaurantsFolder + "/")) {
-					this.openRestaurantView(file);
+				if (isGourmet) {
+					if (file.path.startsWith(this.settings.recipesFolder + "/")) {
+						this.openRecipeView(file);
+					} else if (file.path.startsWith(this.settings.restaurantsFolder + "/")) {
+						this.openRestaurantView(file);
+					}
+				} else {
+					// Cache might not be ready — fallback to folder-based check
+					if (file.path.startsWith(this.settings.restaurantsFolder + "/") && file.path.endsWith(".md")) {
+						this.openRestaurantView(file);
+					} else if (file.path.startsWith(this.settings.recipesFolder + "/") && file.path.endsWith(".md")) {
+						this.openRecipeView(file);
+					}
 				}
 			})
 		);
@@ -241,38 +250,57 @@ export default class GourmetLifePlugin extends Plugin {
 
 	async openRecipeView(file: TFile, mode: RecipeViewMode = "viewer"): Promise<void> {
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_RECIPE);
-		let leaf = leaves.find((l) => {
+
+		const exact = leaves.find((l) => {
 			return (l.view as RecipeView).getState().file === file.path;
 		});
-
-		if (!leaf) {
-			leaf = this.app.workspace.getLeaf(false);
-			await leaf.setViewState({
-				type: VIEW_TYPE_RECIPE,
-				active: true,
-				state: { file: file.path, mode },
-			});
-		} else {
-			this.app.workspace.setActiveLeaf(leaf, { focus: true });
+		if (exact) {
+			this.app.workspace.setActiveLeaf(exact, { focus: true });
+			return;
 		}
+
+		if (leaves.length > 0) {
+			const leaf = leaves[0];
+			this.app.workspace.setActiveLeaf(leaf, { focus: true });
+			await (leaf.view as RecipeView).setFile(file.path);
+			return;
+		}
+
+		const leaf = this.app.workspace.getLeaf(false);
+		await leaf.setViewState({
+			type: VIEW_TYPE_RECIPE,
+			active: true,
+			state: { file: file.path, mode },
+		});
 	}
 
 	async openRestaurantView(file: TFile, mode: RestaurantViewMode = "viewer"): Promise<void> {
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_RESTAURANT);
-		let leaf = leaves.find((l) => {
+
+		// Exact match — already showing this file
+		const exact = leaves.find((l) => {
 			return (l.view as RestaurantView).getState().file === file.path;
 		});
-
-		if (!leaf) {
-			leaf = this.app.workspace.getLeaf(false);
-			await leaf.setViewState({
-				type: VIEW_TYPE_RESTAURANT,
-				active: true,
-				state: { file: file.path, mode },
-			});
-		} else {
-			this.app.workspace.setActiveLeaf(leaf, { focus: true });
+		if (exact) {
+			this.app.workspace.setActiveLeaf(exact, { focus: true });
+			return;
 		}
+
+		// Reuse any existing RestaurantView leaf
+		if (leaves.length > 0) {
+			const leaf = leaves[0];
+			this.app.workspace.setActiveLeaf(leaf, { focus: true });
+			await (leaf.view as RestaurantView).setFile(file.path);
+			return;
+		}
+
+		// No RestaurantView exists — create one
+		const leaf = this.app.workspace.getLeaf(false);
+		await leaf.setViewState({
+			type: VIEW_TYPE_RESTAURANT,
+			active: true,
+			state: { file: file.path, mode },
+		});
 	}
 
 	onFolderSettingsChanged(): void {
