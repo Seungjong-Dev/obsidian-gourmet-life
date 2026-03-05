@@ -7,5 +7,15 @@ export function getIngredientTemplate(): string {
 }
 
 export function getRestaurantTemplate(): string {
-	return "";
+	return [
+		"## Menu Highlights",
+		"",
+		"",
+		"## Notes",
+		"",
+		"",
+		"## Reviews",
+		"",
+		"",
+	].join("\n");
 }

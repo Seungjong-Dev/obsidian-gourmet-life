@@ -2,8 +2,10 @@ import { Notice, Plugin, TFile } from "obsidian";
 import {
 	DEFAULT_SETTINGS,
 	VIEW_TYPE_RECIPE,
+	VIEW_TYPE_RESTAURANT,
 	type GourmetLifeSettings,
 	type RecipeViewMode,
+	type RestaurantViewMode,
 } from "./types";
 import { GourmetLifeSettingTab } from "./settings";
 import { NoteIndex } from "./note-index";
@@ -14,6 +16,7 @@ import {
 	batchLinkIngredients,
 } from "./ingredient-suggest";
 import { RecipeView } from "./recipe-view";
+import { RestaurantView } from "./restaurant-view";
 import { RecipeSearchModal } from "./recipe-search-modal";
 import { exportShareCard } from "./recipe-share-card";
 import { isGourmetNote } from "./frontmatter-utils";
@@ -60,7 +63,8 @@ export default class GourmetLifePlugin extends Plugin {
 				new NoteCreateModal(
 					this.app,
 					"restaurant",
-					this.settings
+					this.settings,
+					(file) => this.openRestaurantView(file)
 				).open(),
 		});
 
@@ -104,6 +108,17 @@ export default class GourmetLifePlugin extends Plugin {
 				const file = this.app.workspace.getActiveFile();
 				if (!file || !file.path.startsWith(this.settings.recipesFolder + "/")) return false;
 				if (!checking) this.openRecipeView(file);
+				return true;
+			},
+		});
+
+		this.addCommand({
+			id: "open-restaurant-view",
+			name: "Open restaurant view",
+			checkCallback: (checking) => {
+				const file = this.app.workspace.getActiveFile();
+				if (!file || !file.path.startsWith(this.settings.restaurantsFolder + "/")) return false;
+				if (!checking) this.openRestaurantView(file);
 				return true;
 			},
 		});
@@ -163,30 +178,24 @@ export default class GourmetLifePlugin extends Plugin {
 			return new RecipeView(leaf, this);
 		});
 
-		// Intercept recipe file opens
+		// ── Restaurant View ──
+
+		this.registerView(VIEW_TYPE_RESTAURANT, (leaf) => {
+			return new RestaurantView(leaf, this);
+		});
+
+		// Intercept recipe and restaurant file opens
 		this.registerEvent(
 			this.app.workspace.on("file-open", (file) => {
 				if (!file) return;
-				if (
-					!file.path.startsWith(
-						this.settings.recipesFolder + "/"
-					)
-				) {
-					return;
+				const cache = this.app.metadataCache.getFileCache(file);
+				if (!isGourmetNote(file.path, cache, this.settings)) return;
+
+				if (file.path.startsWith(this.settings.recipesFolder + "/")) {
+					this.openRecipeView(file);
+				} else if (file.path.startsWith(this.settings.restaurantsFolder + "/")) {
+					this.openRestaurantView(file);
 				}
-				const cache =
-					this.app.metadataCache.getFileCache(file);
-				if (
-					!isGourmetNote(
-						file.path,
-						cache,
-						this.settings
-					)
-				) {
-					return;
-				}
-				// Open in recipe view
-				this.openRecipeView(file);
 			})
 		);
 
@@ -240,6 +249,24 @@ export default class GourmetLifePlugin extends Plugin {
 			leaf = this.app.workspace.getLeaf(false);
 			await leaf.setViewState({
 				type: VIEW_TYPE_RECIPE,
+				active: true,
+				state: { file: file.path, mode },
+			});
+		} else {
+			this.app.workspace.setActiveLeaf(leaf, { focus: true });
+		}
+	}
+
+	async openRestaurantView(file: TFile, mode: RestaurantViewMode = "viewer"): Promise<void> {
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_RESTAURANT);
+		let leaf = leaves.find((l) => {
+			return (l.view as RestaurantView).getState().file === file.path;
+		});
+
+		if (!leaf) {
+			leaf = this.app.workspace.getLeaf(false);
+			await leaf.setViewState({
+				type: VIEW_TYPE_RESTAURANT,
 				active: true,
 				state: { file: file.path, mode },
 			});

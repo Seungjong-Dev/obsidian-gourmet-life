@@ -1,8 +1,10 @@
 // ── View Types ──────────────────────────────────────────────
 
 export const VIEW_TYPE_RECIPE = "gourmet-life-recipe-view";
+export const VIEW_TYPE_RESTAURANT = "gourmet-life-restaurant-view";
 
 export type RecipeViewMode = "viewer" | "editor";
+export type RestaurantViewMode = "viewer" | "editor";
 
 // ── Note Types ──────────────────────────────────────────────
 
@@ -40,6 +42,9 @@ export interface RestaurantFrontmatter {
 	price_range?: string;
 	rating?: number;
 	url?: string;
+	image?: string;
+	lat?: number;
+	lng?: number;
 	tags?: string[];
 	created?: string;
 }

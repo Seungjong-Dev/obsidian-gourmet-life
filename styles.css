@@ -1296,3 +1296,421 @@
 	font-weight: 600;
 	color: #999999;
 }
+
+/* ── Restaurant View ── */
+
+.gl-restaurant {
+	--gl-warm-accent: #d97706;
+	--gl-warm-accent-soft: #fef3c7;
+	display: grid;
+	grid-template-columns: minmax(220px, 30%) 1fr;
+	grid-template-rows: auto 1fr;
+	height: 100%;
+	overflow: hidden;
+}
+
+.theme-dark .gl-restaurant {
+	--gl-warm-accent: #f59e0b;
+	--gl-warm-accent-soft: rgba(245, 158, 11, 0.08);
+}
+
+.gl-restaurant--single {
+	display: flex;
+	flex-direction: column;
+	height: auto;
+	min-height: 100%;
+	overflow-y: auto;
+}
+
+.gl-restaurant__title-row {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	padding: 16px 16px 12px;
+}
+
+.gl-restaurant--single .gl-restaurant__title-row {
+	position: sticky;
+	top: 0;
+	z-index: 5;
+	background: var(--background-primary);
+	padding: 8px 20px;
+}
+
+.gl-restaurant__side {
+	container-type: inline-size;
+	grid-row: 1 / -1;
+	overflow-y: auto;
+	padding: 20px;
+	border-right: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+}
+
+.gl-restaurant--single .gl-restaurant__side {
+	border-right: none;
+	border-bottom: 1px solid var(--background-modifier-border);
+	overflow-y: visible;
+	background: transparent;
+}
+
+.gl-restaurant__main {
+	overflow-y: auto;
+	padding: 16px;
+}
+
+.gl-restaurant--single .gl-restaurant__main {
+	overflow-y: visible;
+}
+
+/* Restaurant main panel h2 — same style as recipe */
+
+.gl-restaurant__main h2 {
+	font-size: 1.1em;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--text-muted);
+	font-weight: 600;
+	margin: 24px 0 12px;
+	border-left: 3px solid var(--interactive-accent);
+	padding-left: 12px;
+}
+
+.gl-restaurant__main h2:first-child {
+	margin-top: 0;
+}
+
+/* Image */
+
+.gl-restaurant__image-wrap {
+	position: relative;
+	border-radius: 12px;
+	overflow: hidden;
+	margin-bottom: 16px;
+}
+
+.gl-restaurant__image-wrap::after {
+	content: "";
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: 40%;
+	background: linear-gradient(to top, rgba(0, 0, 0, 0.35), transparent);
+	pointer-events: none;
+}
+
+.gl-restaurant--single .gl-restaurant__image-wrap {
+	margin: -20px -20px 16px;
+	border-radius: 0;
+}
+
+.gl-restaurant__image {
+	width: 100%;
+	aspect-ratio: 4/3;
+	object-fit: cover;
+	cursor: zoom-in;
+	border-radius: 12px;
+	margin-bottom: 0;
+	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+	transition: transform 0.2s ease;
+}
+
+.gl-restaurant__image:hover {
+	transform: scale(1.02);
+}
+
+/* Map */
+
+.gl-restaurant__map {
+	border-radius: 10px;
+	overflow: hidden;
+	margin-bottom: 16px;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.gl-restaurant__map-fallback {
+	margin-bottom: 16px;
+	padding: 12px;
+	background: var(--background-primary);
+	border-radius: 10px;
+	text-align: center;
+}
+
+/* Info grid */
+
+.gl-restaurant__info-grid {
+	margin-bottom: 16px;
+}
+
+.gl-restaurant__info-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 6px 0;
+	font-size: 0.9em;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.gl-restaurant__info-row:last-child {
+	border-bottom: none;
+}
+
+.gl-restaurant__info-label {
+	color: var(--text-muted);
+	flex-shrink: 0;
+	font-weight: 500;
+}
+
+.gl-restaurant__info-row > span:last-child,
+.gl-restaurant__info-row > a {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+	text-align: right;
+}
+
+/* Location link */
+
+.gl-restaurant__location-link {
+	color: var(--text-accent);
+	text-decoration: none;
+}
+
+.gl-restaurant__location-link:hover {
+	text-decoration: underline;
+}
+
+/* URL link */
+
+.gl-restaurant__url-link {
+	color: var(--text-accent);
+	text-decoration: none;
+	font-size: 0.9em;
+}
+
+.gl-restaurant__url-link:hover {
+	text-decoration: underline;
+}
+
+/* Price display */
+
+.gl-restaurant__price {
+	letter-spacing: 2px;
+	font-weight: 700;
+}
+
+.gl-restaurant__price--active {
+	color: var(--gl-warm-accent);
+}
+
+.gl-restaurant__price--inactive {
+	color: var(--background-modifier-border);
+}
+
+/* Rating */
+
+.gl-restaurant__rating {
+	color: var(--gl-warm-accent);
+}
+
+.gl-restaurant__rating-label {
+	font-size: 0.8em;
+	color: var(--text-muted);
+	margin-left: 4px;
+}
+
+/* Tag chips */
+
+.gl-restaurant__tag-chip {
+	display: inline-block;
+	background: var(--background-modifier-border);
+	border-radius: 10px;
+	padding: 2px 8px;
+	font-size: 0.8em;
+	margin-left: 4px;
+}
+
+/* Visit summary */
+
+.gl-restaurant__visit-summary {
+	background: var(--background-primary);
+	border-radius: 10px;
+	padding: 12px;
+	text-align: center;
+	margin-top: 16px;
+}
+
+.gl-restaurant__visit-count {
+	font-size: 1.2em;
+	font-weight: 700;
+	color: var(--text-normal);
+}
+
+.gl-restaurant__visit-last {
+	font-size: 0.85em;
+	color: var(--text-muted);
+	margin-top: 4px;
+}
+
+/* Menu highlights */
+
+.gl-restaurant__menu-list {
+	margin-bottom: 16px;
+}
+
+.gl-restaurant__menu-item {
+	padding: 8px 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+	line-height: 1.5;
+}
+
+.gl-restaurant__menu-item:last-child {
+	border-bottom: none;
+}
+
+.gl-restaurant__menu-name {
+	font-weight: 600;
+}
+
+.gl-restaurant__menu-desc {
+	color: var(--text-muted);
+}
+
+/* Review timeline */
+
+.gl-restaurant__review-timeline {
+	position: relative;
+	padding-left: 20px;
+}
+
+.gl-restaurant__review-timeline::before {
+	content: "";
+	position: absolute;
+	left: 6px;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background: var(--background-modifier-border);
+}
+
+.gl-restaurant__review-card {
+	position: relative;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	padding: 12px 16px;
+	margin-bottom: 12px;
+	background: var(--background-primary);
+}
+
+.gl-restaurant__review-card::before {
+	content: "";
+	position: absolute;
+	left: -18px;
+	top: 16px;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--gl-warm-accent);
+}
+
+.gl-restaurant__review-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+}
+
+.gl-restaurant__review-date {
+	display: inline-block;
+	background: var(--gl-warm-accent);
+	color: #fff;
+	font-size: 0.78em;
+	font-weight: 600;
+	padding: 2px 10px;
+	border-radius: 10px;
+}
+
+.gl-restaurant__review-rating {
+	color: var(--gl-warm-accent);
+	font-size: 0.9em;
+}
+
+.gl-restaurant__review-rating-num {
+	font-size: 0.85em;
+	color: var(--text-muted);
+}
+
+/* Dish review */
+
+.gl-restaurant__dish-review {
+	padding: 4px 0;
+	line-height: 1.6;
+}
+
+.gl-restaurant__dish-chip {
+	display: inline-block;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-radius: 6px;
+	padding: 1px 8px;
+	font-size: 0.85em;
+	font-weight: 600;
+}
+
+.gl-restaurant__dish-stars {
+	color: var(--gl-warm-accent);
+	font-size: 0.9em;
+}
+
+.gl-restaurant__dish-comment {
+	color: var(--text-muted);
+	font-size: 0.92em;
+}
+
+/* General comment */
+
+.gl-restaurant__general-comment {
+	color: var(--text-normal);
+	font-size: 0.92em;
+	line-height: 1.6;
+	padding: 2px 0;
+}
+
+/* Coord buttons */
+
+.gl-restaurant__coord-btns {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+	margin-top: 8px;
+}
+
+.gl-restaurant__coord-edit {
+	margin-top: 16px;
+}
+
+.gl-restaurant__meta-edit {
+	margin-bottom: 8px;
+}
+
+/* Mobile padding */
+
+.is-mobile .gl-restaurant {
+	padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.is-mobile .gl-restaurant--single {
+	padding-bottom: 48px;
+}
+
+/* Single-column button styling */
+
+.gl-restaurant--single .gl-recipe__mode-toggle,
+.gl-restaurant--single .gl-recipe__view-source {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+}
