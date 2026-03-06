@@ -467,7 +467,7 @@ Recipe images referenced via `fm.image` are resolved through `vault.readBinary()
 
 ### 5.6 Restaurant View (2-Column Layout)
 
-When a restaurant note is opened, the plugin renders a **2-column layout** replacing the default markdown view. Follows the same architecture as Recipe View (ItemView, viewer/editor dual mode, auto-save, responsive layout).
+When a restaurant note is opened, the plugin renders a **2-column layout** replacing the default markdown view. Follows the same architecture as Recipe View (ItemView, viewer/editor dual mode, auto-save, responsive layout). Newly created restaurant notes open directly in editor mode so users can immediately fill in details.
 
 ```
 ┌─── Restaurant View (CSS grid: auto 1fr rows × 30%/70% columns) ──────────┐
@@ -501,7 +501,7 @@ When a restaurant note is opened, the plugin renders a **2-column layout** repla
 - Leaflet mini-map (if `lat`/`lng` available) — interactive in editor, read-only in viewer
 - Info grid: location, cuisine, price range ($ visualization), rating (stars), URL (external link), tags
 - Visit summary: total visits, average rating across all visits
-- Editor mode: metadata input fields, coordinate extraction from URL (Google/Naver/Kakao Maps) or geocoding by address (Nominatim API)
+- Editor mode: metadata input fields, coordinate extraction from URL (sync regex + async fetch for short URLs and place pages) or geocoding by address (Nominatim API). Coordinates are auto-extracted on editor open when URL exists but lat/lng are empty
 
 **Main Panel** (right, scrollable):
 - Menu Highlights: parsed `- name — description` list
@@ -514,7 +514,8 @@ When a restaurant note is opened, the plugin renders a **2-column layout** repla
 A Leaflet.js mini-map is rendered in the side panel when `lat`/`lng` coordinates are available. Leaflet is bundled via esbuild (~40KB addition).
 
 - **Viewer mode**: Read-only map with marker, click opens full map in external browser
-- **Editor mode**: Interactive map — click to update coordinates, "Extract from URL" button parses coordinates from Google/Naver/Kakao Maps URLs, "Search by address" button geocodes via Nominatim API
+- **Editor mode**: Interactive map — click to update coordinates, "Extract from URL" button parses coordinates from Google/Naver/Kakao Maps URLs (sync regex, then async fetch for short/place URLs), "Search by address" button geocodes via Nominatim API. Coordinates auto-extracted on editor open when URL is present but lat/lng are missing
+- Custom SVG map marker icon (red pin with white center)
 - OpenStreetMap tiles, attribution preserved
 
 #### Restaurant Parser
@@ -525,8 +526,11 @@ A Leaflet.js mini-map is rendered in the side panel when `lat`/`lng` coordinates
 - `parseRestaurantVisits(reviewsText)`: Parses visit entries with `- YYYY-MM-DD` dates, `#rate/N` dish ratings, general comments
 - `computeVisitRating(visit)`: Average of dish ratings in a single visit
 - `computeOverallRating(visits)`: Average across all visits
-- `extractCoordsFromUrl(url)`: Extracts lat/lng from Google (`/@lat,lng`), Naver (`c=lng,lat`), Kakao (`map/name,lat,lng`) map URLs
-- `geocodeAddress(address)`: Nominatim API reverse geocoding
+- `extractCoordsFromUrl(url)`: Sync rule-based extraction — Google (`/@lat,lng`), Naver (`c=lng,lat`), Kakao (`map/name,lat,lng`) URLs
+- `fetchCoordsFromUrl(url)`: Async rule-based extraction — Google short URLs (`maps.app.goo.gl`, redirect follow), Kakao Place (HTML scrape), Naver Place (mobile page `x`/`y` JSON or redirect resolve)
+- `followRedirects(url)`: Node.js http/https redirect chain follower (up to 5 hops)
+- `parseXYFromHtml(html)` / `parseOgCoordsFromHtml(html)`: HTML coordinate extraction helpers
+- `geocodeAddress(address)`: Nominatim API geocoding
 
 #### Auto-Save
 
@@ -684,7 +688,7 @@ src/
 **restaurant-side-panel.ts** — Restaurant side panel
 - `renderRestaurantSidePanel()`: Entry point, delegates to viewer/editor sub-renderers
 - Viewer: Image with lightbox, Leaflet map (or fallback), info grid (location, cuisine, price range, rating, URL, tags), visit summary
-- Editor: Image editor, metadata form fields, coordinate section with "Extract from URL" and "Search by address" buttons, interactive Leaflet map
+- Editor: Image editor, metadata form fields, coordinate section with "Extract from URL" (sync + async) and "Search by address" buttons, auto-extract on open when URL exists but no coords, interactive Leaflet map
 - `collectRestaurantSideState()`: Collects form values for auto-save
 - `renderLeafletMap()`: Creates Leaflet map instance with OpenStreetMap tiles
 
@@ -700,7 +704,8 @@ src/
 - `parseMenuHighlights(text)`: Parse `- name — description` list items into `RestaurantMenuItem[]`
 - `parseRestaurantVisits(reviewsText)`: Parse visit entries with dates, `#rate/N` dish reviews, general comments into `RestaurantVisit[]`
 - `computeVisitRating(visit)` / `computeOverallRating(visits)` / `computeVisitStats(visits)`: Rating calculations
-- `extractCoordsFromUrl(url)`: Regex extraction for Google (`/@lat,lng`), Naver (`c=lng,lat`), Kakao (`map/name,lat,lng`) URLs
+- `extractCoordsFromUrl(url)`: Sync rule-based regex extraction for Google, Naver, Kakao map URLs → `GeoCoords | null`
+- `fetchCoordsFromUrl(url)`: Async rule-based extraction for short URLs (Google `maps.app.goo.gl`), Kakao Place pages, Naver Place pages (redirect follow + HTML scrape) → `Promise<GeoCoords | null>`
 - `geocodeAddress(address)`: Nominatim API geocoding → `GeoCoords`
 
 **textarea-suggest.ts** — Generic textarea inline autocomplete
