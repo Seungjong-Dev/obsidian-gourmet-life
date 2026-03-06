@@ -128,14 +128,14 @@ export class RestaurantView extends ItemView {
 		}
 	}
 
-	async setFile(filePath: string): Promise<void> {
+	async setFile(filePath: string, mode: RestaurantViewMode = "viewer"): Promise<void> {
 		if (this.autoSaveTimer) {
 			clearTimeout(this.autoSaveTimer);
 			this.autoSaveTimer = null;
 			await this.autoSave();
 		}
 		this.filePath = filePath;
-		this.mode = "viewer";
+		this.mode = mode;
 		await this.render();
 		this.leaf.updateHeader();
 	}

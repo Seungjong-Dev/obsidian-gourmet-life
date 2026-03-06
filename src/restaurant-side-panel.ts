@@ -7,6 +7,7 @@ import {
 	computeOverallRating,
 	computeVisitStats,
 	extractCoordsFromUrl,
+	fetchCoordsFromUrl,
 	geocodeAddress,
 	type GeoCoords,
 } from "./restaurant-parser";
@@ -286,22 +287,33 @@ function renderEditor(
 		cls: "gl-recipe__add-btn",
 		text: "Extract from URL",
 	});
-	extractBtn.addEventListener("click", () => {
+	extractBtn.addEventListener("click", async () => {
 		const urlField = container.querySelector('[data-field="url"]') as HTMLInputElement | null;
 		const urlVal = urlField?.value?.trim() || "";
 		if (!urlVal) {
 			new Notice("No URL to extract coordinates from");
 			return;
 		}
+		// Try sync regex extraction first
 		const coords = extractCoordsFromUrl(urlVal);
 		if (coords) {
 			setFieldValue(container, "lat", String(coords.lat));
 			setFieldValue(container, "lng", String(coords.lng));
 			callbacks.onInput();
 			new Notice(`Coordinates extracted: ${coords.lat}, ${coords.lng}`);
-		} else {
-			new Notice("Could not extract coordinates from URL");
+			return;
 		}
+		// Try async fetch-based extraction
+		new Notice("Fetching coordinates...");
+		const fetched = await fetchCoordsFromUrl(urlVal);
+		if (fetched) {
+			setFieldValue(container, "lat", String(fetched.lat));
+			setFieldValue(container, "lng", String(fetched.lng));
+			callbacks.onInput();
+			new Notice(`Coordinates extracted: ${fetched.lat}, ${fetched.lng}`);
+			return;
+		}
+		new Notice("Could not extract coordinates from URL");
 	});
 
 	const geocodeBtn = btnRow.createEl("button", {
@@ -337,6 +349,21 @@ function renderEditor(
 			setFieldValue(container, "lng", String(coords.lng));
 			callbacks.onInput();
 		});
+	}
+
+	// Auto-extract coordinates if URL exists but lat/lng are empty
+	const urlVal = fm.url?.trim() || "";
+	const hasCoords = fm.lat != null && fm.lng != null;
+	if (urlVal && !hasCoords) {
+		(async () => {
+			const coords = extractCoordsFromUrl(urlVal) || await fetchCoordsFromUrl(urlVal);
+			if (coords) {
+				setFieldValue(container, "lat", String(coords.lat));
+				setFieldValue(container, "lng", String(coords.lng));
+				callbacks.onInput();
+				new Notice(`Coordinates auto-extracted: ${coords.lat}, ${coords.lng}`);
+			}
+		})();
 	}
 }
 
@@ -406,7 +433,13 @@ function renderLeafletMap(
 				maxZoom: 19,
 			}).addTo(map);
 
-			const marker = L.marker([lat, lng]).addTo(map);
+			const markerIcon = L.divIcon({
+				className: "gl-map-marker",
+				html: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="36" viewBox="0 0 24 36"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z" fill="#e74c3c"/><circle cx="12" cy="11" r="5" fill="#fff"/></svg>',
+				iconSize: [24, 36],
+				iconAnchor: [12, 36],
+			});
+			const marker = L.marker([lat, lng], { icon: markerIcon }).addTo(map);
 
 			if (!interactive) {
 				marker.on("click", () => {

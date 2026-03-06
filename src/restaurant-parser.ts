@@ -2,6 +2,8 @@
 // Parses restaurant note body sections: Menu Highlights, Notes, Reviews
 // Reviews use visit-based structure with dish reviews and general comments
 
+import { requestUrl } from "obsidian";
+
 export interface DishReview {
 	name: string;
 	rating?: number;
@@ -238,27 +240,188 @@ export function getTopDishes(visits: RestaurantVisit[], limit = 5): DishReview[]
 
 // ── Geo Coordinate Extraction ──
 
+interface SyncMapUrlRule {
+	name: string;
+	test: RegExp;
+	extract: (url: string) => GeoCoords | null;
+}
+
+interface AsyncMapUrlRule {
+	name: string;
+	test: RegExp;
+	fetch: (url: string) => Promise<GeoCoords | null>;
+}
+
+const SYNC_MAP_RULES: SyncMapUrlRule[] = [
+	{
+		name: "Google Maps",
+		test: /@-?\d+\.?\d*,-?\d+\.?\d*/,
+		extract: (url) => {
+			const m = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+			return m ? { lat: parseFloat(m[1]), lng: parseFloat(m[2]) } : null;
+		},
+	},
+	{
+		name: "Naver Maps",
+		test: /[?&]c=-?\d+\.?\d*,-?\d+\.?\d*/,
+		extract: (url) => {
+			const m = url.match(/[?&]c=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+			return m ? { lat: parseFloat(m[2]), lng: parseFloat(m[1]) } : null;
+		},
+	},
+	{
+		name: "Kakao Maps",
+		test: /\/map\/[^,]*,-?\d+\.?\d*,-?\d+\.?\d*/,
+		extract: (url) => {
+			const m = url.match(/\/map\/[^,]*,(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+			return m ? { lat: parseFloat(m[1]), lng: parseFloat(m[2]) } : null;
+		},
+	},
+];
+
+/** Extract "x" (lng) and "y" (lat) from JSON embedded in HTML */
+function parseXYFromHtml(html: string): GeoCoords | null {
+	const xMatch = html.match(/"x"\s*:\s*"(-?\d+\.?\d*)"/);
+	const yMatch = html.match(/"y"\s*:\s*"(-?\d+\.?\d*)"/);
+	if (xMatch && yMatch) {
+		const lng = parseFloat(xMatch[1]);
+		const lat = parseFloat(yMatch[1]);
+		if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+	}
+	return null;
+}
+
+/** Extract og:latitude / og:longitude meta tags from HTML */
+function parseOgCoordsFromHtml(html: string): GeoCoords | null {
+	const latMatch = html.match(/<meta\s[^>]*property=["']og:latitude["'][^>]*content=["']([^"']+)["']/);
+	const lngMatch = html.match(/<meta\s[^>]*property=["']og:longitude["'][^>]*content=["']([^"']+)["']/);
+	if (latMatch && lngMatch) {
+		const lat = parseFloat(latMatch[1]);
+		const lng = parseFloat(lngMatch[1]);
+		if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+	}
+	return null;
+}
+
+/**
+ * Follow redirect chain using Node's https (no auto-follow, no CORS).
+ * Returns the final URL after up to `maxHops` redirects.
+ */
+function followRedirects(startUrl: string, maxHops = 5): Promise<string> {
+	const nodeHttps = (window as any).require("https");
+	const nodeHttp = (window as any).require("http");
+	return new Promise((resolve) => {
+		let current = startUrl;
+		let hops = 0;
+		const next = () => {
+			if (hops >= maxHops) { resolve(current); return; }
+			const mod = current.startsWith("https") ? nodeHttps : nodeHttp;
+			const req = mod.get(current, (res: any) => {
+				res.resume();
+				const loc: string = res.headers.location || "";
+				if (loc && res.statusCode >= 300 && res.statusCode < 400) {
+					hops++;
+					// Handle relative redirects
+					current = loc.startsWith("http") ? loc : new URL(loc, current).href;
+					next();
+				} else {
+					resolve(current);
+				}
+			});
+			req.on("error", () => resolve(current));
+		};
+		next();
+	});
+}
+
+const ASYNC_MAP_RULES: AsyncMapUrlRule[] = [
+	{
+		name: "Google Maps (short URL)",
+		test: /^https?:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps)\//,
+		fetch: async (url) => {
+			try {
+				const resolved = await followRedirects(url);
+				const m = resolved.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+				return m ? { lat: parseFloat(m[1]), lng: parseFloat(m[2]) } : null;
+			} catch {
+				return null;
+			}
+		},
+	},
+	{
+		name: "Kakao Place",
+		test: /^https?:\/\/place\.map\.kakao\.com\/\d+/,
+		fetch: async (url) => {
+			try {
+				const resp = await requestUrl({ url });
+				const html = resp.text;
+
+				const staticMapMatch = html.match(
+					/staticmap\.kakao\.com[^"']*[?&]m=(-?\d+\.?\d*)(?:,|%2C)(-?\d+\.?\d*)/,
+				);
+				if (staticMapMatch) {
+					const lng = parseFloat(staticMapMatch[1]);
+					const lat = parseFloat(staticMapMatch[2]);
+					if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+				}
+
+				return parseOgCoordsFromHtml(html);
+			} catch {
+				return null;
+			}
+		},
+	},
+	{
+		name: "Naver Place",
+		test: /^https?:\/\/(naver\.me\/|map\.naver\.com\/p\/(entry\/place|search)\/)/,
+		fetch: async (url) => {
+			try {
+				// Extract place ID from URL or resolve short URL via redirect
+				let placeId: string | null = null;
+				const directMatch = url.match(/\/place\/(\d+)/);
+				if (directMatch) {
+					placeId = directMatch[1];
+				} else {
+					// naver.me short URL: resolve redirects to find place ID in URL
+					const resolved = await followRedirects(url);
+					const resolvedMatch = resolved.match(/\/place\/(\d+)/);
+					if (resolvedMatch) placeId = resolvedMatch[1];
+				}
+				if (!placeId) return null;
+
+				// Fetch mobile place page with mobile UA (required for SSR data)
+				const mobileUrl = `https://m.place.naver.com/restaurant/${placeId}/home`;
+				const resp = await requestUrl({
+					url: mobileUrl,
+					headers: { "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)" },
+				});
+				return parseXYFromHtml(resp.text);
+			} catch {
+				return null;
+			}
+		},
+	},
+];
+
 export function extractCoordsFromUrl(url: string): GeoCoords | null {
 	if (!url) return null;
-
-	// Google Maps: /@37.4979,127.0276 or @37.4979,127.0276
-	const googleMatch = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
-	if (googleMatch) {
-		return { lat: parseFloat(googleMatch[1]), lng: parseFloat(googleMatch[2]) };
+	for (const rule of SYNC_MAP_RULES) {
+		if (rule.test.test(url)) {
+			const coords = rule.extract(url);
+			if (coords) return coords;
+		}
 	}
+	return null;
+}
 
-	// Naver Maps: c=127.0276,37.4979 (lng,lat order)
-	const naverMatch = url.match(/[?&]c=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
-	if (naverMatch) {
-		return { lat: parseFloat(naverMatch[2]), lng: parseFloat(naverMatch[1]) };
+export async function fetchCoordsFromUrl(url: string): Promise<GeoCoords | null> {
+	if (!url) return null;
+	for (const rule of ASYNC_MAP_RULES) {
+		if (rule.test.test(url)) {
+			const coords = await rule.fetch(url);
+			if (coords) return coords;
+		}
 	}
-
-	// Kakao Maps: /map/name,37.4979,127.0276
-	const kakaoMatch = url.match(/\/map\/[^,]*,(-?\d+\.?\d*),(-?\d+\.?\d*)/);
-	if (kakaoMatch) {
-		return { lat: parseFloat(kakaoMatch[1]), lng: parseFloat(kakaoMatch[2]) };
-	}
-
 	return null;
 }
 

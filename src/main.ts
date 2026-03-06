@@ -64,7 +64,7 @@ export default class GourmetLifePlugin extends Plugin {
 					this.app,
 					"restaurant",
 					this.settings,
-					(file) => this.openRestaurantView(file)
+					(file) => this.openRestaurantView(file, "editor")
 				).open(),
 		});
 
@@ -283,6 +283,7 @@ export default class GourmetLifePlugin extends Plugin {
 		});
 		if (exact) {
 			this.app.workspace.setActiveLeaf(exact, { focus: true });
+			if (mode !== "viewer") await (exact.view as RestaurantView).setFile(file.path, mode);
 			return;
 		}
 
@@ -290,7 +291,7 @@ export default class GourmetLifePlugin extends Plugin {
 		if (leaves.length > 0) {
 			const leaf = leaves[0];
 			this.app.workspace.setActiveLeaf(leaf, { focus: true });
-			await (leaf.view as RestaurantView).setFile(file.path);
+			await (leaf.view as RestaurantView).setFile(file.path, mode);
 			return;
 		}
 
