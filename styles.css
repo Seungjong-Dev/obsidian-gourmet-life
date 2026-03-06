@@ -1340,7 +1340,6 @@
 }
 
 .gl-restaurant__side {
-	container-type: inline-size;
 	grid-row: 1 / -1;
 	overflow-y: auto;
 	padding: 20px;

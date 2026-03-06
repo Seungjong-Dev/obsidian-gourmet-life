@@ -32,9 +32,15 @@ export interface RestaurantSideState {
 
 // Track active Leaflet map instances for cleanup
 const activeMaps = new WeakMap<HTMLElement, L.Map>();
+const pendingMapRAFs = new WeakMap<HTMLElement, number>();
 
 /** Destroy any Leaflet map previously rendered inside this container */
 export function destroyLeafletMap(container: HTMLElement): void {
+	const pendingRAF = pendingMapRAFs.get(container);
+	if (pendingRAF != null) {
+		cancelAnimationFrame(pendingRAF);
+		pendingMapRAFs.delete(container);
+	}
 	const map = activeMaps.get(container);
 	if (map) {
 		map.remove();
@@ -63,6 +69,11 @@ export function renderRestaurantSidePanel(
 		} else {
 			renderEditor(container, fm, bodyContent, resourcePath, callbacks, app, notePath);
 		}
+		// Force layout recalculation — works around Chromium bug where
+		// children added after empty() inside a grid cell get 0×0 layout.
+		container.style.display = "none";
+		void container.offsetHeight;
+		container.style.display = "";
 	} catch (err) {
 		console.error("[GourmetLife] Side panel render failed:", err);
 		if (container.childElementCount === 0) {
@@ -374,7 +385,8 @@ function renderLeafletMap(
 	}
 
 	// Defer Leaflet init to rAF so CSS grid has completed layout first
-	requestAnimationFrame(() => {
+	const rafId = requestAnimationFrame(() => {
+		pendingMapRAFs.delete(sideContainer);
 		if (!mapEl.isConnected) return;
 
 		try {
@@ -424,6 +436,7 @@ function renderLeafletMap(
 			fallback.setAttr("rel", "noopener");
 		}
 	});
+	pendingMapRAFs.set(sideContainer, rafId);
 }
 
 // ── Helpers ──

@@ -32,6 +32,7 @@ export class RestaurantView extends ItemView {
 	private lastSavedContent = "";
 	private renderVersion = 0;
 	private lastRenderedFile = "";
+	private isRendering = false;
 
 	constructor(leaf: WorkspaceLeaf, plugin: GourmetLifePlugin) {
 		super(leaf);
@@ -103,7 +104,7 @@ export class RestaurantView extends ItemView {
 		// Re-render on external metadata change
 		this.registerEvent(
 			this.app.metadataCache.on("changed", (file) => {
-				if (file.path === this.filePath && !this.isSaving) {
+				if (file.path === this.filePath && !this.isSaving && !this.isRendering) {
 					this.render();
 				}
 			})
@@ -166,83 +167,84 @@ export class RestaurantView extends ItemView {
 			return;
 		}
 
-		const content = await this.app.vault.read(file);
-		if (thisRender !== this.renderVersion) return;
-		const fmMatch = content.match(/^---\n[\s\S]*?\n---\n?/);
-		const bodyContent = fmMatch ? content.substring(fmMatch[0].length) : content;
-
-		this.lastSavedContent = content;
-
-		this.rootContainer.toggleClass("gl-restaurant--editor", this.mode === "editor");
-
-		const sideScroll = this.sideContainer?.scrollTop ?? 0;
-		const mainScroll = this.mainContainer?.scrollTop ?? 0;
-
-		const resourcePath = (path: string) => this.resolveResourcePath(path);
-
-		// Side panel
+		this.isRendering = true;
 		try {
-			renderRestaurantSidePanel(
-				this.sideContainer,
-				fm,
-				bodyContent,
-				resourcePath,
-				this.mode,
-				{
-					onInput: () => this.scheduleAutoSave(),
+			const content = await this.app.vault.read(file);
+			if (thisRender !== this.renderVersion) return;
+			const fmMatch = content.match(/^---\n[\s\S]*?\n---\n?/);
+			const bodyContent = fmMatch ? content.substring(fmMatch[0].length) : content;
+
+			this.lastSavedContent = content;
+
+			this.rootContainer.toggleClass("gl-restaurant--editor", this.mode === "editor");
+
+			const sideScroll = this.sideContainer?.scrollTop ?? 0;
+			const mainScroll = this.mainContainer?.scrollTop ?? 0;
+
+			const resourcePath = (path: string) => this.resolveResourcePath(path);
+
+			// Side panel
+			try {
+				renderRestaurantSidePanel(
+					this.sideContainer,
+					fm,
+					bodyContent,
+					resourcePath,
+					this.mode,
+					{
+						onInput: () => this.scheduleAutoSave(),
+					},
+					this.app,
+					this.filePath
+				);
+			} catch (err) {
+				console.error("[GourmetLife] Side panel render failed in view:", err);
+			}
+			// Title row + Main panel
+			const callbacks = {
+				onViewSource: () => this.handleViewSource(),
+				onToggleMode: () => this.toggleMode(),
+				onTitleChange: async (newTitle: string) => {
+					const f = this.app.vault.getAbstractFileByPath(this.filePath);
+					if (!f || !(f instanceof TFile)) return;
+					const parent = f.parent?.path ?? "";
+					const newPath = parent ? `${parent}/${newTitle}.md` : `${newTitle}.md`;
+					await this.app.fileManager.renameFile(f, newPath);
+					this.filePath = newPath;
+					this.leaf.updateHeader();
 				},
-				this.app,
-				this.filePath
-			);
-		} catch (err) {
-			console.error("[GourmetLife] Side panel render failed in view:", err);
-		}
+				onMenuInput: () => this.scheduleAutoSave(),
+				onNotesInput: () => this.scheduleAutoSave(),
+				onReviewsInput: () => this.scheduleAutoSave(),
+			};
 
-		// Force reflow so CSS grid scroll container accounts for new content
-		void this.sideContainer.offsetHeight;
+			const title = this.filePath
+				.substring(this.filePath.lastIndexOf("/") + 1)
+				.replace(/\.md$/, "");
 
-		// Title row + Main panel
-		const callbacks = {
-			onViewSource: () => this.handleViewSource(),
-			onToggleMode: () => this.toggleMode(),
-			onTitleChange: async (newTitle: string) => {
-				const f = this.app.vault.getAbstractFileByPath(this.filePath);
-				if (!f || !(f instanceof TFile)) return;
-				const parent = f.parent?.path ?? "";
-				const newPath = parent ? `${parent}/${newTitle}.md` : `${newTitle}.md`;
-				await this.app.fileManager.renameFile(f, newPath);
-				this.filePath = newPath;
-				this.leaf.updateHeader();
-			},
-			onMenuInput: () => this.scheduleAutoSave(),
-			onNotesInput: () => this.scheduleAutoSave(),
-			onReviewsInput: () => this.scheduleAutoSave(),
-		};
+			try {
+				renderRestaurantTitleRow(this.titleRow, title, this.mode, callbacks);
+			} catch (err) {
+				console.error("[GourmetLife] Title row render failed:", err);
+			}
 
-		const title = this.filePath
-			.substring(this.filePath.lastIndexOf("/") + 1)
-			.replace(/\.md$/, "");
+			try {
+				renderRestaurantMainPanel(this.mainContainer, bodyContent, this.mode, callbacks);
+			} catch (err) {
+				console.error("[GourmetLife] Main panel render failed:", err);
+			}
 
-		try {
-			renderRestaurantTitleRow(this.titleRow, title, this.mode, callbacks);
-		} catch (err) {
-			console.error("[GourmetLife] Title row render failed:", err);
-		}
-
-		try {
-			renderRestaurantMainPanel(this.mainContainer, bodyContent, this.mode, callbacks);
-		} catch (err) {
-			console.error("[GourmetLife] Main panel render failed:", err);
-		}
-
-		const isNewFile = this.filePath !== this.lastRenderedFile;
-		if (isNewFile) {
-			this.sideContainer.scrollTop = 0;
-			this.mainContainer.scrollTop = 0;
-			this.lastRenderedFile = this.filePath;
-		} else {
-			this.sideContainer.scrollTop = sideScroll;
-			this.mainContainer.scrollTop = mainScroll;
+			const isNewFile = this.filePath !== this.lastRenderedFile;
+			if (isNewFile) {
+				this.sideContainer.scrollTop = 0;
+				this.mainContainer.scrollTop = 0;
+				this.lastRenderedFile = this.filePath;
+			} else {
+				this.sideContainer.scrollTop = sideScroll;
+				this.mainContainer.scrollTop = mainScroll;
+			}
+		} finally {
+			this.isRendering = false;
 		}
 	}
 
