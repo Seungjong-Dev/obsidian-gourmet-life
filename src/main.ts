@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile } from "obsidian";
+import { Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import {
 	DEFAULT_SETTINGS,
 	VIEW_TYPE_RECIPE,
@@ -24,6 +24,7 @@ import { isGourmetNote } from "./frontmatter-utils";
 export default class GourmetLifePlugin extends Plugin {
 	settings: GourmetLifeSettings = DEFAULT_SETTINGS;
 	noteIndex: NoteIndex = null!;
+	private _intercepting = false;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -187,22 +188,25 @@ export default class GourmetLifePlugin extends Plugin {
 		// Intercept recipe and restaurant file opens
 		this.registerEvent(
 			this.app.workspace.on("file-open", (file) => {
-				if (!file) return;
+				if (!file || this._intercepting) return;
+				const originLeaf = this.app.workspace.activeLeaf;
+				if (!originLeaf) return;
+
 				const cache = this.app.metadataCache.getFileCache(file);
 				const isGourmet = isGourmetNote(file.path, cache, this.settings);
 
 				if (isGourmet) {
 					if (file.path.startsWith(this.settings.recipesFolder + "/")) {
-						this.openRecipeView(file);
+						this.openRecipeView(file, "viewer", originLeaf);
 					} else if (file.path.startsWith(this.settings.restaurantsFolder + "/")) {
-						this.openRestaurantView(file);
+						this.openRestaurantView(file, "viewer", originLeaf);
 					}
 				} else {
 					// Cache might not be ready — fallback to folder-based check
 					if (file.path.startsWith(this.settings.restaurantsFolder + "/") && file.path.endsWith(".md")) {
-						this.openRestaurantView(file);
+						this.openRestaurantView(file, "viewer", originLeaf);
 					} else if (file.path.startsWith(this.settings.recipesFolder + "/") && file.path.endsWith(".md")) {
-						this.openRecipeView(file);
+						this.openRecipeView(file, "viewer", originLeaf);
 					}
 				}
 			})
@@ -248,60 +252,74 @@ export default class GourmetLifePlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	async openRecipeView(file: TFile, mode: RecipeViewMode = "viewer"): Promise<void> {
-		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_RECIPE);
+	async openRecipeView(file: TFile, mode: RecipeViewMode = "viewer", originLeaf?: WorkspaceLeaf): Promise<void> {
+		this._intercepting = true;
+		try {
+			const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_RECIPE);
 
-		const exact = leaves.find((l) => {
-			return (l.view as RecipeView).getState().file === file.path;
-		});
-		if (exact) {
-			this.app.workspace.setActiveLeaf(exact, { focus: true });
-			return;
+			const exact = leaves.find((l) => {
+				return (l.view as RecipeView).getState().file === file.path;
+			});
+			if (exact) {
+				this.app.workspace.setActiveLeaf(exact, { focus: true });
+				if (originLeaf && originLeaf !== exact) originLeaf.detach();
+				return;
+			}
+
+			if (leaves.length > 0) {
+				const leaf = leaves[0];
+				this.app.workspace.setActiveLeaf(leaf, { focus: true });
+				await (leaf.view as RecipeView).setFile(file.path);
+				if (originLeaf && originLeaf !== leaf) originLeaf.detach();
+				return;
+			}
+
+			const leaf = originLeaf ?? this.app.workspace.getLeaf(false);
+			await leaf.setViewState({
+				type: VIEW_TYPE_RECIPE,
+				active: true,
+				state: { file: file.path, mode },
+			});
+		} finally {
+			this._intercepting = false;
 		}
-
-		if (leaves.length > 0) {
-			const leaf = leaves[0];
-			this.app.workspace.setActiveLeaf(leaf, { focus: true });
-			await (leaf.view as RecipeView).setFile(file.path);
-			return;
-		}
-
-		const leaf = this.app.workspace.getLeaf(false);
-		await leaf.setViewState({
-			type: VIEW_TYPE_RECIPE,
-			active: true,
-			state: { file: file.path, mode },
-		});
 	}
 
-	async openRestaurantView(file: TFile, mode: RestaurantViewMode = "viewer"): Promise<void> {
-		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_RESTAURANT);
+	async openRestaurantView(file: TFile, mode: RestaurantViewMode = "viewer", originLeaf?: WorkspaceLeaf): Promise<void> {
+		this._intercepting = true;
+		try {
+			const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_RESTAURANT);
 
-		// Exact match — already showing this file
-		const exact = leaves.find((l) => {
-			return (l.view as RestaurantView).getState().file === file.path;
-		});
-		if (exact) {
-			this.app.workspace.setActiveLeaf(exact, { focus: true });
-			if (mode !== "viewer") await (exact.view as RestaurantView).setFile(file.path, mode);
-			return;
+			// Exact match — already showing this file
+			const exact = leaves.find((l) => {
+				return (l.view as RestaurantView).getState().file === file.path;
+			});
+			if (exact) {
+				this.app.workspace.setActiveLeaf(exact, { focus: true });
+				if (mode !== "viewer") await (exact.view as RestaurantView).setFile(file.path, mode);
+				if (originLeaf && originLeaf !== exact) originLeaf.detach();
+				return;
+			}
+
+			// Reuse any existing RestaurantView leaf
+			if (leaves.length > 0) {
+				const leaf = leaves[0];
+				this.app.workspace.setActiveLeaf(leaf, { focus: true });
+				await (leaf.view as RestaurantView).setFile(file.path, mode);
+				if (originLeaf && originLeaf !== leaf) originLeaf.detach();
+				return;
+			}
+
+			// No RestaurantView exists — replace origin leaf directly
+			const leaf = originLeaf ?? this.app.workspace.getLeaf(false);
+			await leaf.setViewState({
+				type: VIEW_TYPE_RESTAURANT,
+				active: true,
+				state: { file: file.path, mode },
+			});
+		} finally {
+			this._intercepting = false;
 		}
-
-		// Reuse any existing RestaurantView leaf
-		if (leaves.length > 0) {
-			const leaf = leaves[0];
-			this.app.workspace.setActiveLeaf(leaf, { focus: true });
-			await (leaf.view as RestaurantView).setFile(file.path, mode);
-			return;
-		}
-
-		// No RestaurantView exists — create one
-		const leaf = this.app.workspace.getLeaf(false);
-		await leaf.setViewState({
-			type: VIEW_TYPE_RESTAURANT,
-			active: true,
-			state: { file: file.path, mode },
-		});
 	}
 
 	onFolderSettingsChanged(): void {
