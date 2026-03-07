@@ -9,11 +9,14 @@ import {
 	getExpectedType,
 	readGourmetFrontmatter,
 } from "./frontmatter-utils";
+import { parseCooklangBody } from "./cooklang-parser";
 
 export class NoteIndex {
 	private notes: Map<string, GourmetNote> = new Map();
 	/** ingredient display name (lowercase) → file path */
 	private ingredientNames: Map<string, string> = new Map();
+	/** recipe path → set of ingredient names (lowercase) */
+	recipeIngredients: Map<string, Set<string>> = new Map();
 	private app: App;
 	private settings: GourmetLifeSettings;
 
@@ -30,11 +33,14 @@ export class NoteIndex {
 	buildIndex(): void {
 		this.notes.clear();
 		this.ingredientNames.clear();
+		this.recipeIngredients.clear();
 
 		const files = this.app.vault.getMarkdownFiles();
 		for (const file of files) {
 			this.indexFile(file);
 		}
+
+		this.buildRecipeIngredientIndex();
 
 		console.log(
 			`[Gourmet Life] Index built: ${this.notes.size} notes ` +
@@ -44,11 +50,41 @@ export class NoteIndex {
 		);
 	}
 
+	/** Async: index recipe ingredients from Cooklang bodies */
+	private async buildRecipeIngredientIndex(): Promise<void> {
+		for (const note of this.notes.values()) {
+			if (note.type !== "recipe") continue;
+			await this.indexRecipeIngredients(note.path);
+		}
+	}
+
+	private async indexRecipeIngredients(path: string): Promise<void> {
+		const file = this.app.vault.getAbstractFileByPath(path);
+		if (!file || !("extension" in file)) return;
+		try {
+			const content = await this.app.vault.cachedRead(file as TFile);
+			const fmMatch = content.match(/^---\n[\s\S]*?\n---\n?/);
+			const body = fmMatch ? content.substring(fmMatch[0].length) : content;
+			const parsed = parseCooklangBody(body);
+			const names = new Set(parsed.ingredients.map((i) => i.name.toLowerCase()));
+			if (names.size > 0) {
+				this.recipeIngredients.set(path, names);
+			}
+		} catch {
+			// ignore read errors
+		}
+	}
+
 	/** Index or re-index a single file */
 	updateFile(file: TFile): void {
 		// Remove old entry first (handles type changes)
 		this.removeFile(file.path);
 		this.indexFile(file);
+		// Re-index recipe ingredients if applicable
+		const note = this.notes.get(file.path);
+		if (note?.type === "recipe") {
+			this.indexRecipeIngredients(file.path);
+		}
 	}
 
 	/** Remove a file from the index */
@@ -57,6 +93,7 @@ export class NoteIndex {
 		if (existing && existing.type === "ingredient") {
 			this.removeIngredientNames(path);
 		}
+		this.recipeIngredients.delete(path);
 		this.notes.delete(path);
 	}
 

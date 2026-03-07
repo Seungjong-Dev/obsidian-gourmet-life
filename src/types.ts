@@ -8,6 +8,14 @@ export type RecipeViewMode = "viewer" | "editor";
 export type RestaurantViewMode = "viewer" | "editor";
 export type ExplorerTab = "recipe" | "restaurant";
 export type ExplorerLayout = "card" | "list";
+export type SortOption =
+	| "name-asc"
+	| "name-desc"
+	| "rating-desc"
+	| "cook-time-asc"
+	| "created-desc"
+	| "difficulty-asc"
+	| "price-asc";
 
 // ── Note Types ──────────────────────────────────────────────
 

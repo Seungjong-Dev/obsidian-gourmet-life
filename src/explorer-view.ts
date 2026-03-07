@@ -3,6 +3,7 @@ import {
 	VIEW_TYPE_EXPLORER,
 	type ExplorerTab,
 	type ExplorerLayout,
+	type SortOption,
 	type GourmetNote,
 	type RecipeFrontmatter,
 	type RestaurantFrontmatter,
@@ -10,6 +11,7 @@ import {
 import {
 	createEmptyFilter,
 	applyFilters,
+	sortNotes,
 	extractFilterOptions,
 	extractTagCounts,
 	type ExplorerFilterState,
@@ -20,6 +22,7 @@ import {
 	renderCardGrid,
 	renderListView,
 } from "./explorer-cards";
+import { renderStatsBar } from "./explorer-stats";
 import { renderSidePanel, type SidePanelCallbacks } from "./recipe-side-panel";
 import { renderMainPanel, type MainPanelCallbacks } from "./recipe-main-panel";
 import { renderRestaurantSidePanel, destroyLeafletMap, type RestaurantSideCallbacks } from "./restaurant-side-panel";
@@ -30,7 +33,27 @@ import type GourmetLifePlugin from "./main";
 interface ExplorerViewState {
 	tab: ExplorerTab;
 	layout: ExplorerLayout;
+	sortBy?: SortOption;
+	filter?: Partial<ExplorerFilterState>;
+	filterOpen?: boolean;
 }
+
+const RECIPE_SORT_OPTIONS: { value: SortOption; label: string }[] = [
+	{ value: "name-asc", label: "Name A-Z" },
+	{ value: "name-desc", label: "Name Z-A" },
+	{ value: "rating-desc", label: "Rating" },
+	{ value: "cook-time-asc", label: "Cook time" },
+	{ value: "created-desc", label: "Newest" },
+	{ value: "difficulty-asc", label: "Difficulty" },
+];
+
+const RESTAURANT_SORT_OPTIONS: { value: SortOption; label: string }[] = [
+	{ value: "name-asc", label: "Name A-Z" },
+	{ value: "name-desc", label: "Name Z-A" },
+	{ value: "rating-desc", label: "Rating" },
+	{ value: "created-desc", label: "Newest" },
+	{ value: "price-asc", label: "Price" },
+];
 
 export class ExplorerView extends ItemView {
 	private plugin: GourmetLifePlugin;
@@ -45,12 +68,15 @@ export class ExplorerView extends ItemView {
 	// DOM refs
 	private tabButtons: HTMLElement[] = [];
 	private filterToggleBtn: HTMLButtonElement = null!;
+	private sortSelect: HTMLSelectElement = null!;
+	private searchInput: HTMLInputElement = null!;
+	private searchModeBtn: HTMLButtonElement = null!;
 	private layoutCardBtn: HTMLButtonElement = null!;
 	private layoutListBtn: HTMLButtonElement = null!;
-	private searchInput: HTMLInputElement = null!;
 	private filterPanel: HTMLElement = null!;
 	private filterContainer: HTMLElement = null!;
 	private tagCloudContainer: HTMLElement = null!;
+	private statsContainer: HTMLElement = null!;
 	private bodyContainer: HTMLElement = null!;
 	private contentContainer: HTMLElement = null!;
 	private previewContainer: HTMLElement = null!;
@@ -73,13 +99,65 @@ export class ExplorerView extends ItemView {
 	}
 
 	getState(): ExplorerViewState {
-		return { tab: this.tab, layout: this.layout };
+		return {
+			tab: this.tab,
+			layout: this.layout,
+			sortBy: this.filter.sortBy,
+			filter: {
+				cuisine: this.filter.cuisine,
+				category: this.filter.category,
+				difficulty: this.filter.difficulty,
+				price_range: this.filter.price_range,
+				location: this.filter.location,
+				minRating: this.filter.minRating,
+				tags: this.filter.tags,
+				unrated: this.filter.unrated,
+				searchIngredients: this.filter.searchIngredients,
+			},
+			filterOpen: this.filterOpen,
+		};
 	}
 
 	async setState(state: Partial<ExplorerViewState>): Promise<void> {
 		if (state.tab) this.tab = state.tab;
 		if (state.layout) this.layout = state.layout;
+
 		this.filter = createEmptyFilter();
+		if (state.sortBy) this.filter.sortBy = state.sortBy;
+		if (state.filterOpen !== undefined) this.filterOpen = state.filterOpen;
+
+		// Restore filter values, validating against current data
+		if (state.filter) {
+			const notes = this.getNotes();
+			const options = extractFilterOptions(notes);
+			const sf = state.filter;
+
+			if (sf.cuisine) {
+				const valid = new Set(options.cuisine?.map((o) => o.value) ?? []);
+				this.filter.cuisine = sf.cuisine.filter((v) => valid.has(v));
+			}
+			if (sf.category) {
+				const valid = new Set(options.category?.map((o) => o.value) ?? []);
+				this.filter.category = sf.category.filter((v) => valid.has(v));
+			}
+			if (sf.difficulty) this.filter.difficulty = sf.difficulty;
+			if (sf.price_range) {
+				const valid = new Set(options.price_range?.map((o) => o.value) ?? []);
+				this.filter.price_range = sf.price_range.filter((v) => valid.has(v));
+			}
+			if (sf.location) {
+				const valid = new Set(options.location?.map((o) => o.value) ?? []);
+				this.filter.location = sf.location.filter((v) => valid.has(v));
+			}
+			if (sf.minRating) this.filter.minRating = sf.minRating;
+			if (sf.tags) {
+				const tagCounts = extractTagCounts(notes);
+				this.filter.tags = sf.tags.filter((t) => tagCounts.has(t));
+			}
+			if (sf.unrated) this.filter.unrated = sf.unrated;
+			if (sf.searchIngredients) this.filter.searchIngredients = sf.searchIngredients;
+		}
+
 		this.refresh();
 	}
 
@@ -129,7 +207,10 @@ export class ExplorerView extends ItemView {
 			this.updateFilterPanel();
 		});
 
-		this.searchInput = right.createEl("input", {
+		// Search wrapper with mode toggle
+		const searchWrap = right.createDiv({ cls: "gl-explorer__search-wrap" });
+
+		this.searchInput = searchWrap.createEl("input", {
 			cls: "gl-explorer__search",
 			attr: { type: "text", placeholder: "Search..." },
 		});
@@ -140,6 +221,36 @@ export class ExplorerView extends ItemView {
 				this.renderContent();
 			}, 300);
 		});
+
+		this.searchModeBtn = searchWrap.createEl("button", {
+			cls: "gl-explorer__search-mode",
+			attr: { "aria-label": "Toggle ingredient search" },
+		});
+		setIcon(this.searchModeBtn, "leaf");
+		this.searchModeBtn.title = "Include ingredient names in search";
+		this.searchModeBtn.addEventListener("click", () => {
+			this.filter.searchIngredients = !this.filter.searchIngredients;
+			this.updateSearchMode();
+			if (this.filter.search) this.renderContent();
+		});
+
+		// Sort dropdown
+		this.sortSelect = right.createEl("select", {
+			cls: "gl-explorer__sort",
+		});
+		this.sortSelect.addEventListener("change", () => {
+			this.filter.sortBy = this.sortSelect.value as SortOption;
+			this.renderContent();
+		});
+
+		// Surprise Me button
+		const surpriseBtn = right.createEl("button", {
+			cls: "gl-explorer__layout-btn",
+			attr: { "aria-label": "Surprise me!" },
+		});
+		setIcon(surpriseBtn, "shuffle");
+		surpriseBtn.title = "Pick a random note";
+		surpriseBtn.addEventListener("click", () => this.surpriseMe());
 
 		this.layoutCardBtn = right.createEl("button", {
 			cls: "gl-explorer__layout-btn",
@@ -167,6 +278,9 @@ export class ExplorerView extends ItemView {
 		this.filterPanel = container.createDiv({ cls: "gl-explorer__filter-panel" });
 		this.filterContainer = this.filterPanel.createDiv({ cls: "gl-explorer__filters" });
 		this.tagCloudContainer = this.filterPanel.createDiv({ cls: "gl-explorer__filters" });
+
+		// ── Stats Bar ──
+		this.statsContainer = container.createDiv({ cls: "gl-explorer__stats-wrap" });
 
 		// ── Body (list + preview split) ──
 		this.bodyContainer = container.createDiv({ cls: "gl-explorer__body" });
@@ -196,6 +310,8 @@ export class ExplorerView extends ItemView {
 		this.updateTabButtons();
 		this.updateLayoutButtons();
 		this.updateFilterPanel();
+		this.updateSortOptions();
+		this.updateSearchMode();
 		this.renderFilters();
 		this.renderContent();
 	}
@@ -215,6 +331,20 @@ export class ExplorerView extends ItemView {
 	private updateLayoutButtons(): void {
 		this.layoutCardBtn.toggleClass("gl-explorer__layout-btn--active", this.layout === "card");
 		this.layoutListBtn.toggleClass("gl-explorer__layout-btn--active", this.layout === "list");
+	}
+
+	private updateSortOptions(): void {
+		this.sortSelect.empty();
+		const opts = this.tab === "recipe" ? RECIPE_SORT_OPTIONS : RESTAURANT_SORT_OPTIONS;
+		for (const opt of opts) {
+			const el = this.sortSelect.createEl("option", { text: opt.label, value: opt.value });
+			if (opt.value === this.filter.sortBy) el.selected = true;
+		}
+	}
+
+	private updateSearchMode(): void {
+		this.searchModeBtn.toggleClass("gl-explorer__search-mode--active", this.filter.searchIngredients);
+		this.searchInput.placeholder = this.filter.searchIngredients ? "Search name + ingredients..." : "Search...";
 	}
 
 	private getNotes(): GourmetNote[] {
@@ -246,12 +376,19 @@ export class ExplorerView extends ItemView {
 
 	private renderContent(): void {
 		const notes = this.getNotes();
-		const filtered = applyFilters(notes, this.filter);
+		const ingredientIndex = this.filter.searchIngredients
+			? this.plugin.noteIndex.recipeIngredients
+			: undefined;
+		const filtered = applyFilters(notes, this.filter, ingredientIndex);
+		const sorted = sortNotes(filtered, this.filter.sortBy);
 
 		// Close preview if selected note is no longer visible
-		if (this.selectedPath && !filtered.some((n) => n.path === this.selectedPath)) {
+		if (this.selectedPath && !sorted.some((n) => n.path === this.selectedPath)) {
 			this.closePreview();
 		}
+
+		// Stats bar
+		renderStatsBar(this.statsContainer, sorted, this.tab);
 
 		const onOpen = (path: string) => {
 			const file = this.app.vault.getAbstractFileByPath(path);
@@ -282,16 +419,15 @@ export class ExplorerView extends ItemView {
 		};
 
 		if (this.layout === "card") {
-			renderCardGrid(this.contentContainer, filtered, this.tab, onOpen, this.app.vault, onSelect, this.selectedPath, resolveImage);
+			renderCardGrid(this.contentContainer, sorted, this.tab, onOpen, this.app.vault, onSelect, this.selectedPath, resolveImage);
 		} else {
-			renderListView(this.contentContainer, filtered, this.tab, onOpen, this.app.vault, onSelect, this.selectedPath, resolveImage);
+			renderListView(this.contentContainer, sorted, this.tab, onOpen, this.app.vault, onSelect, this.selectedPath, resolveImage);
 		}
 	}
 
 	private closePreview(): void {
 		this.selectedPath = null;
 		if (this.previewContainer) {
-			// Destroy leaflet map if restaurant preview was open
 			const sideEl = this.previewContainer.querySelector(".gl-restaurant__side");
 			if (sideEl) destroyLeafletMap(sideEl as HTMLElement);
 			this.previewContainer.empty();
@@ -402,12 +538,84 @@ export class ExplorerView extends ItemView {
 			};
 			renderRestaurantMainPanel(mainEl, bodyContent, "viewer", mainCb, this.app, file.path, this);
 		}
+
+		// Related notes section
+		this.renderRelatedNotes(this.previewContainer, fm, file.path);
+	}
+
+	private renderRelatedNotes(container: HTMLElement, fm: any, currentPath: string): void {
+		const notes = this.getNotes().filter((n) => n.path !== currentPath);
+		if (notes.length === 0) return;
+
+		const currentTags = new Set<string>(fm.tags ?? []);
+		const currentCuisines = new Set<string>(
+			Array.isArray(fm.cuisine) ? fm.cuisine : fm.cuisine ? [fm.cuisine] : []
+		);
+
+		// Score by tag/cuisine overlap
+		const scored = notes.map((n) => {
+			let score = 0;
+			const nfm = n.frontmatter as any;
+			const nTags = nfm.tags ?? [];
+			for (const t of nTags) {
+				if (currentTags.has(t)) score += 2;
+			}
+			const nCuisines = Array.isArray(nfm.cuisine) ? nfm.cuisine : nfm.cuisine ? [nfm.cuisine] : [];
+			for (const c of nCuisines) {
+				if (currentCuisines.has(c)) score += 1;
+			}
+			return { note: n, score };
+		}).filter((s) => s.score > 0);
+
+		scored.sort((a, b) => b.score - a.score);
+		const top = scored.slice(0, 5);
+		if (top.length === 0) return;
+
+		const section = container.createDiv({ cls: "gl-explorer__related" });
+		section.createDiv({ cls: "gl-explorer__related-title", text: "You might also like" });
+
+		for (const { note } of top) {
+			const item = section.createDiv({ cls: "gl-explorer__related-item" });
+			item.createSpan({ text: note.name });
+			const rating = (note.frontmatter as any).rating;
+			if (rating) {
+				item.createSpan({
+					cls: "gl-explorer__related-rating",
+					text: "\u2605".repeat(rating),
+				});
+			}
+			item.addEventListener("click", () => {
+				this.selectedPath = note.path;
+				this.renderPreview();
+				this.renderContent();
+			});
+		}
+	}
+
+	private surpriseMe(): void {
+		const notes = this.getNotes();
+		const ingredientIndex = this.filter.searchIngredients
+			? this.plugin.noteIndex.recipeIngredients
+			: undefined;
+		const filtered = applyFilters(notes, this.filter, ingredientIndex);
+		if (filtered.length === 0) return;
+
+		const random = filtered[Math.floor(Math.random() * filtered.length)];
+		this.selectedPath = random.path;
+		this.renderPreview();
+		this.renderContent();
 	}
 
 	private onFilterChange(field: string, value: string): void {
-		if (field === "minRating") {
+		if (field === "unrated") {
+			this.filter.unrated = !this.filter.unrated;
+			// Unrated and minRating are mutually exclusive
+			if (this.filter.unrated) this.filter.minRating = 0;
+		} else if (field === "minRating") {
 			const num = parseInt(value, 10);
 			this.filter.minRating = this.filter.minRating === num ? 0 : num;
+			// Disable unrated when setting a rating filter
+			if (this.filter.minRating > 0) this.filter.unrated = false;
 		} else {
 			const arr = (this.filter as any)[field] as string[];
 			const idx = arr.indexOf(value);

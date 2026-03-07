@@ -1,13 +1,13 @@
 import type { App, Vault } from "obsidian";
 import type { GourmetNote, ExplorerTab, RecipeFrontmatter, RestaurantFrontmatter } from "./types";
-import type { ExplorerFilterState } from "./explorer-filter";
+import type { ExplorerFilterState, FilterOption } from "./explorer-filter";
 
 // ── Filter Bar ──
 
 export function renderFilterBar(
 	container: HTMLElement,
 	type: ExplorerTab,
-	options: Record<string, string[]>,
+	options: Record<string, FilterOption[]>,
 	state: ExplorerFilterState,
 	onChange: (field: string, value: string) => void
 ): void {
@@ -29,13 +29,14 @@ export function renderFilterBar(
 		});
 
 		const chips = row.createDiv({ cls: "gl-explorer__filter-chips" });
-		for (const val of values) {
-			const selected = (state as any)[field]?.includes(val);
+		for (const opt of values) {
+			const selected = (state as any)[field]?.includes(opt.value);
 			const chip = chips.createEl("button", {
 				cls: `gl-explorer__chip${selected ? " gl-explorer__chip--active" : ""}`,
-				text: val,
 			});
-			chip.addEventListener("click", () => onChange(field, val));
+			chip.createSpan({ text: opt.value });
+			chip.createSpan({ cls: "gl-explorer__chip-count", text: ` ${opt.count}` });
+			chip.addEventListener("click", () => onChange(field, opt.value));
 		}
 	}
 
@@ -47,10 +48,17 @@ export function renderFilterBar(
 		const selected = state.minRating === r;
 		const chip = ratingChips.createEl("button", {
 			cls: `gl-explorer__chip${selected ? " gl-explorer__chip--active" : ""}`,
-			text: "★".repeat(r),
+			text: "\u2605".repeat(r),
 		});
 		chip.addEventListener("click", () => onChange("minRating", String(r)));
 	}
+
+	// Unrated toggle chip
+	const unratedChip = ratingChips.createEl("button", {
+		cls: `gl-explorer__chip gl-explorer__chip--unrated${state.unrated ? " gl-explorer__chip--active" : ""}`,
+		text: "unrated",
+	});
+	unratedChip.addEventListener("click", () => onChange("unrated", ""));
 }
 
 // ── Tag Cloud ──
@@ -102,6 +110,9 @@ export function renderCardGrid(
 		return;
 	}
 
+	const now = Date.now();
+	const sevenDays = 7 * 24 * 60 * 60 * 1000;
+
 	const grid = container.createDiv({ cls: "gl-explorer__grid" });
 	for (const note of notes) {
 		const cls = "gl-explorer__card" + (selectedPath === note.path ? " gl-explorer__card--selected" : "");
@@ -118,8 +129,27 @@ export function renderCardGrid(
 		if (imagePath) {
 			const src = resolveImage ? resolveImage(imagePath, note.path) : "";
 			if (src) {
-				const img = card.createEl("img", { cls: "gl-explorer__card-image" });
+				const imgWrap = card.createDiv({ cls: "gl-explorer__card-image-wrap" });
+				const img = imgWrap.createEl("img", { cls: "gl-explorer__card-image" });
 				img.src = src;
+
+				// "New" badge
+				const created = (note.frontmatter as any).created;
+				if (created) {
+					const createdDate = new Date(created);
+					if (!isNaN(createdDate.getTime()) && (now - createdDate.getTime()) < sevenDays) {
+						imgWrap.createSpan({ cls: "gl-explorer__card-new", text: "new" });
+					}
+				}
+			}
+		} else {
+			// "New" badge without image
+			const created = (note.frontmatter as any).created;
+			if (created) {
+				const createdDate = new Date(created);
+				if (!isNaN(createdDate.getTime()) && (now - createdDate.getTime()) < sevenDays) {
+					card.createSpan({ cls: "gl-explorer__card-new gl-explorer__card-new--no-img", text: "new" });
+				}
 			}
 		}
 
@@ -142,14 +172,14 @@ export function renderCardGrid(
 				});
 			}
 			const info = body.createDiv({ cls: "gl-explorer__card-info" });
-			if (fm.rating) info.createSpan({ text: "★".repeat(fm.rating) + "☆".repeat(5 - fm.rating), cls: "gl-explorer__card-rating" });
+			if (fm.rating) info.createSpan({ text: "\u2605".repeat(fm.rating) + "\u2606".repeat(5 - fm.rating), cls: "gl-explorer__card-rating" });
 			if (fm.cook_time) info.createSpan({ text: `${fm.cook_time}min`, cls: "gl-explorer__card-time" });
 		} else {
 			const fm = note.frontmatter as RestaurantFrontmatter;
 			if (fm.cuisine) meta.createSpan({ cls: "gl-explorer__card-chip", text: fm.cuisine });
 			if (fm.price_range) meta.createSpan({ cls: "gl-explorer__card-chip", text: fm.price_range });
 			const info = body.createDiv({ cls: "gl-explorer__card-info" });
-			if (fm.rating) info.createSpan({ text: "★".repeat(fm.rating) + "☆".repeat(5 - fm.rating), cls: "gl-explorer__card-rating" });
+			if (fm.rating) info.createSpan({ text: "\u2605".repeat(fm.rating) + "\u2606".repeat(5 - fm.rating), cls: "gl-explorer__card-rating" });
 			if (fm.location) info.createSpan({ text: fm.location, cls: "gl-explorer__card-location" });
 		}
 	}
@@ -172,6 +202,9 @@ export function renderListView(
 		container.createDiv({ cls: "gl-explorer__empty", text: "No notes found" });
 		return;
 	}
+
+	const now = Date.now();
+	const sevenDays = 7 * 24 * 60 * 60 * 1000;
 
 	const list = container.createDiv({ cls: "gl-explorer__list" });
 	for (const note of notes) {
@@ -196,6 +229,15 @@ export function renderListView(
 			row.createDiv({ cls: "gl-explorer__list-thumb gl-explorer__list-thumb--empty" });
 		}
 
+		// "New" dot
+		const created = (note.frontmatter as any).created;
+		if (created) {
+			const createdDate = new Date(created);
+			if (!isNaN(createdDate.getTime()) && (now - createdDate.getTime()) < sevenDays) {
+				row.createSpan({ cls: "gl-explorer__list-new" });
+			}
+		}
+
 		row.createSpan({ cls: "gl-explorer__list-name", text: note.name });
 
 		const meta = row.createSpan({ cls: "gl-explorer__list-meta" });
@@ -207,21 +249,21 @@ export function renderListView(
 			if (fm.category) parts.push(fm.category);
 			if (fm.difficulty) parts.push(fm.difficulty);
 			if (fm.cook_time) parts.push(`${fm.cook_time}min`);
-			meta.textContent = parts.join(" · ");
+			meta.textContent = parts.join(" \u00b7 ");
 		} else {
 			const fm = note.frontmatter as RestaurantFrontmatter;
 			const parts: string[] = [];
 			if (fm.cuisine) parts.push(fm.cuisine);
 			if (fm.price_range) parts.push(fm.price_range);
 			if (fm.location) parts.push(fm.location);
-			meta.textContent = parts.join(" · ");
+			meta.textContent = parts.join(" \u00b7 ");
 		}
 
 		const rating = (note.frontmatter as any).rating;
 		if (rating) {
 			row.createSpan({
 				cls: "gl-explorer__list-rating",
-				text: "★".repeat(rating) + "☆".repeat(5 - rating),
+				text: "\u2605".repeat(rating) + "\u2606".repeat(5 - rating),
 			});
 		}
 	}

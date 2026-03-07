@@ -1,4 +1,4 @@
-import type { GourmetNote, RecipeFrontmatter, RestaurantFrontmatter } from "./types";
+import type { GourmetNote, RecipeFrontmatter, RestaurantFrontmatter, SortOption } from "./types";
 
 export interface ExplorerFilterState {
 	cuisine: string[];
@@ -9,6 +9,9 @@ export interface ExplorerFilterState {
 	minRating: number;
 	tags: string[];
 	search: string;
+	sortBy: SortOption;
+	unrated: boolean;
+	searchIngredients: boolean;
 }
 
 export function createEmptyFilter(): ExplorerFilterState {
@@ -21,20 +24,54 @@ export function createEmptyFilter(): ExplorerFilterState {
 		minRating: 0,
 		tags: [],
 		search: "",
+		sortBy: "name-asc",
+		unrated: false,
+		searchIngredients: false,
 	};
+}
+
+export interface FilterOption {
+	value: string;
+	count: number;
 }
 
 export function applyFilters(
 	notes: GourmetNote[],
-	filters: ExplorerFilterState
+	filters: ExplorerFilterState,
+	ingredientIndex?: Map<string, Set<string>>
 ): GourmetNote[] {
 	return notes.filter((note) => {
 		const fm = note.frontmatter;
 
-		// Search filter
+		// Search filter — expanded scope
 		if (filters.search) {
 			const q = filters.search.toLowerCase();
-			if (!note.name.toLowerCase().includes(q)) return false;
+			const nameMatch = note.name.toLowerCase().includes(q);
+			const cuisineVal = (fm as any).cuisine;
+			const cuisines = Array.isArray(cuisineVal) ? cuisineVal : cuisineVal ? [cuisineVal] : [];
+			const cuisineMatch = cuisines.some((c: string) => c.toLowerCase().includes(q));
+			const categoryMatch = (fm as any).category?.toLowerCase().includes(q) ?? false;
+			const tagsMatch = ((fm as any).tags ?? []).some((t: string) => t.toLowerCase().includes(q));
+			const locationMatch = (fm as any).location?.toLowerCase().includes(q) ?? false;
+			const difficultyMatch = (fm as any).difficulty?.toLowerCase().includes(q) ?? false;
+
+			let ingredientMatch = false;
+			if (filters.searchIngredients && ingredientIndex) {
+				const ingredients = ingredientIndex.get(note.path);
+				if (ingredients) {
+					ingredientMatch = [...ingredients].some((ing) => ing.toLowerCase().includes(q));
+				}
+			}
+
+			if (!nameMatch && !cuisineMatch && !categoryMatch && !tagsMatch && !locationMatch && !difficultyMatch && !ingredientMatch) {
+				return false;
+			}
+		}
+
+		// Unrated filter
+		if (filters.unrated) {
+			const rating = (fm as any).rating ?? 0;
+			if (rating > 0) return false;
 		}
 
 		// Rating filter
@@ -80,15 +117,46 @@ export function applyFilters(
 	});
 }
 
+const DIFFICULTY_ORDER: Record<string, number> = { easy: 0, medium: 1, hard: 2 };
+
+export function sortNotes(notes: GourmetNote[], sortBy: SortOption): GourmetNote[] {
+	const sorted = [...notes];
+	sorted.sort((a, b) => {
+		const fmA = a.frontmatter as any;
+		const fmB = b.frontmatter as any;
+		switch (sortBy) {
+			case "name-asc":
+				return a.name.localeCompare(b.name);
+			case "name-desc":
+				return b.name.localeCompare(a.name);
+			case "rating-desc":
+				return (fmB.rating ?? 0) - (fmA.rating ?? 0);
+			case "cook-time-asc":
+				return (fmA.cook_time ?? Infinity) - (fmB.cook_time ?? Infinity);
+			case "created-desc":
+				return (fmB.created ?? "").localeCompare(fmA.created ?? "");
+			case "difficulty-asc":
+				return (DIFFICULTY_ORDER[fmA.difficulty] ?? 99) - (DIFFICULTY_ORDER[fmB.difficulty] ?? 99);
+			case "price-asc": {
+				const priceLen = (s: string | undefined) => s ? s.length : 99;
+				return priceLen(fmA.price_range) - priceLen(fmB.price_range);
+			}
+			default:
+				return 0;
+		}
+	});
+	return sorted;
+}
+
 export function extractFilterOptions(
 	notes: GourmetNote[]
-): Record<string, string[]> {
-	const sets: Record<string, Set<string>> = {
-		cuisine: new Set(),
-		category: new Set(),
-		difficulty: new Set(),
-		price_range: new Set(),
-		location: new Set(),
+): Record<string, FilterOption[]> {
+	const counts: Record<string, Map<string, number>> = {
+		cuisine: new Map(),
+		category: new Map(),
+		difficulty: new Map(),
+		price_range: new Map(),
+		location: new Map(),
 	};
 
 	for (const note of notes) {
@@ -96,23 +164,27 @@ export function extractFilterOptions(
 		const cuisine = (fm as any).cuisine;
 		if (cuisine) {
 			const arr = Array.isArray(cuisine) ? cuisine : [cuisine];
-			for (const c of arr) sets.cuisine.add(c);
+			for (const c of arr) {
+				counts.cuisine.set(c, (counts.cuisine.get(c) ?? 0) + 1);
+			}
 		}
 		if (fm.type === "recipe") {
 			const rfm = fm as RecipeFrontmatter;
-			if (rfm.category) sets.category.add(rfm.category);
-			if (rfm.difficulty) sets.difficulty.add(rfm.difficulty);
+			if (rfm.category) counts.category.set(rfm.category, (counts.category.get(rfm.category) ?? 0) + 1);
+			if (rfm.difficulty) counts.difficulty.set(rfm.difficulty, (counts.difficulty.get(rfm.difficulty) ?? 0) + 1);
 		}
 		if (fm.type === "restaurant") {
 			const rfm = fm as RestaurantFrontmatter;
-			if (rfm.price_range) sets.price_range.add(rfm.price_range);
-			if (rfm.location) sets.location.add(rfm.location);
+			if (rfm.price_range) counts.price_range.set(rfm.price_range, (counts.price_range.get(rfm.price_range) ?? 0) + 1);
+			if (rfm.location) counts.location.set(rfm.location, (counts.location.get(rfm.location) ?? 0) + 1);
 		}
 	}
 
-	const result: Record<string, string[]> = {};
-	for (const [key, s] of Object.entries(sets)) {
-		result[key] = [...s].sort();
+	const result: Record<string, FilterOption[]> = {};
+	for (const [key, map] of Object.entries(counts)) {
+		result[key] = [...map.entries()]
+			.sort((a, b) => a[0].localeCompare(b[0]))
+			.map(([value, count]) => ({ value, count }));
 	}
 	return result;
 }
