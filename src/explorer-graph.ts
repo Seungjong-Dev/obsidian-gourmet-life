@@ -271,19 +271,13 @@ export function renderGraphView(
 		n.text = text;
 		n.group = g;
 
-		// Drag handling
+		// Drag handling — reheat is deferred to mousemove so clicks don't jolt the graph
 		g.addEventListener("mousedown", (ev) => {
 			if (ev.button !== 0) return;
 			ev.stopPropagation();
 			state.dragging = n;
 			n.fx = n.x;
 			n.fy = n.y;
-			if (state.alpha < 0.05) {
-				state.alpha = 0.3;
-				startSimulation(state);
-			} else {
-				state.alpha = Math.max(state.alpha, 0.3);
-			}
 			svg.style.cursor = "grabbing";
 		});
 
@@ -443,10 +437,19 @@ export function renderGraphView(
 			state.dragging.fy = svgY;
 			state.dragging.x = svgX;
 			state.dragging.y = svgY;
-			if (dragStartPos) {
+			if (dragStartPos && !dragMoved) {
 				const dx = ev.clientX - dragStartPos.x;
 				const dy = ev.clientY - dragStartPos.y;
-				if (Math.abs(dx) + Math.abs(dy) > 3) dragMoved = true;
+				if (Math.abs(dx) + Math.abs(dy) > 3) {
+					dragMoved = true;
+					// Reheat only when actual dragging starts
+					if (state.alpha < 0.05) {
+						state.alpha = 0.3;
+						startSimulation(state);
+					} else {
+						state.alpha = Math.max(state.alpha, 0.3);
+					}
+				}
 			}
 			return;
 		}

@@ -334,6 +334,13 @@ export class ExplorerView extends ItemView {
 			this.app.vault.on("rename", () => this.renderContent())
 		);
 
+		// ESC closes the side preview panel
+		this.registerDomEvent(container, "keydown", (e: KeyboardEvent) => {
+			if (e.key === "Escape" && this.selectedPath) {
+				this.closePreviewAndSync();
+			}
+		});
+
 		this.refresh();
 	}
 
@@ -464,6 +471,7 @@ export class ExplorerView extends ItemView {
 			this.renderContent();
 		};
 
+
 		const resolveImage = (imagePath: string, notePath: string) => {
 			const cleaned = imagePath.replace(/^\[\[|\]\]$/g, "");
 			const resolved = this.app.metadataCache.getFirstLinkpathDest(cleaned, notePath);
@@ -508,6 +516,18 @@ export class ExplorerView extends ItemView {
 		}
 	}
 
+	/** Close preview and sync the view selection without full re-render */
+	private closePreviewAndSync(): void {
+		this.closePreview();
+		if (this.layout === "map" && hasExplorerMap(this.contentContainer)) {
+			updateMapSelection(this.contentContainer, null);
+		} else if (this.layout === "graph" && hasExplorerGraph(this.contentContainer)) {
+			updateGraphSelection(this.contentContainer, null);
+		} else {
+			this.renderContent();
+		}
+	}
+
 	private async renderPreview(): Promise<void> {
 		if (!this.selectedPath) {
 			this.closePreview();
@@ -544,8 +564,7 @@ export class ExplorerView extends ItemView {
 		closeBtn.title = "Close preview";
 		setIcon(closeBtn, "x");
 		closeBtn.addEventListener("click", () => {
-			this.closePreview();
-			this.renderContent();
+			this.closePreviewAndSync();
 		});
 
 		// Read file content
