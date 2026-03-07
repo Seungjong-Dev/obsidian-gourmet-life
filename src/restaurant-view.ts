@@ -229,7 +229,7 @@ export class RestaurantView extends ItemView {
 			}
 
 			try {
-				renderRestaurantMainPanel(this.mainContainer, bodyContent, this.mode, callbacks);
+				renderRestaurantMainPanel(this.mainContainer, bodyContent, this.mode, callbacks, this.app, this.filePath);
 			} catch (err) {
 				console.error("[GourmetLife] Main panel render failed:", err);
 			}

@@ -1,4 +1,4 @@
-import { setIcon, type App } from "obsidian";
+import { setIcon, type App, type TFile } from "obsidian";
 import type { RestaurantViewMode } from "./types";
 import {
 	parseRestaurantSections,
@@ -8,6 +8,7 @@ import {
 	type RestaurantVisit,
 	type RestaurantMenuItem,
 } from "./restaurant-parser";
+import { createImageSuggest, type TextareaSuggest } from "./textarea-suggest";
 
 export interface RestaurantMainCallbacks {
 	onViewSource: () => void;
@@ -78,8 +79,17 @@ export function renderRestaurantMainPanel(
 	container: HTMLElement,
 	bodyContent: string,
 	mode: RestaurantViewMode,
-	callbacks: RestaurantMainCallbacks
+	callbacks: RestaurantMainCallbacks,
+	app?: App,
+	notePath?: string
 ): void {
+	// Cleanup previous image suggests
+	const prev = (container as any).__glSuggests as TextareaSuggest<unknown>[] | undefined;
+	if (prev) {
+		for (const s of prev) s.destroy();
+		(container as any).__glSuggests = null;
+	}
+
 	container.empty();
 
 	const sections = parseRestaurantSections(bodyContent);
@@ -87,7 +97,7 @@ export function renderRestaurantMainPanel(
 	if (mode === "viewer") {
 		renderViewer(container, sections);
 	} else {
-		renderEditor(container, sections, callbacks);
+		renderEditor(container, sections, callbacks, app, notePath);
 	}
 }
 
@@ -195,8 +205,12 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[]): vo
 function renderEditor(
 	container: HTMLElement,
 	sections: { menuHighlights: string; notes: string; reviews: string },
-	callbacks: RestaurantMainCallbacks
+	callbacks: RestaurantMainCallbacks,
+	app?: App,
+	notePath?: string
 ): void {
+	const suggests: TextareaSuggest<TFile>[] = [];
+
 	// Menu Highlights
 	const menuSection = container.createDiv();
 	menuSection.createEl("h2", { text: "Menu Highlights" });
@@ -207,6 +221,9 @@ function renderEditor(
 	menuArea.value = sections.menuHighlights;
 	menuArea.placeholder = "- Menu item — Description";
 	menuArea.addEventListener("input", () => callbacks.onMenuInput());
+	if (app) {
+		suggests.push(createImageSuggest(menuArea, () => app.vault.getFiles(), notePath));
+	}
 
 	// Notes
 	const notesSection = container.createDiv();
@@ -217,6 +234,9 @@ function renderEditor(
 	notesArea.dataset.field = "notes";
 	notesArea.value = sections.notes;
 	notesArea.addEventListener("input", () => callbacks.onNotesInput());
+	if (app) {
+		suggests.push(createImageSuggest(notesArea, () => app.vault.getFiles(), notePath));
+	}
 
 	// Reviews
 	const reviewsSection = container.createDiv();
@@ -235,6 +255,9 @@ function renderEditor(
 	reviewsArea.value = sections.reviews;
 	reviewsArea.placeholder = "- 2026-03-05\n  - Menu item #rate/4 — Comment";
 	reviewsArea.addEventListener("input", () => callbacks.onReviewsInput());
+	if (app) {
+		suggests.push(createImageSuggest(reviewsArea, () => app.vault.getFiles(), notePath));
+	}
 
 	addVisitBtn.addEventListener("click", () => {
 		const prefix = reviewsArea.value.trim() ? "\n" : "";
@@ -244,6 +267,9 @@ function renderEditor(
 		reviewsArea.selectionEnd = reviewsArea.value.length;
 		reviewsArea.dispatchEvent(new Event("input", { bubbles: true }));
 	});
+
+	// Store suggests for cleanup on re-render
+	(container as any).__glSuggests = suggests;
 }
 
 // ── Collect State ──
