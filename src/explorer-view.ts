@@ -32,11 +32,15 @@ export class ExplorerView extends ItemView {
 	private filter: ExplorerFilterState = createEmptyFilter();
 	private searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
+	private filterOpen = false;
+
 	// DOM refs
 	private tabButtons: HTMLElement[] = [];
+	private filterToggleBtn: HTMLButtonElement = null!;
 	private layoutCardBtn: HTMLButtonElement = null!;
 	private layoutListBtn: HTMLButtonElement = null!;
 	private searchInput: HTMLInputElement = null!;
+	private filterPanel: HTMLElement = null!;
 	private filterContainer: HTMLElement = null!;
 	private tagCloudContainer: HTMLElement = null!;
 	private contentContainer: HTMLElement = null!;
@@ -103,6 +107,16 @@ export class ExplorerView extends ItemView {
 		// Right side of toolbar
 		const right = toolbar.createDiv({ cls: "gl-explorer__toolbar-right" });
 
+		this.filterToggleBtn = right.createEl("button", {
+			cls: "gl-explorer__layout-btn",
+			attr: { "aria-label": "Toggle filters" },
+		});
+		this.filterToggleBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>';
+		this.filterToggleBtn.addEventListener("click", () => {
+			this.filterOpen = !this.filterOpen;
+			this.updateFilterPanel();
+		});
+
 		this.searchInput = right.createEl("input", {
 			cls: "gl-explorer__search",
 			attr: { type: "text", placeholder: "Search..." },
@@ -137,9 +151,10 @@ export class ExplorerView extends ItemView {
 			this.renderContent();
 		});
 
-		// ── Filters ──
-		this.filterContainer = container.createDiv({ cls: "gl-explorer__filters" });
-		this.tagCloudContainer = container.createDiv({ cls: "gl-explorer__filters" });
+		// ── Filters (collapsible) ──
+		this.filterPanel = container.createDiv({ cls: "gl-explorer__filter-panel" });
+		this.filterContainer = this.filterPanel.createDiv({ cls: "gl-explorer__filters" });
+		this.tagCloudContainer = this.filterPanel.createDiv({ cls: "gl-explorer__filters" });
 
 		// ── Content ──
 		this.contentContainer = container.createDiv({ cls: "gl-explorer__content" });
@@ -165,6 +180,7 @@ export class ExplorerView extends ItemView {
 	private refresh(): void {
 		this.updateTabButtons();
 		this.updateLayoutButtons();
+		this.updateFilterPanel();
 		this.renderFilters();
 		this.renderContent();
 	}
@@ -174,6 +190,11 @@ export class ExplorerView extends ItemView {
 		for (let i = 0; i < this.tabButtons.length; i++) {
 			this.tabButtons[i].toggleClass("gl-explorer__tab--active", tabs[i] === this.tab);
 		}
+	}
+
+	private updateFilterPanel(): void {
+		this.filterPanel.toggleClass("gl-explorer__filter-panel--open", this.filterOpen);
+		this.filterToggleBtn.toggleClass("gl-explorer__layout-btn--active", this.filterOpen);
 	}
 
 	private updateLayoutButtons(): void {

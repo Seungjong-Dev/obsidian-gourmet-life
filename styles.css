@@ -1797,6 +1797,21 @@
 	border-color: var(--interactive-accent);
 }
 
+/* Filter panel (collapsible) */
+
+.gl-explorer__filter-panel {
+	max-height: 0;
+	overflow: hidden;
+	transition: max-height 0.25s ease;
+	border-bottom: 1px solid transparent;
+	flex-shrink: 0;
+}
+
+.gl-explorer__filter-panel--open {
+	max-height: 500px;
+	border-bottom-color: var(--background-modifier-border);
+}
+
 /* Filters */
 
 .gl-explorer__filters {
