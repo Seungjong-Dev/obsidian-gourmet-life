@@ -994,6 +994,7 @@
 
 .gl-markdown > p:first-child { margin-top: 0; }
 .gl-markdown > p:last-child { margin-bottom: 0; }
+.gl-markdown { margin-bottom: 8px; }
 
 /* ── Review Timeline ── */
 
