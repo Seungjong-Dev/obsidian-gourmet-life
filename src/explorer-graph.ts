@@ -128,12 +128,14 @@ export function renderGraphView(
 	const edges: Edge[] = [];
 
 	for (const recipe of recipes) {
+		const rx = Math.random() * 400 - 200;
+		const ry = Math.random() * 300 - 150;
 		const rNode: Node = {
 			id: `r:${recipe.path}`,
 			label: recipe.name,
 			type: "recipe",
-			x: Math.random() * 800 - 400,
-			y: Math.random() * 600 - 300,
+			x: rx,
+			y: ry,
 			vx: 0, vy: 0,
 			fx: null, fy: null,
 			degree: 0,
@@ -146,12 +148,13 @@ export function renderGraphView(
 			for (const ing of ings) {
 				const iId = `i:${ing}`;
 				if (!nodeMap.has(iId)) {
+					// Place ingredient near its first recipe
 					nodeMap.set(iId, {
 						id: iId,
 						label: ing,
 						type: "ingredient",
-						x: Math.random() * 800 - 400,
-						y: Math.random() * 600 - 300,
+						x: rx + (Math.random() - 0.5) * 60,
+						y: ry + (Math.random() - 0.5) * 60,
 						vx: 0, vy: 0,
 						fx: null, fy: null,
 						degree: 0,
@@ -524,7 +527,11 @@ export function renderGraphView(
 	};
 
 	simStates.set(container, state);
-	startSimulation(state);
+
+	// Warmup: run simulation off-screen to reach a fully stable layout
+	warmupSimulation(state, 300);
+	state.alpha = 0;
+	fitToView(state);
 }
 
 // ── Fit to view ──
@@ -548,6 +555,92 @@ function fitToView(state: SimulationState): void {
 	viewBox.w = (maxX - minX) + pad * 2 || 400;
 	viewBox.h = (maxY - minY) + pad * 2 || 400;
 	svg.setAttribute("viewBox", `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`);
+}
+
+// ── Warmup: run physics ticks synchronously without rendering ──
+
+function warmupSimulation(state: SimulationState, ticks: number): void {
+	const { nodes, edges, settings } = state;
+	const centerF = mapCenter(settings.centerForce);
+	const repulsion = mapRepulsion(settings.repulsion);
+	const springLen = mapLinkDist(settings.linkDistance);
+	const springK = mapLinkForce(settings.linkForce);
+	const scale = mapNodeScale(settings.nodeSize);
+	const cr = 12 * scale;
+	const maxV = 30;
+
+	let alpha = state.alpha;
+	for (let t = 0; t < ticks; t++) {
+		for (const n of nodes) {
+			n.vx -= n.x * centerF;
+			n.vy -= n.y * centerF;
+		}
+		for (let i = 0; i < nodes.length; i++) {
+			for (let j = i + 1; j < nodes.length; j++) {
+				const a = nodes[i], b = nodes[j];
+				const dx = b.x - a.x, dy = b.y - a.y;
+				const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+				const force = repulsion / (dist * dist);
+				const fx = (dx / dist) * force, fy = (dy / dist) * force;
+				a.vx -= fx; a.vy -= fy;
+				b.vx += fx; b.vy += fy;
+			}
+		}
+		for (const e of edges) {
+			const dx = e.target.x - e.source.x, dy = e.target.y - e.source.y;
+			const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+			const displacement = dist - springLen;
+			const force = springK * displacement;
+			const fx = (dx / dist) * force, fy = (dy / dist) * force;
+			e.source.vx += fx; e.source.vy += fy;
+			e.target.vx -= fx; e.target.vy -= fy;
+		}
+		for (let i = 0; i < nodes.length; i++) {
+			for (let j = i + 1; j < nodes.length; j++) {
+				const a = nodes[i], b = nodes[j];
+				const dx = b.x - a.x, dy = b.y - a.y;
+				const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+				if (dist < cr * 2) {
+					const overlap = cr * 2 - dist;
+					const fx = (dx / dist) * overlap * 0.5, fy = (dy / dist) * overlap * 0.5;
+					a.x -= fx; a.y -= fy;
+					b.x += fx; b.y += fy;
+				}
+			}
+		}
+		for (const n of nodes) {
+			n.vx *= 0.9;
+			n.vy *= 0.9;
+			const speed = Math.sqrt(n.vx * n.vx + n.vy * n.vy);
+			if (speed > maxV) { n.vx *= maxV / speed; n.vy *= maxV / speed; }
+			n.x += n.vx * alpha;
+			n.y += n.vy * alpha;
+		}
+		alpha *= 0.97; // faster cooling during warmup
+	}
+	state.alpha = alpha;
+
+	// Sync SVG positions after warmup
+	for (const n of nodes) {
+		if (n.circle) {
+			n.circle.setAttribute("cx", String(n.x));
+			n.circle.setAttribute("cy", String(n.y));
+		}
+		if (n.text) {
+			const baseR = n.type === "recipe" ? 8 : 5;
+			const r = baseR * scale;
+			n.text.setAttribute("x", String(n.x + r + 3));
+			n.text.setAttribute("y", String(n.y + 3));
+		}
+	}
+	for (const e of edges) {
+		if (e.line) {
+			e.line.setAttribute("x1", String(e.source.x));
+			e.line.setAttribute("y1", String(e.source.y));
+			e.line.setAttribute("x2", String(e.target.x));
+			e.line.setAttribute("y2", String(e.target.y));
+		}
+	}
 }
 
 // ── Simulation loop ──
@@ -628,12 +721,15 @@ function startSimulation(state: SimulationState): void {
 			}
 		}
 
-		// Apply velocity
+		// Apply velocity (with clamping)
+		const maxV = 30;
 		for (const n of nodes) {
-			if (n.fx != null) { n.x = n.fx; n.vx = 0; }
-			else { n.vx *= damping; n.x += n.vx * state.alpha; }
-			if (n.fy != null) { n.y = n.fy; n.vy = 0; }
-			else { n.vy *= damping; n.y += n.vy * state.alpha; }
+			n.vx *= damping;
+			n.vy *= damping;
+			const speed = Math.sqrt(n.vx * n.vx + n.vy * n.vy);
+			if (speed > maxV) { n.vx *= maxV / speed; n.vy *= maxV / speed; }
+			if (n.fx != null) { n.x = n.fx; n.vx = 0; } else { n.x += n.vx * state.alpha; }
+			if (n.fy != null) { n.y = n.fy; n.vy = 0; } else { n.y += n.vy * state.alpha; }
 		}
 
 		// Update SVG positions
@@ -659,9 +755,9 @@ function startSimulation(state: SimulationState): void {
 		}
 
 		// Cooling
-		state.alpha *= 0.995;
+		state.alpha *= 0.98;
 
-		if (state.alpha > 0.001 || state.dragging) {
+		if (state.alpha > 0.01 || state.dragging) {
 			state.rafId = requestAnimationFrame(tick);
 		}
 	};
