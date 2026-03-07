@@ -60,7 +60,9 @@ interface SimulationState {
 	onSelect: (path: string) => void;
 	selectedPath: string | null;
 	highlightedIng: string | null;
+	highlightedRecipe: string | null;
 	cleanupListeners: (() => void) | null;
+	resizeObserver: ResizeObserver | null;
 	settings: GraphSettings;
 }
 
@@ -77,6 +79,10 @@ export function destroyGraph(container: HTMLElement): void {
 		state.cleanupListeners();
 		state.cleanupListeners = null;
 	}
+	if (state.resizeObserver) {
+		state.resizeObserver.disconnect();
+		state.resizeObserver = null;
+	}
 	simStates.delete(container);
 }
 
@@ -92,6 +98,19 @@ export function updateGraphSelection(container: HTMLElement, selectedPath: strin
 		if (n.group) {
 			n.group.classList.toggle("gl-graph__node--selected", !!(n.path && n.path === selectedPath));
 		}
+	}
+	// Sync highlight with selection
+	if (selectedPath) {
+		const recipeNode = state.nodes.find(n => n.type === "recipe" && n.path === selectedPath);
+		if (recipeNode) {
+			state.highlightedIng = null;
+			state.highlightedRecipe = recipeNode.id;
+			highlightConnected(recipeNode, state.nodes, state.edges, state.gNodes, state.gEdges);
+		}
+	} else {
+		state.highlightedRecipe = null;
+		state.highlightedIng = null;
+		clearHighlight(state.gNodes, state.gEdges);
 	}
 }
 
@@ -238,7 +257,9 @@ export function renderGraphView(
 		onSelect,
 		selectedPath,
 		highlightedIng: null,
+		highlightedRecipe: null,
 		cleanupListeners: null,
+		resizeObserver: null,
 		settings,
 	};
 
@@ -290,6 +311,24 @@ export function renderGraphView(
 	}
 
 	graphWrap.appendChild(svg);
+
+	// ── ResizeObserver: adjust viewBox aspect ratio on container resize ──
+	const resizeObserver = new ResizeObserver((entries) => {
+		const entry = entries[0];
+		if (!entry) return;
+		const { width, height } = entry.contentRect;
+		if (width === 0 || height === 0) return;
+		const newAspect = width / height;
+		const curAspect = viewBox.w / viewBox.h;
+		if (Math.abs(newAspect - curAspect) < 0.01) return;
+		const cx = viewBox.x + viewBox.w / 2;
+		const cy = viewBox.y + viewBox.h / 2;
+		viewBox.w = viewBox.h * newAspect;
+		viewBox.x = cx - viewBox.w / 2;
+		svg.setAttribute("viewBox", `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`);
+	});
+	resizeObserver.observe(graphWrap);
+	state.resizeObserver = resizeObserver;
 
 	// ── Navigation Controls (zoom in/out/fit) ──
 	const navEl = graphWrap.createDiv({ cls: "gl-graph__nav" });
@@ -446,13 +485,23 @@ export function renderGraphView(
 			if (!dragMoved) {
 				if (node.type === "recipe" && node.path) {
 					onSelect(node.path);
+					// Toggle recipe highlight
+					if (state.highlightedRecipe === node.id) {
+						state.highlightedRecipe = null;
+						clearHighlight(gNodes, gEdges);
+					} else {
+						state.highlightedIng = null;
+						state.highlightedRecipe = node.id;
+						highlightConnected(node, nodes, edges, gNodes, gEdges);
+					}
 				} else if (node.type === "ingredient") {
 					if (state.highlightedIng === node.id) {
 						state.highlightedIng = null;
 						clearHighlight(gNodes, gEdges);
 					} else {
+						state.highlightedRecipe = null;
 						state.highlightedIng = node.id;
-						highlightIngredient(node, nodes, edges, gNodes, gEdges);
+						highlightConnected(node, nodes, edges, gNodes, gEdges);
 					}
 				}
 			}
@@ -635,18 +684,18 @@ function startSimulation(state: SimulationState): void {
 	state.rafId = requestAnimationFrame(tick);
 }
 
-function highlightIngredient(
-	ingNode: Node,
+function highlightConnected(
+	centerNode: Node,
 	allNodes: Node[],
 	edges: Edge[],
 	gNodes: SVGGElement,
 	gEdges: SVGGElement
 ): void {
 	const connected = new Set<string>();
-	connected.add(ingNode.id);
+	connected.add(centerNode.id);
 	for (const e of edges) {
-		if (e.source.id === ingNode.id) connected.add(e.target.id);
-		if (e.target.id === ingNode.id) connected.add(e.source.id);
+		if (e.source.id === centerNode.id) connected.add(e.target.id);
+		if (e.target.id === centerNode.id) connected.add(e.source.id);
 	}
 
 	for (const n of allNodes) {
@@ -658,7 +707,7 @@ function highlightIngredient(
 	const edgeEls = gEdges.children;
 	for (let i = 0; i < edges.length; i++) {
 		const e = edges[i];
-		const isConn = e.source.id === ingNode.id || e.target.id === ingNode.id;
+		const isConn = e.source.id === centerNode.id || e.target.id === centerNode.id;
 		(edgeEls[i] as SVGElement).classList.toggle("gl-graph__edge--dim", !isConn);
 	}
 }
