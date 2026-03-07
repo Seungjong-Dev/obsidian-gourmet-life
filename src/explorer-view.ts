@@ -28,6 +28,8 @@ import { renderMainPanel, type MainPanelCallbacks } from "./recipe-main-panel";
 import { renderRestaurantSidePanel, destroyLeafletMap, type RestaurantSideCallbacks } from "./restaurant-side-panel";
 import { renderRestaurantMainPanel, type RestaurantMainCallbacks } from "./restaurant-main-panel";
 import { readGourmetFrontmatter } from "./frontmatter-utils";
+import { renderGraphView, destroyGraph, hasExplorerGraph, updateGraphSelection } from "./explorer-graph";
+import { renderMapView, destroyExplorerMap, hasExplorerMap, updateMapSelection } from "./explorer-map";
 import type GourmetLifePlugin from "./main";
 
 interface ExplorerViewState {
@@ -73,6 +75,8 @@ export class ExplorerView extends ItemView {
 	private searchModeBtn: HTMLButtonElement = null!;
 	private layoutCardBtn: HTMLButtonElement = null!;
 	private layoutListBtn: HTMLButtonElement = null!;
+	private layoutGraphBtn: HTMLButtonElement = null!;
+	private layoutMapBtn: HTMLButtonElement = null!;
 	private filterPanel: HTMLElement = null!;
 	private filterContainer: HTMLElement = null!;
 	private tagCloudContainer: HTMLElement = null!;
@@ -122,6 +126,10 @@ export class ExplorerView extends ItemView {
 		if (state.tab) this.tab = state.tab;
 		if (state.layout) this.layout = state.layout;
 
+		// Fallback if restored layout doesn't match current tab
+		if (this.layout === "graph" && this.tab !== "recipe") this.layout = "card";
+		if (this.layout === "map" && this.tab !== "restaurant") this.layout = "card";
+
 		this.filter = createEmptyFilter();
 		if (state.sortBy) this.filter.sortBy = state.sortBy;
 		if (state.filterOpen !== undefined) this.filterOpen = state.filterOpen;
@@ -164,6 +172,9 @@ export class ExplorerView extends ItemView {
 	setTab(tab: ExplorerTab): void {
 		this.tab = tab;
 		this.filter = createEmptyFilter();
+		// Fallback: graph is recipe-only, map is restaurant-only
+		if (this.layout === "graph" && tab !== "recipe") this.layout = "card";
+		if (this.layout === "map" && tab !== "restaurant") this.layout = "card";
 		this.closePreview();
 		this.refresh();
 	}
@@ -188,6 +199,9 @@ export class ExplorerView extends ItemView {
 				this.tab = t;
 				this.filter = createEmptyFilter();
 				this.searchInput.value = "";
+				// Fallback layout for incompatible tab
+				if (this.layout === "graph" && t !== "recipe") this.layout = "card";
+				if (this.layout === "map" && t !== "restaurant") this.layout = "card";
 				this.closePreview();
 				this.refresh();
 			});
@@ -274,6 +288,28 @@ export class ExplorerView extends ItemView {
 			this.renderContent();
 		});
 
+		this.layoutGraphBtn = right.createEl("button", {
+			cls: "gl-explorer__layout-btn",
+			attr: { "aria-label": "Graph view" },
+		});
+		setIcon(this.layoutGraphBtn, "git-fork");
+		this.layoutGraphBtn.addEventListener("click", () => {
+			this.layout = "graph";
+			this.updateLayoutButtons();
+			this.renderContent();
+		});
+
+		this.layoutMapBtn = right.createEl("button", {
+			cls: "gl-explorer__layout-btn",
+			attr: { "aria-label": "Map view" },
+		});
+		setIcon(this.layoutMapBtn, "map-pin");
+		this.layoutMapBtn.addEventListener("click", () => {
+			this.layout = "map";
+			this.updateLayoutButtons();
+			this.renderContent();
+		});
+
 		// ── Filters (collapsible) ──
 		this.filterPanel = container.createDiv({ cls: "gl-explorer__filter-panel" });
 		this.filterContainer = this.filterPanel.createDiv({ cls: "gl-explorer__filters" });
@@ -303,6 +339,8 @@ export class ExplorerView extends ItemView {
 
 	async onClose(): Promise<void> {
 		if (this.searchDebounce) clearTimeout(this.searchDebounce);
+		destroyGraph(this.contentContainer);
+		destroyExplorerMap(this.contentContainer);
 		this.closePreview();
 	}
 
@@ -331,6 +369,12 @@ export class ExplorerView extends ItemView {
 	private updateLayoutButtons(): void {
 		this.layoutCardBtn.toggleClass("gl-explorer__layout-btn--active", this.layout === "card");
 		this.layoutListBtn.toggleClass("gl-explorer__layout-btn--active", this.layout === "list");
+		this.layoutGraphBtn.toggleClass("gl-explorer__layout-btn--active", this.layout === "graph");
+		this.layoutMapBtn.toggleClass("gl-explorer__layout-btn--active", this.layout === "map");
+
+		// Show graph only for recipe tab, map only for restaurant tab
+		this.layoutGraphBtn.style.display = this.tab === "recipe" ? "" : "none";
+		this.layoutMapBtn.style.display = this.tab === "restaurant" ? "" : "none";
 	}
 
 	private updateSortOptions(): void {
@@ -407,6 +451,16 @@ export class ExplorerView extends ItemView {
 				this.selectedPath = path;
 				this.renderPreview();
 			}
+
+			// For map/graph, update selection in-place instead of full re-render
+			if (this.layout === "map" && hasExplorerMap(this.contentContainer)) {
+				updateMapSelection(this.contentContainer, this.selectedPath);
+				return;
+			}
+			if (this.layout === "graph" && hasExplorerGraph(this.contentContainer)) {
+				updateGraphSelection(this.contentContainer, this.selectedPath);
+				return;
+			}
 			this.renderContent();
 		};
 
@@ -418,7 +472,21 @@ export class ExplorerView extends ItemView {
 			return match ? this.app.vault.getResourcePath(match as any) : "";
 		};
 
-		if (this.layout === "card") {
+		// Cleanup previous graph/map before switching
+		destroyGraph(this.contentContainer);
+		destroyExplorerMap(this.contentContainer);
+
+		if (this.layout === "graph") {
+			renderGraphView(
+				this.contentContainer,
+				sorted,
+				this.plugin.noteIndex.recipeIngredients,
+				onSelect,
+				this.selectedPath
+			);
+		} else if (this.layout === "map") {
+			renderMapView(this.contentContainer, sorted, onSelect, this.selectedPath);
+		} else if (this.layout === "card") {
 			renderCardGrid(this.contentContainer, sorted, this.tab, onOpen, this.app.vault, onSelect, this.selectedPath, resolveImage);
 		} else {
 			renderListView(this.contentContainer, sorted, this.tab, onOpen, this.app.vault, onSelect, this.selectedPath, resolveImage);

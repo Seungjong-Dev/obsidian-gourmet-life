@@ -7,7 +7,7 @@ export const VIEW_TYPE_EXPLORER = "gourmet-life-explorer-view";
 export type RecipeViewMode = "viewer" | "editor";
 export type RestaurantViewMode = "viewer" | "editor";
 export type ExplorerTab = "recipe" | "restaurant";
-export type ExplorerLayout = "card" | "list";
+export type ExplorerLayout = "card" | "list" | "graph" | "map";
 export type SortOption =
 	| "name-asc"
 	| "name-desc"

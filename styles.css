@@ -2394,3 +2394,255 @@
 .theme-dark .gl-explorer__related-rating {
 	color: #f59e0b;
 }
+
+/* ── Graph View ── */
+
+.gl-explorer__graph {
+	flex: 1;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+}
+
+.gl-explorer__graph-info {
+	padding: 4px 12px;
+	font-size: 0.82em;
+	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+.gl-graph__wrap {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.gl-explorer__graph-svg {
+	width: 100%;
+	height: 100%;
+	cursor: grab;
+}
+
+.gl-graph__edge {
+	stroke: var(--background-modifier-border);
+	stroke-width: 1;
+}
+
+.gl-graph__edge--dim {
+	opacity: 0.1;
+}
+
+.gl-graph__node--recipe circle {
+	fill: var(--interactive-accent);
+}
+
+.gl-graph__node--ingredient circle {
+	fill: var(--text-muted);
+}
+
+.gl-graph__node--selected circle {
+	stroke: var(--interactive-accent);
+	stroke-width: 3;
+	fill: var(--text-accent);
+}
+
+.gl-graph__node--dim {
+	opacity: 0.15;
+}
+
+.gl-graph__label {
+	font-size: 7px;
+	fill: var(--text-normal);
+	pointer-events: none;
+}
+
+.gl-graph__node--dim .gl-graph__label {
+	fill: var(--text-faint);
+}
+
+/* ── Graph Navigation Controls ── */
+
+.gl-graph__nav {
+	position: absolute;
+	bottom: 12px;
+	right: 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	z-index: 10;
+}
+
+.gl-graph__nav-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 6px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+	padding: 0;
+}
+
+.gl-graph__nav-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+/* ── Graph Settings Panel ── */
+
+.gl-graph__settings-toggle {
+	position: absolute;
+	top: 12px;
+	right: 12px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 6px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+	padding: 0;
+	z-index: 10;
+}
+
+.gl-graph__settings-toggle:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.gl-graph__settings-toggle--active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.gl-graph__settings-toggle--active:hover {
+	background: var(--interactive-accent-hover);
+	color: var(--text-on-accent);
+}
+
+.gl-graph__settings {
+	position: absolute;
+	top: 52px;
+	right: 12px;
+	width: 220px;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 12px;
+	display: none;
+	flex-direction: column;
+	gap: 10px;
+	z-index: 10;
+	box-shadow: var(--shadow-s);
+}
+
+.gl-graph__settings--open {
+	display: flex;
+}
+
+.gl-graph__setting-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.gl-graph__setting-label {
+	font-size: 0.82em;
+	color: var(--text-muted);
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.gl-graph__setting-slider {
+	flex: 1;
+	min-width: 0;
+	height: 4px;
+	-webkit-appearance: none;
+	appearance: none;
+	background: var(--background-modifier-border);
+	border-radius: 2px;
+	outline: none;
+	cursor: pointer;
+}
+
+.gl-graph__setting-slider::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	background: var(--interactive-accent);
+	cursor: pointer;
+	border: 2px solid var(--background-primary);
+	box-shadow: 0 0 0 1px var(--background-modifier-border);
+}
+
+.gl-graph__setting-toggle {
+	flex-shrink: 0;
+}
+
+/* ── Map View ── */
+
+.gl-explorer__map-container {
+	flex: 1;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+}
+
+.gl-explorer__map-inner {
+	flex: 1;
+	min-height: 200px;
+}
+
+.gl-map-popup {
+	font-size: 0.9em;
+}
+
+.gl-map-popup .leaflet-popup-content {
+	margin: 8px 12px;
+	line-height: 1.5;
+}
+
+.gl-map-popup__cuisine {
+	color: var(--text-muted);
+	font-size: 0.9em;
+}
+
+.gl-map-popup__price {
+	font-weight: 600;
+}
+
+.gl-map-popup__rating {
+	color: #d97706;
+}
+
+.theme-dark .gl-map-popup__rating {
+	color: #f59e0b;
+}
+
+.gl-map-tooltip {
+	font-size: 0.8em;
+	font-weight: 600;
+	padding: 2px 6px;
+	border: none;
+	background: rgba(0, 0, 0, 0.7);
+	color: #fff;
+	border-radius: 4px;
+	box-shadow: none;
+}
+
+.gl-map-tooltip::before {
+	border-top-color: rgba(0, 0, 0, 0.7);
+}

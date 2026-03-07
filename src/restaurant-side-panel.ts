@@ -560,7 +560,7 @@ function setFieldValue(container: HTMLElement, field: string, value: string): vo
 }
 
 // Minimal inline Leaflet CSS (just what's needed for rendering)
-const LEAFLET_CSS = `
+export const LEAFLET_CSS = `
 .leaflet-container{height:100%;width:100%;position:relative;outline-offset:1px}
 .leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container{position:absolute;left:0;top:0}
 .leaflet-pane>svg,.leaflet-pane>canvas{position:absolute;left:0;top:0}
