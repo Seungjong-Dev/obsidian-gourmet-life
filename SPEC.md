@@ -28,7 +28,7 @@ Gourmet Life is part of the CeteOS Obsidian plugin suite. It follows the same ar
 |------|---------|-------------------|------|
 | **Recipe** | Cooking recipes with ingredients, steps, times | `Gourmet/Recipes` | `chef-hat` |
 | **Ingredient** | Individual ingredients with season, category | `Gourmet/Ingredients` | `carrot` (custom: `leaf`) |
-| **Restaurant** | Restaurant reviews with location, price | `Gourmet/Restaurants` | `map-pin` |
+| **Restaurant** | Restaurant reviews with address, area, price | `Gourmet/Restaurants` | `map-pin` |
 
 ### Auto-Linking
 
@@ -88,8 +88,9 @@ created: 2026-03-01
 ```yaml
 type: restaurant
 cuisine: Italian
-location: 서울 강남구      # free-text location
-price_range: $$          # $ | $$ | $$$ | $$$$
+address: 서울 강남구 역삼로 123  # full address (maps/geocoding)
+area: 강남                     # coarse region name (filter chips)
+price_range: $$                # $ | $$ | $$$ | $$$$
 rating: 4                # 1–5 integer
 url: https://...         # website or map link
 image: path/to/image.jpg # vault-relative path (single image)
@@ -186,7 +187,7 @@ On plugin load (and when folder settings change), the plugin creates/updates the
 |------|--------|--------------|-------------------|
 | `{recipesFolder}/Recipes.base` | `type == "recipe"` | Cards (cover: `image`, fit: cover) | file.name, cuisine, category, difficulty, rating, cook_time |
 | `{ingredientsFolder}/Ingredients.base` | `type == "ingredient"` | Table | category, season, rating, aliases |
-| `{restaurantsFolder}/Restaurants.base` | `type == "restaurant"` | Cards (cover: `image`, fit: cover) | file.name, cuisine, price_range, rating, location |
+| `{restaurantsFolder}/Restaurants.base` | `type == "restaurant"` | Cards (cover: `image`, fit: cover) | file.name, cuisine, price_range, rating, address, area |
 
 #### `.base` File Format (example: Recipes)
 
@@ -244,12 +245,13 @@ Commands register in the command palette:
 - `Gourmet Life: New restaurant`
 - `Gourmet Life: Search recipes` — Fuzzy search across all recipe notes; selecting a result opens it in Recipe View
 - `Gourmet Life: Share recipe as image` — Export the active recipe as a share card image (clipboard or native share)
+- `Gourmet Life: Migrate restaurant fields` — Batch rename `location` → `address` in frontmatter + backfill `area` from address
 
 Each opens a **modal** with type-specific form fields:
 
 **Recipe modal**: Name, Cuisine (comma-separated), Category (dropdown), Difficulty (dropdown), Servings, Prep time, Cook time, Source
 **Ingredient modal**: Name, Category (dropdown), Season (multi-select), Aliases (comma-separated)
-**Restaurant modal**: Name, Cuisine, Location, Price range (dropdown), URL
+**Restaurant modal**: Name, Cuisine, Address, Area (auto-suggested from address), Price range (dropdown), URL
 
 On submit:
 1. Validate name is non-empty
@@ -500,7 +502,7 @@ When a restaurant note is opened via the Gourmet Explorer or a command, the plug
 **Side Panel** (left, sticky):
 - Image thumbnail (same lightbox as Recipe View)
 - Leaflet mini-map (if `lat`/`lng` available) — interactive in editor, read-only in viewer
-- Info grid: location, cuisine, price range ($ visualization), rating (stars), URL (external link), tags
+- Info grid: address, area, cuisine, price range ($ visualization), rating (stars), URL (external link), tags
 - Visit summary: total visits, average rating across all visits
 - Editor mode: metadata input fields, coordinate extraction from URL (sync regex + async fetch for short URLs and place pages) or geocoding by address (Nominatim API). Coordinates are auto-extracted on editor open when URL exists but lat/lng are empty
 
@@ -595,6 +597,7 @@ src/
 ├── explorer-filter.ts       # Explorer filter/sort logic, filter option extraction
 ├── explorer-cards.ts        # Explorer card grid / list view / filter bar / tag cloud
 ├── explorer-stats.ts        # Explorer summary stats bar + mini timeline
+├── area-suggest.ts          # Best-effort area extraction from address string
 ├── textarea-suggest.ts      # Generic textarea inline autocomplete (image embed, etc.)
 ├── image-suggest-modal.ts   # FuzzySuggestModal for image selection (metadata)
 ├── note-create-modal.ts     # Note creation modal
@@ -697,7 +700,7 @@ src/
 
 **restaurant-side-panel.ts** — Restaurant side panel
 - `renderRestaurantSidePanel()`: Entry point, delegates to viewer/editor sub-renderers
-- Viewer: Image with lightbox, Leaflet map (or fallback), info grid (location, cuisine, price range, rating, URL, tags), visit summary
+- Viewer: Image with lightbox, Leaflet map (or fallback), info grid (address, area, cuisine, price range, rating, URL, tags), visit summary
 - Editor: Image editor, metadata form fields, coordinate section with "Extract from URL" (sync + async) and "Search by address" buttons, auto-extract on open when URL exists but no coords, interactive Leaflet map
 - `collectRestaurantSideState()`: Collects form values for auto-save
 - `renderLeafletMap()`: Creates Leaflet map instance with OpenStreetMap tiles
@@ -730,13 +733,13 @@ src/
 - Preview panel: renders read-only recipe/restaurant view (reuses `renderSidePanel`/`renderMainPanel` and restaurant equivalents)
 - "Related Notes" section at bottom of preview: scores notes by tag/cuisine overlap, shows top 5 with click-to-preview
 - Image resolution: `metadataCache.getFirstLinkpathDest()` with filename fallback (shared pattern with recipe/restaurant views)
-- State persistence: saves/restores `tab`, `layout`, `sortBy`, full filter state (`cuisine`, `category`, `difficulty`, `price_range`, `location`, `minRating`, `tags`, `unrated`, `searchIngredients`), and `filterOpen` via `getState()`/`setState()` — restored filter values validated against current data
+- State persistence: saves/restores `tab`, `layout`, `sortBy`, full filter state (`cuisine`, `category`, `difficulty`, `price_range`, `area`, `minRating`, `tags`, `unrated`, `searchIngredients`), and `filterOpen` via `getState()`/`setState()` — restored filter values validated against current data
 
 **explorer-filter.ts** — Explorer filter logic
-- `ExplorerFilterState`: Filter state interface (cuisine, category, difficulty, price_range, location, minRating, tags, search, sortBy, unrated, searchIngredients)
+- `ExplorerFilterState`: Filter state interface (cuisine, category, difficulty, price_range, area, minRating, tags, search, sortBy, unrated, searchIngredients)
 - `FilterOption`: `{value, count}` pair for filter chips with counts
 - `createEmptyFilter()`: Returns blank filter state with `sortBy: "name-asc"`, `unrated: false`, `searchIngredients: false`
-- `applyFilters(notes, filters, ingredientIndex?)`: Filters notes by all active criteria — expanded search scope (name, cuisine, category, tags, location, difficulty, and optionally ingredient names from Cooklang body), unrated filter (`rating === undefined || 0`), min rating, tags AND, cuisine/category/difficulty/price_range/location OR within field
+- `applyFilters(notes, filters, ingredientIndex?)`: Filters notes by all active criteria — expanded search scope (name, cuisine, category, tags, address, area, difficulty, and optionally ingredient names from Cooklang body), unrated filter (`rating === undefined || 0`), min rating, tags AND, cuisine/category/difficulty/price_range/area OR within field
 - `sortNotes(notes, sortBy)`: Sorts filtered array by chosen criterion (name, rating, cook_time, created, difficulty order, price_range length)
 - `extractFilterOptions(notes)`: Collects unique values per filterable field with counts as `Record<string, FilterOption[]>`
 - `extractTagCounts(notes)`: Counts tag frequency across notes for tag cloud
@@ -744,7 +747,7 @@ src/
 **explorer-cards.ts** — Explorer card/list rendering
 - `renderFilterBar()`: Renders chip-based filter rows per field with counts + rating stars + "unrated" toggle chip (mutually exclusive with minRating)
 - `renderTagCloud()`: Renders weighted tag cloud with size tiers (sm/md/lg) based on frequency
-- `renderCardGrid()`: Card grid with image thumbnail, metadata chips, rating, cook time / location, "new" badge on cards created within 7 days
+- `renderCardGrid()`: Card grid with image thumbnail, metadata chips (including area), rating, cook time / address, "new" badge on cards created within 7 days
 - `renderListView()`: Compact list rows with thumbnail, "new" dot, name, metadata summary, rating
 - Both card and list accept `resolveImage(imagePath, notePath)` callback for proper vault image resolution
 - Both support `onSelect` / `selectedPath` for preview selection highlighting
@@ -752,9 +755,13 @@ src/
 **explorer-stats.ts** — Explorer summary stats bar
 - `renderStatsBar(container, notes, tab)`: Renders one-line stats between filter panel and card grid
 - Recipe stats: total count, top 3 cuisines, difficulty distribution (colored dots), average rating
-- Restaurant stats: total count, top 3 locations, price range distribution, average rating
+- Restaurant stats: total count, top 3 areas, price range distribution, average rating
 - Mini timeline: 12-month activity chart (CSS bars, no external library) based on `created` field
 - Updates in real-time as filters change
+
+**area-suggest.ts** — Area extraction from address
+- `suggestAreaFromLocation(address)`: Best-effort coarse area extraction — Korean 구 name, Japanese 市/区 name, comma-separated western address (second-to-last segment), or fallback to full string
+- Used by restaurant editor (auto-suggest area on address input), note creation modal, and migrate command
 
 **textarea-suggest.ts** — Generic textarea inline autocomplete
 - `TextareaSuggest<T>` class: Trigger detection, cursor position calculation (mirror div technique), popup rendering, keyboard navigation (Arrow/Enter/Tab/Escape), blur-to-close
