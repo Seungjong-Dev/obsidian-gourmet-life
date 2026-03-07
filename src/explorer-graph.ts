@@ -1,4 +1,4 @@
-import type { GourmetNote } from "./types";
+import type { GourmetNote, GraphSettings } from "./types";
 
 interface Node {
 	id: string;
@@ -24,28 +24,7 @@ interface Edge {
 	line?: SVGLineElement;
 }
 
-interface GraphSettings {
-	centerForce: number;   // 0–10, default 3  (maps to 0.0001–0.01)
-	repulsion: number;     // 0–10, default 5  (maps to 100–2000)
-	linkDistance: number;   // 0–10, default 4  (maps to 30–200)
-	linkForce: number;     // 0–10, default 5  (maps to 0.01–0.2)
-	nodeSize: number;      // 0–10, default 5  (scale factor 0.5–2.0)
-	showLabels: boolean;   // default true
-	showOrphans: boolean;  // default true (nodes with degree 0)
-}
-
-const DEFAULT_GRAPH_SETTINGS: GraphSettings = {
-	centerForce: 3,
-	repulsion: 5,
-	linkDistance: 4,
-	linkForce: 5,
-	nodeSize: 5,
-	showLabels: true,
-	showOrphans: true,
-};
-
-// Persist settings across graph renders in the same session
-let savedGraphSettings: GraphSettings = { ...DEFAULT_GRAPH_SETTINGS };
+import { DEFAULT_GRAPH_SETTINGS } from "./types";
 
 interface SimulationState {
 	nodes: Node[];
@@ -129,7 +108,9 @@ export function renderGraphView(
 	recipes: GourmetNote[],
 	recipeIngredients: Map<string, Set<string>>,
 	onSelect: (path: string) => void,
-	selectedPath: string | null
+	selectedPath: string | null,
+	initialSettings?: GraphSettings,
+	onSettingsChange?: (settings: GraphSettings) => void
 ): void {
 	destroyGraph(container);
 	container.empty();
@@ -140,7 +121,7 @@ export function renderGraphView(
 		return;
 	}
 
-	const settings: GraphSettings = { ...savedGraphSettings };
+	const settings: GraphSettings = { ...(initialSettings ?? DEFAULT_GRAPH_SETTINGS) };
 
 	// Build nodes and edges
 	const nodeMap = new Map<string, Node>();
@@ -381,7 +362,7 @@ export function renderGraphView(
 		input.addEventListener("input", () => {
 			const val = parseFloat(input.value);
 			(settings as any)[key] = val;
-			savedGraphSettings = { ...settings };
+			onSettingsChange?.({ ...settings });
 			onChange(val);
 			// Reheat
 			state.alpha = Math.max(state.alpha, 0.5);
@@ -399,7 +380,7 @@ export function renderGraphView(
 		toggle.checked = settings[key] as boolean;
 		toggle.addEventListener("change", () => {
 			(settings as any)[key] = toggle.checked;
-			savedGraphSettings = { ...settings };
+			onSettingsChange?.({ ...settings });
 			onChange(toggle.checked);
 		});
 	};
@@ -484,16 +465,8 @@ export function renderGraphView(
 
 			if (!dragMoved) {
 				if (node.type === "recipe" && node.path) {
+					// onSelect → explorer-view → updateGraphSelection handles highlight
 					onSelect(node.path);
-					// Toggle recipe highlight
-					if (state.highlightedRecipe === node.id) {
-						state.highlightedRecipe = null;
-						clearHighlight(gNodes, gEdges);
-					} else {
-						state.highlightedIng = null;
-						state.highlightedRecipe = node.id;
-						highlightConnected(node, nodes, edges, gNodes, gEdges);
-					}
 				} else if (node.type === "ingredient") {
 					if (state.highlightedIng === node.id) {
 						state.highlightedIng = null;
@@ -533,9 +506,21 @@ export function renderGraphView(
 		svg.setAttribute("viewBox", `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`);
 	}, { passive: false });
 
+	const onKeyDown = (e: KeyboardEvent) => {
+		if (e.key === "Escape" && !state.selectedPath && (state.highlightedIng || state.highlightedRecipe)) {
+			state.highlightedIng = null;
+			state.highlightedRecipe = null;
+			clearHighlight(gNodes, gEdges);
+		}
+	};
+	container.addEventListener("keydown", onKeyDown);
+	// Make container focusable so it can receive key events
+	if (!container.hasAttribute("tabindex")) container.setAttribute("tabindex", "-1");
+
 	state.cleanupListeners = () => {
 		document.removeEventListener("mousemove", onMouseMove);
 		document.removeEventListener("mouseup", onMouseUp);
+		container.removeEventListener("keydown", onKeyDown);
 	};
 
 	simStates.set(container, state);

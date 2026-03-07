@@ -75,12 +75,33 @@ export interface GourmetNote {
 
 // ── Settings ────────────────────────────────────────────────
 
+export interface GraphSettings {
+	centerForce: number;   // 0–10, default 3
+	repulsion: number;     // 0–10, default 5
+	linkDistance: number;   // 0–10, default 4
+	linkForce: number;     // 0–10, default 5
+	nodeSize: number;      // 0–10, default 5
+	showLabels: boolean;
+	showOrphans: boolean;
+}
+
+export const DEFAULT_GRAPH_SETTINGS: GraphSettings = {
+	centerForce: 3,
+	repulsion: 5,
+	linkDistance: 4,
+	linkForce: 5,
+	nodeSize: 5,
+	showLabels: true,
+	showOrphans: true,
+};
+
 export interface GourmetLifeSettings {
 	recipesFolder: string;
 	ingredientsFolder: string;
 	restaurantsFolder: string;
 	autoLinkEnabled: boolean;
 	autoLinkMinChars: number;
+	graphSettings: GraphSettings;
 }
 
 export const DEFAULT_SETTINGS: GourmetLifeSettings = {
@@ -89,6 +110,7 @@ export const DEFAULT_SETTINGS: GourmetLifeSettings = {
 	restaurantsFolder: "Gourmet/Restaurants",
 	autoLinkEnabled: true,
 	autoLinkMinChars: 2,
+	graphSettings: { ...DEFAULT_GRAPH_SETTINGS },
 };
 
 // ── Option Arrays ───────────────────────────────────────────

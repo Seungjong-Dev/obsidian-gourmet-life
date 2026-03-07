@@ -482,7 +482,12 @@ export class ExplorerView extends ItemView {
 				sorted,
 				this.plugin.noteIndex.recipeIngredients,
 				onSelect,
-				this.selectedPath
+				this.selectedPath,
+				this.plugin.settings.graphSettings,
+				(gs) => {
+					this.plugin.settings.graphSettings = gs;
+					this.plugin.saveSettings();
+				}
 			);
 		} else if (this.layout === "map") {
 			renderMapView(this.contentContainer, sorted, onSelect, this.selectedPath);
