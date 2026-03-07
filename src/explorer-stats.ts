@@ -75,11 +75,11 @@ function renderRecipeStats(container: HTMLElement, notes: GourmetNote[]): void {
 }
 
 function renderRestaurantStats(container: HTMLElement, notes: GourmetNote[]): void {
-	// Top locations
+	// Top areas
 	const locCount = new Map<string, number>();
 	for (const n of notes) {
-		const loc = (n.frontmatter as RestaurantFrontmatter).location;
-		if (loc) locCount.set(loc, (locCount.get(loc) ?? 0) + 1);
+		const area = (n.frontmatter as RestaurantFrontmatter).area;
+		if (area) locCount.set(area, (locCount.get(area) ?? 0) + 1);
 	}
 	const topLocs = [...locCount.entries()]
 		.sort((a, b) => b[1] - a[1])

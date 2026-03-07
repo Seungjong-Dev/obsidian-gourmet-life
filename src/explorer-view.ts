@@ -108,7 +108,7 @@ export class ExplorerView extends ItemView {
 				category: this.filter.category,
 				difficulty: this.filter.difficulty,
 				price_range: this.filter.price_range,
-				location: this.filter.location,
+				area: this.filter.area,
 				minRating: this.filter.minRating,
 				tags: this.filter.tags,
 				unrated: this.filter.unrated,
@@ -145,9 +145,9 @@ export class ExplorerView extends ItemView {
 				const valid = new Set(options.price_range?.map((o) => o.value) ?? []);
 				this.filter.price_range = sf.price_range.filter((v) => valid.has(v));
 			}
-			if (sf.location) {
-				const valid = new Set(options.location?.map((o) => o.value) ?? []);
-				this.filter.location = sf.location.filter((v) => valid.has(v));
+			if (sf.area) {
+				const valid = new Set(options.area?.map((o) => o.value) ?? []);
+				this.filter.area = sf.area.filter((v) => valid.has(v));
 			}
 			if (sf.minRating) this.filter.minRating = sf.minRating;
 			if (sf.tags) {

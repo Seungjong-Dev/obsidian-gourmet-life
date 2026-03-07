@@ -294,7 +294,8 @@ export class RestaurantView extends ItemView {
 
 		const fmData: Record<string, unknown> = { type: "restaurant" };
 		if (sideState.cuisine) fmData.cuisine = sideState.cuisine;
-		if (sideState.location) fmData.location = sideState.location;
+		if (sideState.address) fmData.address = sideState.address;
+		if (sideState.area) fmData.area = sideState.area;
 		if (sideState.price_range) fmData.price_range = sideState.price_range;
 		const rating = parseFloat(sideState.rating);
 		if (!isNaN(rating) && rating >= 1 && rating <= 5) fmData.rating = rating;

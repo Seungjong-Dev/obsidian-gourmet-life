@@ -5,7 +5,7 @@ export interface ExplorerFilterState {
 	category: string[];
 	difficulty: string[];
 	price_range: string[];
-	location: string[];
+	area: string[];
 	minRating: number;
 	tags: string[];
 	search: string;
@@ -20,7 +20,7 @@ export function createEmptyFilter(): ExplorerFilterState {
 		category: [],
 		difficulty: [],
 		price_range: [],
-		location: [],
+		area: [],
 		minRating: 0,
 		tags: [],
 		search: "",
@@ -52,7 +52,8 @@ export function applyFilters(
 			const cuisineMatch = cuisines.some((c: string) => c.toLowerCase().includes(q));
 			const categoryMatch = (fm as any).category?.toLowerCase().includes(q) ?? false;
 			const tagsMatch = ((fm as any).tags ?? []).some((t: string) => t.toLowerCase().includes(q));
-			const locationMatch = (fm as any).location?.toLowerCase().includes(q) ?? false;
+			const addressMatch = (fm as any).address?.toLowerCase().includes(q) ?? false;
+			const areaMatch = (fm as any).area?.toLowerCase().includes(q) ?? false;
 			const difficultyMatch = (fm as any).difficulty?.toLowerCase().includes(q) ?? false;
 
 			let ingredientMatch = false;
@@ -63,7 +64,7 @@ export function applyFilters(
 				}
 			}
 
-			if (!nameMatch && !cuisineMatch && !categoryMatch && !tagsMatch && !locationMatch && !difficultyMatch && !ingredientMatch) {
+			if (!nameMatch && !cuisineMatch && !categoryMatch && !tagsMatch && !addressMatch && !areaMatch && !difficultyMatch && !ingredientMatch) {
 				return false;
 			}
 		}
@@ -108,8 +109,8 @@ export function applyFilters(
 			if (filters.price_range.length > 0) {
 				if (!rfm.price_range || !filters.price_range.includes(rfm.price_range)) return false;
 			}
-			if (filters.location.length > 0) {
-				if (!rfm.location || !filters.location.includes(rfm.location)) return false;
+			if (filters.area.length > 0) {
+				if (!rfm.area || !filters.area.includes(rfm.area)) return false;
 			}
 		}
 
@@ -156,7 +157,7 @@ export function extractFilterOptions(
 		category: new Map(),
 		difficulty: new Map(),
 		price_range: new Map(),
-		location: new Map(),
+		area: new Map(),
 	};
 
 	for (const note of notes) {
@@ -176,7 +177,7 @@ export function extractFilterOptions(
 		if (fm.type === "restaurant") {
 			const rfm = fm as RestaurantFrontmatter;
 			if (rfm.price_range) counts.price_range.set(rfm.price_range, (counts.price_range.get(rfm.price_range) ?? 0) + 1);
-			if (rfm.location) counts.location.set(rfm.location, (counts.location.get(rfm.location) ?? 0) + 1);
+			if (rfm.area) counts.area.set(rfm.area, (counts.area.get(rfm.area) ?? 0) + 1);
 		}
 	}
 

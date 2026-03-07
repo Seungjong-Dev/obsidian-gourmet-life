@@ -12,6 +12,7 @@ import {
 	type GeoCoords,
 } from "./restaurant-parser";
 import { showImageLightbox } from "./recipe-main-panel";
+import { suggestAreaFromLocation } from "./area-suggest";
 import { ImageSuggestModal } from "./image-suggest-modal";
 import * as L from "leaflet";
 
@@ -22,7 +23,8 @@ export interface RestaurantSideCallbacks {
 export interface RestaurantSideState {
 	image: string;
 	cuisine: string;
-	location: string;
+	address: string;
+	area: string;
 	price_range: string;
 	rating: string;
 	url: string;
@@ -106,13 +108,13 @@ function renderViewer(
 	if (fm.lat != null && fm.lng != null) {
 		const mapEl = container.createDiv({ cls: "gl-restaurant__map" });
 		renderLeafletMap(container, mapEl, fm.lat, fm.lng, false);
-	} else if (fm.location) {
+	} else if (fm.address) {
 		const fallback = container.createDiv({ cls: "gl-restaurant__map-fallback" });
 		const link = fallback.createEl("a", {
-			text: `\uD83D\uDDFA\uFE0F ${fm.location}`,
+			text: `\uD83D\uDDFA\uFE0F ${fm.address}`,
 			cls: "gl-restaurant__location-link",
 		});
-		link.href = `https://maps.google.com/maps?q=${encodeURIComponent(fm.location)}`;
+		link.href = `https://maps.google.com/maps?q=${encodeURIComponent(fm.address)}`;
 		link.setAttr("target", "_blank");
 		link.setAttr("rel", "noopener");
 	}
@@ -120,16 +122,20 @@ function renderViewer(
 	// Info grid
 	const infoGrid = container.createDiv({ cls: "gl-restaurant__info-grid" });
 
-	if (fm.location) {
+	if (fm.address) {
 		const row = infoGrid.createDiv({ cls: "gl-restaurant__info-row" });
-		row.createSpan({ text: "Location", cls: "gl-restaurant__info-label" });
+		row.createSpan({ text: "Address", cls: "gl-restaurant__info-label" });
 		const link = row.createEl("a", {
-			text: fm.location,
+			text: fm.address,
 			cls: "gl-restaurant__location-link",
 		});
-		link.href = `https://maps.google.com/maps?q=${encodeURIComponent(fm.location)}`;
+		link.href = `https://maps.google.com/maps?q=${encodeURIComponent(fm.address)}`;
 		link.setAttr("target", "_blank");
 		link.setAttr("rel", "noopener");
+	}
+
+	if (fm.area) {
+		addInfoRow(infoGrid, "Area", fm.area);
 	}
 
 	if (fm.cuisine) {
@@ -267,7 +273,27 @@ function renderEditor(
 	// Metadata fields
 	const metaSection = container.createDiv({ cls: "gl-restaurant__meta-edit" });
 	addEditField(metaSection, "Cuisine", "cuisine", fm.cuisine || "", callbacks.onInput);
-	addEditField(metaSection, "Location", "location", fm.location || "", callbacks.onInput);
+	addEditField(metaSection, "Address", "address", fm.address || "", callbacks.onInput);
+	addEditField(metaSection, "Area", "area", fm.area || "", callbacks.onInput);
+
+	// Auto-suggest area from location
+	{
+		const addressInput = metaSection.querySelector('[data-field="address"]') as HTMLInputElement | null;
+		const areaInput = metaSection.querySelector('[data-field="area"]') as HTMLInputElement | null;
+		if (addressInput && areaInput) {
+			let lastSuggested = fm.area ? suggestAreaFromLocation(fm.address || "") : "";
+			addressInput.addEventListener("input", () => {
+				const currentArea = areaInput.value.trim();
+				if (!currentArea || currentArea === lastSuggested) {
+					const suggested = suggestAreaFromLocation(addressInput.value);
+					areaInput.value = suggested;
+					lastSuggested = suggested;
+					callbacks.onInput();
+				}
+			});
+		}
+	}
+
 	addDropdownField(metaSection, "Price range", "price_range", ["", ...PRICE_RANGES], fm.price_range || "", callbacks.onInput);
 	addEditField(metaSection, "Rating (1-5)", "rating", fm.rating != null ? String(fm.rating) : "", callbacks.onInput);
 	addEditField(metaSection, "URL", "url", fm.url || "", callbacks.onInput);
@@ -321,10 +347,10 @@ function renderEditor(
 		text: "Search by address",
 	});
 	geocodeBtn.addEventListener("click", async () => {
-		const locField = container.querySelector('[data-field="location"]') as HTMLInputElement | null;
-		const address = locField?.value?.trim() || "";
+		const addressField = container.querySelector('[data-field="address"]') as HTMLInputElement | null;
+		const address = addressField?.value?.trim() || "";
 		if (!address) {
-			new Notice("No location to search");
+			new Notice("No address to search");
 			return;
 		}
 		new Notice("Searching...");
@@ -381,7 +407,8 @@ export function collectRestaurantSideState(container: HTMLElement): RestaurantSi
 	return {
 		image,
 		cuisine: getField("cuisine"),
-		location: getField("location"),
+		address: getField("address"),
+		area: getField("area"),
 		price_range: getField("price_range"),
 		rating: getField("rating"),
 		url: getField("url"),

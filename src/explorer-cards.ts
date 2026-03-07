@@ -16,7 +16,7 @@ export function renderFilterBar(
 	const fields =
 		type === "recipe"
 			? ["cuisine", "category", "difficulty"]
-			: ["cuisine", "price_range", "location"];
+			: ["cuisine", "price_range", "area"];
 
 	for (const field of fields) {
 		const values = options[field];
@@ -178,9 +178,10 @@ export function renderCardGrid(
 			const fm = note.frontmatter as RestaurantFrontmatter;
 			if (fm.cuisine) meta.createSpan({ cls: "gl-explorer__card-chip", text: fm.cuisine });
 			if (fm.price_range) meta.createSpan({ cls: "gl-explorer__card-chip", text: fm.price_range });
+			if (fm.area) meta.createSpan({ cls: "gl-explorer__card-chip", text: fm.area });
 			const info = body.createDiv({ cls: "gl-explorer__card-info" });
 			if (fm.rating) info.createSpan({ text: "\u2605".repeat(fm.rating) + "\u2606".repeat(5 - fm.rating), cls: "gl-explorer__card-rating" });
-			if (fm.location) info.createSpan({ text: fm.location, cls: "gl-explorer__card-location" });
+			if (fm.address) info.createSpan({ text: fm.address, cls: "gl-explorer__card-location" });
 		}
 	}
 }
@@ -255,7 +256,8 @@ export function renderListView(
 			const parts: string[] = [];
 			if (fm.cuisine) parts.push(fm.cuisine);
 			if (fm.price_range) parts.push(fm.price_range);
-			if (fm.location) parts.push(fm.location);
+			if (fm.area) parts.push(fm.area);
+			if (fm.address) parts.push(fm.address);
 			meta.textContent = parts.join(" \u00b7 ");
 		}
 

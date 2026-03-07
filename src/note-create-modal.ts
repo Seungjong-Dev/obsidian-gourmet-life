@@ -13,6 +13,7 @@ import {
 	getIngredientTemplate,
 	getRestaurantTemplate,
 } from "./template-utils";
+import { suggestAreaFromLocation } from "./area-suggest";
 
 interface FormData {
 	[key: string]: string | string[] | number | undefined;
@@ -106,12 +107,37 @@ export class NoteCreateModal extends Modal {
 
 	private buildRestaurantForm(el: HTMLElement): void {
 		this.addTextField(el, "Cuisine", "cuisine");
-		this.addTextField(el, "Location", "location");
+		this.addTextField(el, "Address", "address");
+		this.addTextField(el, "Area", "area");
 		this.addDropdown(el, "Price range", "price_range", [
 			"",
 			...PRICE_RANGES,
 		]);
 		this.addTextField(el, "URL", "url");
+
+		// Auto-suggest area from location
+		// Find inputs by iterating setting fields
+		const fields = el.querySelectorAll(".gl-modal__field");
+		let addressInput: HTMLInputElement | null = null;
+		let areaInput: HTMLInputElement | null = null;
+		for (const field of fields) {
+			const label = field.querySelector(".setting-item-name")?.textContent;
+			if (label === "Address") addressInput = field.querySelector("input");
+			if (label === "Area") areaInput = field.querySelector("input");
+		}
+		if (addressInput && areaInput) {
+			let lastSuggested = "";
+			const areaEl = areaInput;
+			addressInput.addEventListener("input", () => {
+				const currentArea = areaEl.value.trim();
+				if (!currentArea || currentArea === lastSuggested) {
+					const suggested = suggestAreaFromLocation((this.formData["address"] as string) || "");
+					areaEl.value = suggested;
+					this.formData["area"] = suggested;
+					lastSuggested = suggested;
+				}
+			});
+		}
 	}
 
 	private addTextField(
@@ -277,8 +303,10 @@ export class NoteCreateModal extends Modal {
 			case "restaurant": {
 				if (this.formData["cuisine"])
 					data.cuisine = this.formData["cuisine"];
-				if (this.formData["location"])
-					data.location = this.formData["location"];
+				if (this.formData["address"])
+					data.address = this.formData["address"];
+				if (this.formData["area"])
+					data.area = this.formData["area"];
 				if (this.formData["price_range"])
 					data.price_range = this.formData["price_range"];
 				if (this.formData["url"]) data.url = this.formData["url"];

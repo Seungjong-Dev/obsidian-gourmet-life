@@ -49,7 +49,8 @@ export interface IngredientFrontmatter {
 export interface RestaurantFrontmatter {
 	type: "restaurant";
 	cuisine?: string;
-	location?: string;
+	address?: string;
+	area?: string;
 	price_range?: string;
 	rating?: number;
 	url?: string;

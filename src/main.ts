@@ -8,6 +8,7 @@ import {
 	type RecipeViewMode,
 	type RestaurantViewMode,
 	type ExplorerTab,
+	type RestaurantFrontmatter,
 } from "./types";
 import { GourmetLifeSettingTab } from "./settings";
 import { NoteIndex } from "./note-index";
@@ -21,6 +22,7 @@ import { RestaurantView } from "./restaurant-view";
 import { ExplorerView } from "./explorer-view";
 import { RecipeSearchModal } from "./recipe-search-modal";
 import { exportShareCard } from "./recipe-share-card";
+import { suggestAreaFromLocation } from "./area-suggest";
 
 export default class GourmetLifePlugin extends Plugin {
 	settings: GourmetLifeSettings = DEFAULT_SETTINGS;
@@ -162,6 +164,34 @@ export default class GourmetLifePlugin extends Plugin {
 			id: "open-explorer",
 			name: "Open Gourmet Explorer",
 			callback: () => this.openExplorerView(),
+		});
+
+		this.addCommand({
+			id: "migrate-restaurant-fields",
+			name: "Migrate restaurant fields (location→address + backfill area)",
+			callback: async () => {
+				let renamed = 0;
+				let backfilled = 0;
+				const restaurants = this.noteIndex.getRestaurants();
+				for (const note of restaurants) {
+					const file = this.app.vault.getFileByPath(note.path);
+					if (!file) continue;
+					await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+						// 1. Rename location → address
+						if (frontmatter.location != null && frontmatter.address == null) {
+							frontmatter.address = frontmatter.location;
+							delete frontmatter.location;
+							renamed++;
+						}
+						// 2. Backfill area from address
+						if (!frontmatter.area && frontmatter.address) {
+							frontmatter.area = suggestAreaFromLocation(frontmatter.address);
+							backfilled++;
+						}
+					});
+				}
+				new Notice(`Renamed location→address: ${renamed}, backfilled area: ${backfilled}`);
+			},
 		});
 
 		// ── Ribbon ──
