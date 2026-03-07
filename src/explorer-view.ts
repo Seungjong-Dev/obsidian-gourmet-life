@@ -1,9 +1,11 @@
-import { ItemView, TFile, WorkspaceLeaf } from "obsidian";
+import { ItemView, setIcon, TFile, WorkspaceLeaf } from "obsidian";
 import {
 	VIEW_TYPE_EXPLORER,
 	type ExplorerTab,
 	type ExplorerLayout,
 	type GourmetNote,
+	type RecipeFrontmatter,
+	type RestaurantFrontmatter,
 } from "./types";
 import {
 	createEmptyFilter,
@@ -18,6 +20,11 @@ import {
 	renderCardGrid,
 	renderListView,
 } from "./explorer-cards";
+import { renderSidePanel, type SidePanelCallbacks } from "./recipe-side-panel";
+import { renderMainPanel, type MainPanelCallbacks } from "./recipe-main-panel";
+import { renderRestaurantSidePanel, destroyLeafletMap, type RestaurantSideCallbacks } from "./restaurant-side-panel";
+import { renderRestaurantMainPanel, type RestaurantMainCallbacks } from "./restaurant-main-panel";
+import { readGourmetFrontmatter } from "./frontmatter-utils";
 import type GourmetLifePlugin from "./main";
 
 interface ExplorerViewState {
@@ -33,6 +40,7 @@ export class ExplorerView extends ItemView {
 	private searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
 	private filterOpen = false;
+	private selectedPath: string | null = null;
 
 	// DOM refs
 	private tabButtons: HTMLElement[] = [];
@@ -43,7 +51,9 @@ export class ExplorerView extends ItemView {
 	private filterPanel: HTMLElement = null!;
 	private filterContainer: HTMLElement = null!;
 	private tagCloudContainer: HTMLElement = null!;
+	private bodyContainer: HTMLElement = null!;
 	private contentContainer: HTMLElement = null!;
+	private previewContainer: HTMLElement = null!;
 
 	constructor(leaf: WorkspaceLeaf, plugin: GourmetLifePlugin) {
 		super(leaf);
@@ -76,6 +86,7 @@ export class ExplorerView extends ItemView {
 	setTab(tab: ExplorerTab): void {
 		this.tab = tab;
 		this.filter = createEmptyFilter();
+		this.closePreview();
 		this.refresh();
 	}
 
@@ -99,6 +110,7 @@ export class ExplorerView extends ItemView {
 				this.tab = t;
 				this.filter = createEmptyFilter();
 				this.searchInput.value = "";
+				this.closePreview();
 				this.refresh();
 			});
 			this.tabButtons.push(btn);
@@ -156,8 +168,10 @@ export class ExplorerView extends ItemView {
 		this.filterContainer = this.filterPanel.createDiv({ cls: "gl-explorer__filters" });
 		this.tagCloudContainer = this.filterPanel.createDiv({ cls: "gl-explorer__filters" });
 
-		// ── Content ──
-		this.contentContainer = container.createDiv({ cls: "gl-explorer__content" });
+		// ── Body (list + preview split) ──
+		this.bodyContainer = container.createDiv({ cls: "gl-explorer__body" });
+		this.contentContainer = this.bodyContainer.createDiv({ cls: "gl-explorer__content" });
+		this.previewContainer = this.bodyContainer.createDiv({ cls: "gl-explorer__preview" });
 
 		// ── Events ──
 		this.registerEvent(
@@ -175,6 +189,7 @@ export class ExplorerView extends ItemView {
 
 	async onClose(): Promise<void> {
 		if (this.searchDebounce) clearTimeout(this.searchDebounce);
+		this.closePreview();
 	}
 
 	private refresh(): void {
@@ -233,6 +248,11 @@ export class ExplorerView extends ItemView {
 		const notes = this.getNotes();
 		const filtered = applyFilters(notes, this.filter);
 
+		// Close preview if selected note is no longer visible
+		if (this.selectedPath && !filtered.some((n) => n.path === this.selectedPath)) {
+			this.closePreview();
+		}
+
 		const onOpen = (path: string) => {
 			const file = this.app.vault.getAbstractFileByPath(path);
 			if (!(file instanceof TFile)) return;
@@ -243,10 +263,136 @@ export class ExplorerView extends ItemView {
 			}
 		};
 
+		const onSelect = (path: string) => {
+			if (this.selectedPath === path) {
+				this.closePreview();
+			} else {
+				this.selectedPath = path;
+				this.renderPreview();
+			}
+			this.renderContent();
+		};
+
 		if (this.layout === "card") {
-			renderCardGrid(this.contentContainer, filtered, this.tab, onOpen, this.app.vault);
+			renderCardGrid(this.contentContainer, filtered, this.tab, onOpen, this.app.vault, onSelect, this.selectedPath);
 		} else {
-			renderListView(this.contentContainer, filtered, this.tab, onOpen, this.app.vault);
+			renderListView(this.contentContainer, filtered, this.tab, onOpen, this.app.vault, onSelect, this.selectedPath);
+		}
+	}
+
+	private closePreview(): void {
+		this.selectedPath = null;
+		if (this.previewContainer) {
+			// Destroy leaflet map if restaurant preview was open
+			const sideEl = this.previewContainer.querySelector(".gl-restaurant__side");
+			if (sideEl) destroyLeafletMap(sideEl as HTMLElement);
+			this.previewContainer.empty();
+			this.previewContainer.removeClass("gl-explorer__preview--open");
+		}
+	}
+
+	private async renderPreview(): Promise<void> {
+		if (!this.selectedPath) {
+			this.closePreview();
+			return;
+		}
+
+		const file = this.app.vault.getAbstractFileByPath(this.selectedPath);
+		if (!(file instanceof TFile)) {
+			this.closePreview();
+			return;
+		}
+
+		this.previewContainer.empty();
+		this.previewContainer.addClass("gl-explorer__preview--open");
+
+		// Header bar
+		const header = this.previewContainer.createDiv({ cls: "gl-explorer__preview-header" });
+		header.createSpan({ cls: "gl-explorer__preview-title", text: file.basename });
+
+		const headerBtns = header.createDiv({ cls: "gl-explorer__preview-btns" });
+
+		const openBtn = headerBtns.createEl("button", { cls: "gl-explorer__preview-btn" });
+		openBtn.title = "Open in viewer";
+		setIcon(openBtn, "external-link");
+		openBtn.addEventListener("click", () => {
+			if (this.tab === "recipe") {
+				this.plugin.openRecipeView(file);
+			} else {
+				this.plugin.openRestaurantView(file);
+			}
+		});
+
+		const closeBtn = headerBtns.createEl("button", { cls: "gl-explorer__preview-btn" });
+		closeBtn.title = "Close preview";
+		setIcon(closeBtn, "x");
+		closeBtn.addEventListener("click", () => {
+			this.closePreview();
+			this.renderContent();
+		});
+
+		// Read file content
+		const content = await this.app.vault.read(file);
+		const fmMatch = content.match(/^---\n[\s\S]*?\n---\n?/);
+		const bodyContent = fmMatch ? content.substring(fmMatch[0].length) : content;
+
+		const cache = this.app.metadataCache.getFileCache(file);
+		const fm = readGourmetFrontmatter(cache);
+		if (!fm) return;
+
+		const resourcePath = (path: string) => {
+			const cleaned = path.replace(/^\[\[|\]\]$/g, "");
+			const resolved = this.app.metadataCache.getFirstLinkpathDest(cleaned, file.path);
+			if (resolved) {
+				return this.app.vault.getResourcePath(resolved as any);
+			}
+			const match = this.app.vault.getFiles().find(f => f.name === cleaned || f.path === cleaned);
+			return match ? this.app.vault.getResourcePath(match as any) : "";
+		};
+
+		const previewBody = this.previewContainer.createDiv();
+
+		if (fm.type === "recipe") {
+			previewBody.addClass("gl-recipe", "gl-recipe--single");
+
+			const sideEl = previewBody.createDiv({ cls: "gl-recipe__side" });
+			const mainEl = previewBody.createDiv({ cls: "gl-recipe__main" });
+
+			const sideCb: SidePanelCallbacks = {
+				onIngredientHover: () => {},
+				onInput: () => {},
+			};
+			renderSidePanel(sideEl, fm as RecipeFrontmatter, bodyContent, resourcePath, "viewer", sideCb);
+
+			const mainCb: MainPanelCallbacks = {
+				onStepHover: () => {},
+				onIngredientChipClick: () => {},
+				onBodyInput: () => {},
+				onNotesInput: () => {},
+				onReviewsInput: () => {},
+				onViewSource: () => {},
+				onToggleMode: () => {},
+				onTitleChange: () => {},
+			};
+			renderMainPanel(mainEl, bodyContent, (fm as RecipeFrontmatter).source, "viewer", mainCb, this.app, file.path, resourcePath, this);
+		} else if (fm.type === "restaurant") {
+			previewBody.addClass("gl-restaurant", "gl-restaurant--single");
+
+			const sideEl = previewBody.createDiv({ cls: "gl-restaurant__side" });
+			const mainEl = previewBody.createDiv({ cls: "gl-restaurant__main" });
+
+			const sideCb: RestaurantSideCallbacks = { onInput: () => {} };
+			renderRestaurantSidePanel(sideEl, fm as RestaurantFrontmatter, bodyContent, resourcePath, "viewer", sideCb);
+
+			const mainCb: RestaurantMainCallbacks = {
+				onViewSource: () => {},
+				onToggleMode: () => {},
+				onTitleChange: () => {},
+				onMenuInput: () => {},
+				onNotesInput: () => {},
+				onReviewsInput: () => {},
+			};
+			renderRestaurantMainPanel(mainEl, bodyContent, "viewer", mainCb, this.app, file.path, this);
 		}
 	}
 
