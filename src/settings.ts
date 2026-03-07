@@ -81,21 +81,6 @@ export class GourmetLifeSettingTab extends PluginSettingTab {
 					})
 			);
 
-		// ── Bases ──
-
-		new Setting(containerEl)
-			.setName("Generate .base files")
-			.setDesc(
-				"Auto-generate .base files for Obsidian Bases dashboard"
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.generateBaseFiles)
-					.onChange(async (value) => {
-						this.plugin.settings.generateBaseFiles = value;
-						await this.plugin.saveSettings();
-					})
-			);
 	}
 
 	private addFolderSetting(

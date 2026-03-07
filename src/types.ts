@@ -2,9 +2,12 @@
 
 export const VIEW_TYPE_RECIPE = "gourmet-life-recipe-view";
 export const VIEW_TYPE_RESTAURANT = "gourmet-life-restaurant-view";
+export const VIEW_TYPE_EXPLORER = "gourmet-life-explorer-view";
 
 export type RecipeViewMode = "viewer" | "editor";
 export type RestaurantViewMode = "viewer" | "editor";
+export type ExplorerTab = "recipe" | "restaurant";
+export type ExplorerLayout = "card" | "list";
 
 // ── Note Types ──────────────────────────────────────────────
 
@@ -69,7 +72,6 @@ export interface GourmetLifeSettings {
 	restaurantsFolder: string;
 	autoLinkEnabled: boolean;
 	autoLinkMinChars: number;
-	generateBaseFiles: boolean;
 }
 
 export const DEFAULT_SETTINGS: GourmetLifeSettings = {
@@ -78,15 +80,7 @@ export const DEFAULT_SETTINGS: GourmetLifeSettings = {
 	restaurantsFolder: "Gourmet/Restaurants",
 	autoLinkEnabled: true,
 	autoLinkMinChars: 2,
-	generateBaseFiles: true,
 };
-
-// ── Base File Config ────────────────────────────────────────
-
-export interface BaseFileConfig {
-	path: string;
-	content: string;
-}
 
 // ── Option Arrays ───────────────────────────────────────────
 

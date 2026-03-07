@@ -3,13 +3,14 @@ import {
 	DEFAULT_SETTINGS,
 	VIEW_TYPE_RECIPE,
 	VIEW_TYPE_RESTAURANT,
+	VIEW_TYPE_EXPLORER,
 	type GourmetLifeSettings,
 	type RecipeViewMode,
 	type RestaurantViewMode,
+	type ExplorerTab,
 } from "./types";
 import { GourmetLifeSettingTab } from "./settings";
 import { NoteIndex } from "./note-index";
-import { generateBaseFiles } from "./bases-generator";
 import { NoteCreateModal } from "./note-create-modal";
 import {
 	IngredientSuggest,
@@ -17,6 +18,7 @@ import {
 } from "./ingredient-suggest";
 import { RecipeView } from "./recipe-view";
 import { RestaurantView } from "./restaurant-view";
+import { ExplorerView } from "./explorer-view";
 import { RecipeSearchModal } from "./recipe-search-modal";
 import { exportShareCard } from "./recipe-share-card";
 import { isGourmetNote } from "./frontmatter-utils";
@@ -158,6 +160,12 @@ export default class GourmetLifePlugin extends Plugin {
 			},
 		});
 
+		this.addCommand({
+			id: "open-explorer",
+			name: "Open Gourmet Explorer",
+			callback: () => this.openExplorerView(),
+		});
+
 		// ── Ribbon ──
 
 		this.addRibbonIcon("chef-hat", "Gourmet Life: New recipe", () => {
@@ -167,6 +175,10 @@ export default class GourmetLifePlugin extends Plugin {
 				this.settings,
 				(file) => this.openRecipeView(file)
 			).open();
+		});
+
+		this.addRibbonIcon("compass", "Gourmet Life: Explorer", () => {
+			this.openExplorerView();
 		});
 
 		// ── EditorSuggest ──
@@ -183,6 +195,12 @@ export default class GourmetLifePlugin extends Plugin {
 
 		this.registerView(VIEW_TYPE_RESTAURANT, (leaf) => {
 			return new RestaurantView(leaf, this);
+		});
+
+		// ── Explorer View ──
+
+		this.registerView(VIEW_TYPE_EXPLORER, (leaf) => {
+			return new ExplorerView(leaf, this);
 		});
 
 		// Intercept recipe and restaurant file opens
@@ -216,7 +234,6 @@ export default class GourmetLifePlugin extends Plugin {
 
 		this.app.workspace.onLayoutReady(async () => {
 			this.noteIndex.buildIndex();
-			await generateBaseFiles(this.app.vault, this.settings);
 		});
 
 		// ── Vault Events ──
@@ -322,9 +339,26 @@ export default class GourmetLifePlugin extends Plugin {
 		}
 	}
 
+	async openExplorerView(tab?: ExplorerTab): Promise<void> {
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_EXPLORER);
+		if (leaves.length > 0) {
+			this.app.workspace.setActiveLeaf(leaves[0], { focus: true });
+			if (tab) {
+				(leaves[0].view as ExplorerView).setTab(tab);
+			}
+			return;
+		}
+
+		const leaf = this.app.workspace.getLeaf(true);
+		await leaf.setViewState({
+			type: VIEW_TYPE_EXPLORER,
+			active: true,
+			state: tab ? { tab } : {},
+		});
+	}
+
 	onFolderSettingsChanged(): void {
 		this.noteIndex.updateSettings(this.settings);
 		this.noteIndex.buildIndex();
-		generateBaseFiles(this.app.vault, this.settings);
 	}
 }
