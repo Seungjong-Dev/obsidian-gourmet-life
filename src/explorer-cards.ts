@@ -1,4 +1,4 @@
-import type { Vault } from "obsidian";
+import type { App, Vault } from "obsidian";
 import type { GourmetNote, ExplorerTab, RecipeFrontmatter, RestaurantFrontmatter } from "./types";
 import type { ExplorerFilterState } from "./explorer-filter";
 
@@ -91,7 +91,10 @@ export function renderCardGrid(
 	notes: GourmetNote[],
 	type: ExplorerTab,
 	onOpen: (path: string) => void,
-	vault: Vault
+	vault: Vault,
+	onSelect?: (path: string) => void,
+	selectedPath?: string | null,
+	resolveImage?: (imagePath: string, notePath: string) => string
 ): void {
 	container.empty();
 	if (notes.length === 0) {
@@ -101,16 +104,22 @@ export function renderCardGrid(
 
 	const grid = container.createDiv({ cls: "gl-explorer__grid" });
 	for (const note of notes) {
-		const card = grid.createDiv({ cls: "gl-explorer__card" });
-		card.addEventListener("click", () => onOpen(note.path));
+		const cls = "gl-explorer__card" + (selectedPath === note.path ? " gl-explorer__card--selected" : "");
+		const card = grid.createDiv({ cls });
+		if (onSelect) {
+			card.addEventListener("click", () => onSelect(note.path));
+			card.addEventListener("dblclick", () => onOpen(note.path));
+		} else {
+			card.addEventListener("click", () => onOpen(note.path));
+		}
 
 		// Image
 		const imagePath = (note.frontmatter as any).image;
 		if (imagePath) {
-			const imgFile = vault.getAbstractFileByPath(imagePath);
-			if (imgFile) {
+			const src = resolveImage ? resolveImage(imagePath, note.path) : "";
+			if (src) {
 				const img = card.createEl("img", { cls: "gl-explorer__card-image" });
-				img.src = vault.getResourcePath(imgFile as any);
+				img.src = src;
 			}
 		}
 
@@ -153,7 +162,10 @@ export function renderListView(
 	notes: GourmetNote[],
 	type: ExplorerTab,
 	onOpen: (path: string) => void,
-	vault: Vault
+	vault: Vault,
+	onSelect?: (path: string) => void,
+	selectedPath?: string | null,
+	resolveImage?: (imagePath: string, notePath: string) => string
 ): void {
 	container.empty();
 	if (notes.length === 0) {
@@ -163,16 +175,22 @@ export function renderListView(
 
 	const list = container.createDiv({ cls: "gl-explorer__list" });
 	for (const note of notes) {
-		const row = list.createDiv({ cls: "gl-explorer__list-item" });
-		row.addEventListener("click", () => onOpen(note.path));
+		const cls = "gl-explorer__list-item" + (selectedPath === note.path ? " gl-explorer__list-item--selected" : "");
+		const row = list.createDiv({ cls });
+		if (onSelect) {
+			row.addEventListener("click", () => onSelect(note.path));
+			row.addEventListener("dblclick", () => onOpen(note.path));
+		} else {
+			row.addEventListener("click", () => onOpen(note.path));
+		}
 
 		// Thumbnail
 		const imagePath = (note.frontmatter as any).image;
 		if (imagePath) {
-			const imgFile = vault.getAbstractFileByPath(imagePath);
-			if (imgFile) {
+			const src = resolveImage ? resolveImage(imagePath, note.path) : "";
+			if (src) {
 				const img = row.createEl("img", { cls: "gl-explorer__list-thumb" });
-				img.src = vault.getResourcePath(imgFile as any);
+				img.src = src;
 			}
 		} else {
 			row.createDiv({ cls: "gl-explorer__list-thumb gl-explorer__list-thumb--empty" });

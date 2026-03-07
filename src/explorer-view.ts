@@ -273,10 +273,18 @@ export class ExplorerView extends ItemView {
 			this.renderContent();
 		};
 
+		const resolveImage = (imagePath: string, notePath: string) => {
+			const cleaned = imagePath.replace(/^\[\[|\]\]$/g, "");
+			const resolved = this.app.metadataCache.getFirstLinkpathDest(cleaned, notePath);
+			if (resolved) return this.app.vault.getResourcePath(resolved as any);
+			const match = this.app.vault.getFiles().find(f => f.name === cleaned || f.path === cleaned);
+			return match ? this.app.vault.getResourcePath(match as any) : "";
+		};
+
 		if (this.layout === "card") {
-			renderCardGrid(this.contentContainer, filtered, this.tab, onOpen, this.app.vault, onSelect, this.selectedPath);
+			renderCardGrid(this.contentContainer, filtered, this.tab, onOpen, this.app.vault, onSelect, this.selectedPath, resolveImage);
 		} else {
-			renderListView(this.contentContainer, filtered, this.tab, onOpen, this.app.vault, onSelect, this.selectedPath);
+			renderListView(this.contentContainer, filtered, this.tab, onOpen, this.app.vault, onSelect, this.selectedPath, resolveImage);
 		}
 	}
 
