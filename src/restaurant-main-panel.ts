@@ -1,4 +1,4 @@
-import { setIcon, type App, type TFile } from "obsidian";
+import { MarkdownRenderer, setIcon, type App, type Component, type TFile } from "obsidian";
 import type { RestaurantViewMode } from "./types";
 import {
 	parseRestaurantSections,
@@ -81,7 +81,8 @@ export function renderRestaurantMainPanel(
 	mode: RestaurantViewMode,
 	callbacks: RestaurantMainCallbacks,
 	app?: App,
-	notePath?: string
+	notePath?: string,
+	component?: Component
 ): void {
 	// Cleanup previous image suggests
 	const prev = (container as any).__glSuggests as TextareaSuggest<unknown>[] | undefined;
@@ -95,7 +96,7 @@ export function renderRestaurantMainPanel(
 	const sections = parseRestaurantSections(bodyContent);
 
 	if (mode === "viewer") {
-		renderViewer(container, sections);
+		renderViewer(container, sections, app, notePath, component);
 	} else {
 		renderEditor(container, sections, callbacks, app, notePath);
 	}
@@ -105,7 +106,10 @@ export function renderRestaurantMainPanel(
 
 function renderViewer(
 	container: HTMLElement,
-	sections: { menuHighlights: string; notes: string; reviews: string }
+	sections: { menuHighlights: string; notes: string; reviews: string },
+	app?: App,
+	notePath?: string,
+	component?: Component
 ): void {
 	// Menu Highlights
 	if (sections.menuHighlights.trim()) {
@@ -126,9 +130,14 @@ function renderViewer(
 	if (sections.notes.trim()) {
 		const notesSection = container.createDiv();
 		notesSection.createEl("h2", { text: "Notes" });
-		for (const line of sections.notes.split("\n")) {
-			if (line.trim()) {
-				notesSection.createEl("p", { text: line.trim() });
+		if (app && notePath && component) {
+			const md = notesSection.createDiv({ cls: "gl-markdown" });
+			MarkdownRenderer.render(app, sections.notes, md, notePath, component);
+		} else {
+			for (const line of sections.notes.split("\n")) {
+				if (line.trim()) {
+					notesSection.createEl("p", { text: line.trim() });
+				}
 			}
 		}
 	}
@@ -138,13 +147,13 @@ function renderViewer(
 		const reviewsSection = container.createDiv();
 		reviewsSection.createEl("h2", { text: "Reviews" });
 		const visits = parseRestaurantVisits(sections.reviews);
-		renderVisitCards(reviewsSection, visits);
+		renderVisitCards(reviewsSection, visits, app, notePath, component);
 	}
 }
 
 // ── Visit Cards ──
 
-function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[]): void {
+function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app?: App, notePath?: string, component?: Component): void {
 	// Sort by date descending
 	const sorted = [...visits].sort((a, b) => {
 		if (!a.date && !b.date) return 0;
@@ -192,10 +201,15 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[]): vo
 
 		// General comments
 		for (const comment of visit.generalComments) {
-			card.createDiv({
-				text: comment,
-				cls: "gl-restaurant__general-comment",
-			});
+			if (app && notePath && component) {
+				const commentEl = card.createDiv({ cls: "gl-restaurant__general-comment gl-markdown" });
+				MarkdownRenderer.render(app, comment, commentEl, notePath, component);
+			} else {
+				card.createDiv({
+					text: comment,
+					cls: "gl-restaurant__general-comment",
+				});
+			}
 		}
 	}
 }
@@ -219,7 +233,7 @@ function renderEditor(
 	}) as HTMLTextAreaElement;
 	menuArea.dataset.field = "menu-highlights";
 	menuArea.value = sections.menuHighlights;
-	menuArea.placeholder = "- Menu item — Description";
+	menuArea.placeholder = "- Menu item -- Description";
 	menuArea.addEventListener("input", () => callbacks.onMenuInput());
 	if (app) {
 		suggests.push(createImageSuggest(menuArea, () => app.vault.getFiles(), notePath));
@@ -253,7 +267,7 @@ function renderEditor(
 	}) as HTMLTextAreaElement;
 	reviewsArea.dataset.field = "reviews";
 	reviewsArea.value = sections.reviews;
-	reviewsArea.placeholder = "- 2026-03-05\n  - Menu item #rate/4 — Comment";
+	reviewsArea.placeholder = "- 2026-03-05\n  - Menu item #rate/4 -- Comment";
 	reviewsArea.addEventListener("input", () => callbacks.onReviewsInput());
 	if (app) {
 		suggests.push(createImageSuggest(reviewsArea, () => app.vault.getFiles(), notePath));

@@ -1,4 +1,4 @@
-import { setIcon, type App } from "obsidian";
+import { MarkdownRenderer, setIcon, type App, type Component } from "obsidian";
 import type { RecipeViewMode } from "./types";
 import {
 	parseCooklangBody,
@@ -97,7 +97,8 @@ export function renderMainPanel(
 	callbacks: MainPanelCallbacks,
 	app?: App,
 	recipePath?: string,
-	resourcePath?: (path: string) => string
+	resourcePath?: (path: string) => string,
+	component?: Component
 ): void {
 	// Clean up previous TextareaSuggest instances
 	const prev = (container as any).__glSuggests as TextareaSuggest<unknown>[] | undefined;
@@ -109,7 +110,7 @@ export function renderMainPanel(
 	container.empty();
 
 	if (mode === "viewer") {
-		renderMainPanelViewer(container, bodyContent, source, callbacks, resourcePath);
+		renderMainPanelViewer(container, bodyContent, source, callbacks, resourcePath, app, recipePath, component);
 	} else {
 		renderMainPanelEditor(container, bodyContent, source, callbacks, app, recipePath);
 	}
@@ -123,7 +124,10 @@ function renderMainPanelViewer(
 	bodyContent: string,
 	source: string | undefined,
 	callbacks: MainPanelCallbacks,
-	resourcePath?: (path: string) => string
+	resourcePath?: (path: string) => string,
+	app?: App,
+	recipePath?: string,
+	component?: Component
 ): void {
 	// Recipe section — rendered chips
 	const bodySection = container.createDiv({ cls: "gl-recipe__steps" });
@@ -135,7 +139,7 @@ function renderMainPanelViewer(
 	if (notesContent.trim()) {
 		const notesSection = container.createDiv();
 		notesSection.createEl("h2", { text: "Notes" });
-		renderTextContent(notesSection, notesContent, resourcePath);
+		renderTextContent(notesSection, notesContent, resourcePath, app, recipePath, component);
 	}
 
 	// Reviews
@@ -143,7 +147,7 @@ function renderMainPanelViewer(
 	if (reviewsContent.trim()) {
 		const reviewsSection = container.createDiv();
 		reviewsSection.createEl("h2", { text: "Reviews" });
-		renderReviewCards(reviewsSection, reviewsContent, resourcePath);
+		renderReviewCards(reviewsSection, reviewsContent, resourcePath, app, recipePath, component);
 	}
 
 	// References — at the bottom
@@ -432,8 +436,17 @@ function isImageOnlyStep(step: CooklangStep): boolean {
 function renderTextContent(
 	container: HTMLElement,
 	text: string,
-	resourcePath?: (path: string) => string
+	resourcePath?: (path: string) => string,
+	app?: App,
+	sourcePath?: string,
+	component?: Component
 ): void {
+	if (app && sourcePath && component) {
+		const md = container.createDiv({ cls: "gl-markdown" });
+		MarkdownRenderer.render(app, text, md, sourcePath, component);
+		return;
+	}
+
 	const lines = text.split("\n");
 	let pendingImageLines: string[] = [];
 
@@ -504,16 +517,19 @@ function parseReviewEntries(text: string): { preamble: string; entries: ReviewEn
 function renderReviewCards(
 	container: HTMLElement,
 	text: string,
-	resourcePath?: (path: string) => string
+	resourcePath?: (path: string) => string,
+	app?: App,
+	sourcePath?: string,
+	component?: Component
 ): void {
 	const result = parseReviewEntries(text);
 	if (!result) {
-		renderTextContent(container, text, resourcePath);
+		renderTextContent(container, text, resourcePath, app, sourcePath, component);
 		return;
 	}
 
 	if (result.preamble) {
-		renderTextContent(container, result.preamble, resourcePath);
+		renderTextContent(container, result.preamble, resourcePath, app, sourcePath, component);
 	}
 
 	const timeline = container.createDiv({ cls: "gl-recipe__review-timeline" });
@@ -525,7 +541,12 @@ function renderReviewCards(
 		const body = card.createDiv({ cls: "gl-recipe__review-body" });
 		const content = entry.lines.join("\n");
 		if (content) {
-			renderTextWithEmbeds(body, content, resourcePath);
+			if (app && sourcePath && component) {
+				body.classList.add("gl-markdown");
+				MarkdownRenderer.render(app, content, body, sourcePath, component);
+			} else {
+				renderTextWithEmbeds(body, content, resourcePath);
+			}
 		}
 	}
 }

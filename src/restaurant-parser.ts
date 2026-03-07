@@ -61,6 +61,17 @@ export function parseRestaurantSections(body: string): {
 	};
 }
 
+// ── Separator Helper ──
+
+/** Find separator: ` — ` (em dash) or ` -- ` (double hyphen), return index and length or null */
+function findSeparator(text: string): { idx: number; len: number } | null {
+	const em = text.indexOf(" — ");
+	if (em >= 0) return { idx: em, len: 3 };
+	const dh = text.indexOf(" -- ");
+	if (dh >= 0) return { idx: dh, len: 4 };
+	return null;
+}
+
 // ── Menu Highlights Parser ──
 
 export function parseMenuHighlights(text: string): RestaurantMenuItem[] {
@@ -69,11 +80,11 @@ export function parseMenuHighlights(text: string): RestaurantMenuItem[] {
 		const m = line.match(/^-\s+(.+)/);
 		if (!m) continue;
 		const content = m[1].trim();
-		const dashIdx = content.indexOf(" — ");
-		if (dashIdx >= 0) {
+		const sep = findSeparator(content);
+		if (sep) {
 			items.push({
-				name: content.substring(0, dashIdx).trim(),
-				description: content.substring(dashIdx + 3).trim(),
+				name: content.substring(0, sep.idx).trim(),
+				description: content.substring(sep.idx + sep.len).trim(),
 			});
 		} else {
 			items.push({ name: content, description: "" });
@@ -88,10 +99,10 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const RATE_RE = /#rate\/(\d)/;
 
 function parseDishOrComment(text: string): { dish: DishReview | null; comment: string | null } {
-	const dashIdx = text.indexOf(" — ");
-	if (dashIdx >= 0) {
-		const before = text.substring(0, dashIdx).trim();
-		const after = text.substring(dashIdx + 3).trim();
+	const sep = findSeparator(text);
+	if (sep) {
+		const before = text.substring(0, sep.idx).trim();
+		const after = text.substring(sep.idx + sep.len).trim();
 		const rateMatch = before.match(RATE_RE);
 		if (rateMatch) {
 			const name = before.replace(RATE_RE, "").trim();

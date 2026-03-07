@@ -990,6 +990,11 @@
 	word-wrap: break-word;
 }
 
+/* ── Markdown rendered blocks ── */
+
+.gl-markdown > p:first-child { margin-top: 0; }
+.gl-markdown > p:last-child { margin-bottom: 0; }
+
 /* ── Review Timeline ── */
 
 .gl-recipe__review-timeline {
