@@ -222,6 +222,10 @@ export function renderGraphView(
 		e.line = line;
 	}
 
+	// Drag state (declared early so node mousedown handlers can access)
+	let dragStartPos: { x: number; y: number } | null = null;
+	let dragMoved = false;
+
 	// Nodes
 	const gNodes = document.createElementNS(ns, "g");
 	gMain.appendChild(gNodes);
@@ -278,6 +282,8 @@ export function renderGraphView(
 			state.dragging = n;
 			n.fx = n.x;
 			n.fy = n.y;
+			dragStartPos = { x: ev.clientX, y: ev.clientY };
+			dragMoved = false;
 			svg.style.cursor = "grabbing";
 		});
 
@@ -411,8 +417,6 @@ export function renderGraphView(
 	});
 
 	// ── Mouse / pan / zoom event handlers ──
-	let dragStartPos: { x: number; y: number } | null = null;
-	let dragMoved = false;
 	let isPanning = false;
 	let panStart = { x: 0, y: 0 };
 
