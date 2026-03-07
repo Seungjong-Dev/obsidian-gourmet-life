@@ -400,7 +400,6 @@ export class RecipeView extends ItemView {
 	private async handleViewSource(): Promise<void> {
 		const file = this.app.vault.getAbstractFileByPath(this.filePath);
 		if (!file || !(file instanceof TFile)) return;
-
 		const leaf = this.app.workspace.getLeaf(false);
 		await leaf.openFile(file);
 	}
