@@ -275,7 +275,7 @@ On submit:
 
 ### 5.4 Recipe View (2-Column Layout)
 
-When a recipe note is opened, the plugin renders a **2-column layout** replacing the default markdown view. The same layout is used for both Viewer (read-only) and Editor modes.
+When a recipe note is opened via the Gourmet Explorer or a command, the plugin renders a **2-column layout** in a custom ItemView. The same layout is used for both Viewer (read-only) and Editor modes.
 
 ```
 ┌─── Recipe View (CSS grid: auto 1fr rows × 30%/70% columns) ───────────────┐
@@ -468,7 +468,7 @@ Recipe images referenced via `fm.image` are resolved through `vault.readBinary()
 
 ### 5.6 Restaurant View (2-Column Layout)
 
-When a restaurant note is opened, the plugin renders a **2-column layout** replacing the default markdown view. Follows the same architecture as Recipe View (ItemView, viewer/editor dual mode, auto-save, responsive layout). Newly created restaurant notes open directly in editor mode so users can immediately fill in details.
+When a restaurant note is opened via the Gourmet Explorer or a command, the plugin renders a **2-column layout** in a custom ItemView. Follows the same architecture as Recipe View (viewer/editor dual mode, auto-save, responsive layout). Newly created restaurant notes open directly in editor mode so users can immediately fill in details.
 
 ```
 ┌─── Restaurant View (CSS grid: auto 1fr rows × 30%/70% columns) ──────────┐
@@ -604,6 +604,7 @@ src/
 - `onload()`: Load settings, init NoteIndex, generate `.base` files, register views/commands/ribbon/EditorSuggest
 - `onunload()`: Cleanup (automatic via Obsidian's component system)
 - Vault event registration: `metadataCache.on("changed")`, `vault.on("delete")`, `vault.on("rename")`
+- No `file-open` interceptor — recipe/restaurant notes open in the default markdown editor; viewers are entered only via Explorer or commands
 
 **types.ts** — Type definitions
 - `GourmetNote`: Union type with discriminated `type` field
@@ -800,8 +801,8 @@ Vault Files (markdown + frontmatter)
 | `metadataCache.on("changed")` | File save / frontmatter edit | `NoteIndex.updateFile()` |
 | `vault.on("delete")` | File deletion | `NoteIndex.removeFile()` |
 | `vault.on("rename")` | File rename/move | `NoteIndex.renameFile()` |
-| Recipe note open | Workspace | Activate `RecipeView` in Viewer mode |
-| Restaurant note open | Workspace | Activate `RestaurantView` in Viewer mode |
+| Recipe note open | Explorer / Command | Activate `RecipeView` in Viewer mode |
+| Restaurant note open | Explorer / Command | Activate `RestaurantView` in Viewer mode |
 | Edit button click | RecipeView | Switch to Editor mode, re-render Side/Main |
 | Side ingredient hover | RecipeSidePanel | `RecipeMainPanel.highlightSteps()` |
 | Main step focus | RecipeMainPanel | `RecipeSidePanel.highlightIngredients()` |
