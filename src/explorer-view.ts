@@ -630,11 +630,11 @@ export class ExplorerView extends ItemView {
 			const nearbyRestaurants = this.buildNearbyRestaurants(rfm, file.path);
 			const sideCb: RestaurantSideCallbacks = {
 				onInput: () => {},
-				onShowOnMap: () => {
+				onShowOnMap: this.layout !== "map" ? () => {
 					this.layout = "map";
 					this.selectedPath = file.path;
 					this.refresh();
-				},
+				} : undefined,
 				nearbyRestaurants,
 				onNearbyClick: (path: string) => {
 					this.selectedPath = path;
