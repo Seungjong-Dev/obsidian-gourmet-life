@@ -115,7 +115,6 @@ export function renderMapView(
 				marker.bindTooltip(escapeHtml(r.name), {
 					permanent: true,
 					direction: "top",
-					className: "gl-map-tooltip",
 					offset: [0, -36],
 				});
 
@@ -124,7 +123,7 @@ export function renderMapView(
 				if (fm.cuisine) lines.push(`<span class="gl-map-popup__cuisine">${escapeHtml(fm.cuisine)}</span>`);
 				if (fm.price_range) lines.push(`<span class="gl-map-popup__price">${escapeHtml(fm.price_range)}</span>`);
 				if (fm.rating != null) lines.push(`<span class="gl-map-popup__rating">${"\u2605".repeat(Math.round(fm.rating))}</span>`);
-				marker.bindPopup(lines.join("<br>"), { className: "gl-map-popup" });
+				marker.bindPopup(lines.join("<br>"));
 
 				marker.on("click", () => {
 					onSelect(r.path);
