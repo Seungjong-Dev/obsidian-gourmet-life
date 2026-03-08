@@ -303,8 +303,6 @@ function svgIcon(content: string): string {
 }
 
 function createMapNavControl(map: L.Map, initialBounds: L.LatLngBounds): L.Control {
-	const boundsCenter = initialBounds.getCenter();
-
 	const NavControl = L.Control.extend({
 		options: { position: "bottomright" as L.ControlPosition },
 
@@ -326,7 +324,7 @@ function createMapNavControl(map: L.Map, initialBounds: L.LatLngBounds): L.Contr
 			const presetBtns: HTMLElement[] = [];
 			for (const p of ZOOM_PRESETS) {
 				const btn = makeBtn(presetGroup, svgIcon(p.icon), p.label, () =>
-					map.flyTo(boundsCenter, p.zoom)
+					map.flyTo(map.getCenter(), p.zoom)
 				);
 				btn.classList.add("gl-map-nav__preset");
 				btn.dataset.zoom = String(p.zoom);

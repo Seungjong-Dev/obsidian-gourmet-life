@@ -2654,6 +2654,8 @@
 	width: 36px;
 	height: 36px;
 	border: none;
+	border-radius: 0;
+	margin: 0;
 	background: transparent;
 	color: var(--text-muted);
 	cursor: pointer;
