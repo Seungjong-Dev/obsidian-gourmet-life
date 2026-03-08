@@ -33,6 +33,11 @@ export function updateMapSelection(container: HTMLElement, selectedPath: string 
 
 	const map = activeMaps.get(container);
 
+	// Close any open popups when deselecting
+	if (!selectedPath && map) {
+		map.closePopup();
+	}
+
 	for (const [path, marker] of markers) {
 		const isSelected = path === selectedPath;
 		const color = isSelected ? "var(--interactive-accent, #7c3aed)" : "#e74c3c";

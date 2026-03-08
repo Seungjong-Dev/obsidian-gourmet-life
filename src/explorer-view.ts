@@ -679,7 +679,13 @@ export class ExplorerView extends ItemView {
 			item.addEventListener("click", () => {
 				this.selectedPath = note.path;
 				this.renderPreview();
-				this.renderContent();
+				if (this.layout === "map" && hasExplorerMap(this.contentContainer)) {
+					updateMapSelection(this.contentContainer, this.selectedPath);
+				} else if (this.layout === "graph" && hasExplorerGraph(this.contentContainer)) {
+					updateGraphSelection(this.contentContainer, this.selectedPath);
+				} else {
+					this.renderContent();
+				}
 			});
 		}
 	}
