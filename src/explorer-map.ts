@@ -38,10 +38,10 @@ export function updateMapSelection(container: HTMLElement, selectedPath: string 
 		const color = isSelected ? "var(--interactive-accent, #7c3aed)" : "#e74c3c";
 		const icon = L.divIcon({
 			className: "gl-map-marker",
-			html: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="36" viewBox="0 0 24 36"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z" fill="${color}"/><circle cx="12" cy="11" r="5" fill="#fff"/></svg>`,
-			iconSize: [24, 36],
-			iconAnchor: [12, 36],
-			popupAnchor: [0, -36],
+			html: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="27" viewBox="0 0 24 36"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z" fill="${color}"/><circle cx="12" cy="11" r="5" fill="#fff"/></svg>`,
+			iconSize: [18, 27],
+			iconAnchor: [9, 27],
+			popupAnchor: [0, -27],
 		});
 		marker.setIcon(icon);
 
@@ -118,10 +118,10 @@ export function renderMapView(
 				const markerColor = isSelected ? "var(--interactive-accent, #7c3aed)" : "#e74c3c";
 				const markerIcon = L.divIcon({
 					className: "gl-map-marker",
-					html: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="36" viewBox="0 0 24 36"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z" fill="${markerColor}"/><circle cx="12" cy="11" r="5" fill="#fff"/></svg>`,
-					iconSize: [24, 36],
-					iconAnchor: [12, 36],
-					popupAnchor: [0, -36],
+					html: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="27" viewBox="0 0 24 36"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z" fill="${markerColor}"/><circle cx="12" cy="11" r="5" fill="#fff"/></svg>`,
+					iconSize: [18, 27],
+					iconAnchor: [9, 27],
+					popupAnchor: [0, -27],
 				});
 
 				const marker = L.marker([lat, lng], { icon: markerIcon, riseOnHover: true }).addTo(map);
@@ -130,7 +130,7 @@ export function renderMapView(
 				marker.bindTooltip(escapeHtml(r.name), {
 					permanent: false,
 					direction: "top",
-					offset: [0, -36],
+					offset: [0, -27],
 				});
 
 				// Popup content
