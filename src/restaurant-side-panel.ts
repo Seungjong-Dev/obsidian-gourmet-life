@@ -117,12 +117,12 @@ function renderViewer(
 
 	// Map
 	if (fm.lat != null && fm.lng != null) {
-		const mapEl = container.createDiv({ cls: "gl-restaurant__map" });
+		const mapWrap = container.createDiv({ cls: "gl-restaurant__map-wrap" });
+		const mapEl = mapWrap.createDiv({ cls: "gl-restaurant__map" });
 		renderLeafletMap(container, mapEl, fm.lat, fm.lng, false, undefined, callbacks?.nearbyRestaurants, callbacks?.onNearbyClick);
 		if (callbacks?.onShowOnMap) {
-			const showBtn = container.createEl("button", {
+			const showBtn = mapWrap.createEl("button", {
 				cls: "gl-restaurant__show-on-map-btn",
-				text: "Show on Map",
 			});
 			setIcon(showBtn, "map");
 			showBtn.addEventListener("click", () => callbacks.onShowOnMap!());

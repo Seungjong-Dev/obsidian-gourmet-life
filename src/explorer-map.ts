@@ -174,6 +174,13 @@ export function renderMapView(
 			}
 
 			updateTooltipVisibility(map, markers);
+
+			// If a marker is already selected on initial render, flyTo + open popup
+			if (selectedPath && markers.has(selectedPath)) {
+				const selMarker = markers.get(selectedPath)!;
+				map.flyTo(selMarker.getLatLng(), Math.max(map.getZoom(), 15));
+				selMarker.openPopup();
+			}
 		} catch (err) {
 			console.error("[GourmetLife] Explorer map render failed:", err);
 			mapEl.empty();

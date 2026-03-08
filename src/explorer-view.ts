@@ -175,6 +175,7 @@ export class ExplorerView extends ItemView {
 		this.filter = createEmptyFilter();
 		this.selectedPath = path;
 		this.refresh();
+		this.renderPreview();
 	}
 
 	setTab(tab: ExplorerTab): void {

@@ -1430,38 +1430,46 @@
 
 /* Map */
 
+.gl-restaurant__map-wrap {
+	position: relative;
+	margin-bottom: 16px;
+}
+
 .gl-restaurant__map {
 	border-radius: 10px;
 	overflow: hidden;
-	margin-bottom: 16px;
 	background: #d1d1d1;
 	border: 1px solid var(--background-modifier-border);
 }
 
 .gl-restaurant__show-on-map-btn {
+	position: absolute;
+	right: 6px;
+	bottom: 6px;
+	z-index: 1000;
 	display: flex;
 	align-items: center;
-	gap: 6px;
-	width: 100%;
-	padding: 6px 12px;
-	margin-bottom: 12px;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
 	border: 1px solid var(--background-modifier-border);
-	border-radius: 8px;
+	border-radius: 6px;
 	background: var(--background-primary);
-	color: var(--text-normal);
+	color: var(--text-muted);
 	cursor: pointer;
-	font-size: var(--font-ui-small);
-	transition: background 0.15s ease;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+	transition: background 0.15s ease, color 0.15s ease;
 }
 
 .gl-restaurant__show-on-map-btn:hover {
 	background: var(--background-modifier-hover);
+	color: var(--text-normal);
 }
 
 .gl-restaurant__show-on-map-btn .svg-icon {
 	width: 14px;
 	height: 14px;
-	flex-shrink: 0;
 }
 
 .gl-map-marker--nearby {
