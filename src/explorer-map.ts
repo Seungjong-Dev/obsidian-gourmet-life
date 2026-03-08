@@ -31,6 +31,8 @@ export function updateMapSelection(container: HTMLElement, selectedPath: string 
 	const markers = activeMarkers.get(container);
 	if (!markers) return;
 
+	const map = activeMaps.get(container);
+
 	for (const [path, marker] of markers) {
 		const isSelected = path === selectedPath;
 		const color = isSelected ? "var(--interactive-accent, #7c3aed)" : "#e74c3c";
@@ -42,6 +44,10 @@ export function updateMapSelection(container: HTMLElement, selectedPath: string 
 			popupAnchor: [0, -36],
 		});
 		marker.setIcon(icon);
+
+		if (isSelected && map) {
+			map.flyTo(marker.getLatLng(), Math.max(map.getZoom(), 15));
+		}
 	}
 }
 
@@ -87,12 +93,19 @@ export function renderMapView(
 			const map = L.map(mapEl, {
 				zoomControl: true,
 				attributionControl: false,
+				zoomSnap: 0,
+				scrollWheelZoom: false,
 			});
 			activeMaps.set(container, map);
+			enableSmoothWheelZoom(map);
 
 			L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
 				maxZoom: 19,
+				detectRetina: true,
+				updateWhenZooming: false,
 			}).addTo(map);
+
+			L.control.scale({ metric: true, imperial: false }).addTo(map);
 
 			const bounds = L.latLngBounds([]);
 			const markers = new Map<string, L.Marker>();
@@ -112,7 +125,7 @@ export function renderMapView(
 					popupAnchor: [0, -36],
 				});
 
-				const marker = L.marker([lat, lng], { icon: markerIcon }).addTo(map);
+				const marker = L.marker([lat, lng], { icon: markerIcon, riseOnHover: true }).addTo(map);
 
 				// Tooltip with restaurant name (permanent at high zoom)
 				marker.bindTooltip(escapeHtml(r.name), {
@@ -145,7 +158,7 @@ export function renderMapView(
 			if (withCoords.length === 1) {
 				const fm = withCoords[0].frontmatter as RestaurantFrontmatter;
 				map.setView([fm.lat!, fm.lng!], 15);
-			} else {
+			} else if (bounds.isValid()) {
 				map.fitBounds(bounds, { padding: [30, 30] });
 			}
 
@@ -161,6 +174,51 @@ export function renderMapView(
 	});
 
 	pendingRAFs.set(container, rafId);
+}
+
+function enableSmoothWheelZoom(map: L.Map): void {
+	const ZOOM_SPEED = 1 / 300;
+	const LERP_FACTOR = 0.15;
+	const EPSILON = 0.005;
+
+	let targetZoom = map.getZoom();
+	let displayZoom = targetZoom;
+	let rafId: number | null = null;
+
+	function animate() {
+		try {
+			const diff = targetZoom - displayZoom;
+			if (Math.abs(diff) < EPSILON) {
+				displayZoom = targetZoom;
+				map.setView(map.getCenter(), targetZoom, { animate: false });
+				rafId = null;
+				return;
+			}
+			displayZoom += diff * LERP_FACTOR;
+			map.fire("zoomanim", {
+				center: map.getCenter(),
+				zoom: displayZoom,
+				noUpdate: true,
+			});
+			rafId = requestAnimationFrame(animate);
+		} catch {
+			rafId = null;
+		}
+	}
+
+	map.getContainer().addEventListener("wheel", (e) => {
+		e.preventDefault();
+		const delta = -e.deltaY * ZOOM_SPEED;
+		const min = map.getMinZoom();
+		const max = map.getMaxZoom();
+		targetZoom = Math.max(min, Math.min(max, targetZoom + delta));
+		if (rafId == null) rafId = requestAnimationFrame(animate);
+	}, { passive: false });
+
+	map.on("zoomend", () => {
+		targetZoom = map.getZoom();
+		displayZoom = targetZoom;
+	});
 }
 
 function updateTooltipVisibility(map: L.Map, markers: Map<string, L.Marker>): void {
