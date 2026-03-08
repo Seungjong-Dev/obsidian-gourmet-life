@@ -4,6 +4,7 @@ import {
 	renderRestaurantSidePanel,
 	collectRestaurantSideState,
 	destroyLeafletMap,
+	type NearbyRestaurant,
 } from "./restaurant-side-panel";
 import {
 	renderRestaurantMainPanel,
@@ -183,7 +184,9 @@ export class RestaurantView extends ItemView {
 
 			const resourcePath = (path: string) => this.resolveResourcePath(path);
 
-			// Side panel
+			// Side panel — build nearby restaurants
+			const nearbyRestaurants = this.buildNearbyRestaurants(fm);
+
 			try {
 				renderRestaurantSidePanel(
 					this.sideContainer,
@@ -193,6 +196,12 @@ export class RestaurantView extends ItemView {
 					this.mode,
 					{
 						onInput: () => this.scheduleAutoSave(),
+						onShowOnMap: () => this.plugin.openExplorerView("restaurant", this.filePath),
+						nearbyRestaurants,
+						onNearbyClick: (path: string) => {
+							const f = this.app.vault.getAbstractFileByPath(path);
+							if (f instanceof TFile) this.plugin.openRestaurantView(f);
+						},
 					},
 					this.app,
 					this.filePath
@@ -246,6 +255,23 @@ export class RestaurantView extends ItemView {
 		} finally {
 			this.isRendering = false;
 		}
+	}
+
+	// ── Nearby restaurants ──
+
+	private buildNearbyRestaurants(fm: RestaurantFrontmatter): NearbyRestaurant[] {
+		if (fm.lat == null || fm.lng == null) return [];
+		const all = this.plugin.noteIndex.getRestaurants();
+		const nearby: NearbyRestaurant[] = [];
+		for (const note of all) {
+			if (note.path === this.filePath) continue;
+			const nfm = note.frontmatter as RestaurantFrontmatter;
+			if (nfm.lat == null || nfm.lng == null) continue;
+			if (Math.abs(nfm.lat - fm.lat) > 0.05 || Math.abs(nfm.lng - fm.lng) > 0.05) continue;
+			nearby.push({ name: note.name, lat: nfm.lat, lng: nfm.lng, path: note.path });
+			if (nearby.length >= 15) break;
+		}
+		return nearby;
 	}
 
 	// ── Resource resolution ──

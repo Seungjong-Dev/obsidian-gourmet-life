@@ -1,4 +1,4 @@
-import { Notice, type App } from "obsidian";
+import { Notice, setIcon, type App } from "obsidian";
 import type { RestaurantFrontmatter, RestaurantViewMode } from "./types";
 import { PRICE_RANGES } from "./types";
 import {
@@ -16,8 +16,18 @@ import { suggestAreaFromLocation } from "./area-suggest";
 import { ImageSuggestModal } from "./image-suggest-modal";
 import * as L from "leaflet";
 
+export interface NearbyRestaurant {
+	name: string;
+	lat: number;
+	lng: number;
+	path: string;
+}
+
 export interface RestaurantSideCallbacks {
 	onInput: () => void;
+	onShowOnMap?: () => void;
+	nearbyRestaurants?: NearbyRestaurant[];
+	onNearbyClick?: (path: string) => void;
 }
 
 export interface RestaurantSideState {
@@ -68,7 +78,7 @@ export function renderRestaurantSidePanel(
 
 	try {
 		if (mode === "viewer") {
-			renderViewer(container, fm, bodyContent, resourcePath);
+			renderViewer(container, fm, bodyContent, resourcePath, callbacks);
 		} else {
 			renderEditor(container, fm, bodyContent, resourcePath, callbacks, app, notePath);
 		}
@@ -94,7 +104,8 @@ function renderViewer(
 	container: HTMLElement,
 	fm: RestaurantFrontmatter,
 	bodyContent: string,
-	resourcePath: (path: string) => string
+	resourcePath: (path: string) => string,
+	callbacks?: RestaurantSideCallbacks
 ): void {
 	// Image
 	if (fm.image) {
@@ -107,7 +118,15 @@ function renderViewer(
 	// Map
 	if (fm.lat != null && fm.lng != null) {
 		const mapEl = container.createDiv({ cls: "gl-restaurant__map" });
-		renderLeafletMap(container, mapEl, fm.lat, fm.lng, false);
+		renderLeafletMap(container, mapEl, fm.lat, fm.lng, false, undefined, callbacks?.nearbyRestaurants, callbacks?.onNearbyClick);
+		if (callbacks?.onShowOnMap) {
+			const showBtn = container.createEl("button", {
+				cls: "gl-restaurant__show-on-map-btn",
+				text: "Show on Map",
+			});
+			setIcon(showBtn, "map");
+			showBtn.addEventListener("click", () => callbacks.onShowOnMap!());
+		}
 	} else if (fm.address) {
 		const fallback = container.createDiv({ cls: "gl-restaurant__map-fallback" });
 		const link = fallback.createEl("a", {
@@ -426,7 +445,9 @@ function renderLeafletMap(
 	lat: number,
 	lng: number,
 	interactive: boolean,
-	onMapClick?: (coords: GeoCoords) => void
+	onMapClick?: (coords: GeoCoords) => void,
+	nearbyRestaurants?: NearbyRestaurant[],
+	onNearbyClick?: (path: string) => void
 ): void {
 	mapEl.style.height = "180px";
 
@@ -485,6 +506,23 @@ function renderLeafletMap(
 					marker.setLatLng(e.latlng);
 					onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng });
 				});
+			}
+
+			// Nearby restaurant markers
+			if (nearbyRestaurants && nearbyRestaurants.length > 0) {
+				const nearbyIcon = L.divIcon({
+					className: "gl-map-marker gl-map-marker--nearby",
+					html: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="21" viewBox="0 0 24 36"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z" fill="#999"/><circle cx="12" cy="11" r="5" fill="#fff"/></svg>',
+					iconSize: [14, 21],
+					iconAnchor: [7, 21],
+				});
+				for (const nr of nearbyRestaurants) {
+					const nm = L.marker([nr.lat, nr.lng], { icon: nearbyIcon }).addTo(map);
+					nm.bindTooltip(nr.name, { direction: "top", offset: [0, -18] });
+					if (onNearbyClick) {
+						nm.on("click", () => onNearbyClick(nr.path));
+					}
+				}
 			}
 			} catch (err) {
 			console.error("[GourmetLife] Leaflet map render failed:", err);

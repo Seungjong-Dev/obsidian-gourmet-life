@@ -333,11 +333,13 @@ export default class GourmetLifePlugin extends Plugin {
 		});
 	}
 
-	async openExplorerView(tab?: ExplorerTab): Promise<void> {
+	async openExplorerView(tab?: ExplorerTab, selectOnMapPath?: string): Promise<void> {
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_EXPLORER);
 		if (leaves.length > 0) {
 			this.app.workspace.setActiveLeaf(leaves[0], { focus: true });
-			if (tab) {
+			if (selectOnMapPath) {
+				(leaves[0].view as ExplorerView).selectOnMap(selectOnMapPath);
+			} else if (tab) {
 				(leaves[0].view as ExplorerView).setTab(tab);
 			}
 			return;
@@ -349,6 +351,9 @@ export default class GourmetLifePlugin extends Plugin {
 			active: true,
 			state: tab ? { tab } : {},
 		});
+		if (selectOnMapPath) {
+			(leaf.view as ExplorerView).selectOnMap(selectOnMapPath);
+		}
 	}
 
 	onFolderSettingsChanged(): void {

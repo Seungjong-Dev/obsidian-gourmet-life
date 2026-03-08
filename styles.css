@@ -1438,6 +1438,42 @@
 	border: 1px solid var(--background-modifier-border);
 }
 
+.gl-restaurant__show-on-map-btn {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	padding: 6px 12px;
+	margin-bottom: 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	cursor: pointer;
+	font-size: var(--font-ui-small);
+	transition: background 0.15s ease;
+}
+
+.gl-restaurant__show-on-map-btn:hover {
+	background: var(--background-modifier-hover);
+}
+
+.gl-restaurant__show-on-map-btn .svg-icon {
+	width: 14px;
+	height: 14px;
+	flex-shrink: 0;
+}
+
+.gl-map-marker--nearby {
+	opacity: 0.7;
+	z-index: 500 !important;
+	transition: opacity 0.15s ease;
+}
+
+.gl-map-marker--nearby:hover {
+	opacity: 1;
+}
+
 .gl-restaurant__map-fallback {
 	margin-bottom: 16px;
 	padding: 12px;

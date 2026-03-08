@@ -25,7 +25,7 @@ import {
 import { renderStatsBar } from "./explorer-stats";
 import { renderSidePanel, type SidePanelCallbacks } from "./recipe-side-panel";
 import { renderMainPanel, type MainPanelCallbacks } from "./recipe-main-panel";
-import { renderRestaurantSidePanel, destroyLeafletMap, type RestaurantSideCallbacks } from "./restaurant-side-panel";
+import { renderRestaurantSidePanel, destroyLeafletMap, type RestaurantSideCallbacks, type NearbyRestaurant } from "./restaurant-side-panel";
 import { renderRestaurantMainPanel, type RestaurantMainCallbacks } from "./restaurant-main-panel";
 import { readGourmetFrontmatter } from "./frontmatter-utils";
 import { renderGraphView, destroyGraph, hasExplorerGraph, updateGraphSelection } from "./explorer-graph";
@@ -166,6 +166,14 @@ export class ExplorerView extends ItemView {
 			if (sf.searchIngredients) this.filter.searchIngredients = sf.searchIngredients;
 		}
 
+		this.refresh();
+	}
+
+	selectOnMap(path: string): void {
+		this.tab = "restaurant";
+		this.layout = "map";
+		this.filter = createEmptyFilter();
+		this.selectedPath = path;
 		this.refresh();
 	}
 
@@ -617,8 +625,27 @@ export class ExplorerView extends ItemView {
 			const sideEl = previewBody.createDiv({ cls: "gl-restaurant__side" });
 			const mainEl = previewBody.createDiv({ cls: "gl-restaurant__main" });
 
-			const sideCb: RestaurantSideCallbacks = { onInput: () => {} };
-			renderRestaurantSidePanel(sideEl, fm as RestaurantFrontmatter, bodyContent, resourcePath, "viewer", sideCb);
+			const rfm = fm as RestaurantFrontmatter;
+			const nearbyRestaurants = this.buildNearbyRestaurants(rfm, file.path);
+			const sideCb: RestaurantSideCallbacks = {
+				onInput: () => {},
+				onShowOnMap: () => {
+					this.layout = "map";
+					this.selectedPath = file.path;
+					this.refresh();
+				},
+				nearbyRestaurants,
+				onNearbyClick: (path: string) => {
+					this.selectedPath = path;
+					this.renderPreview();
+					if (this.layout === "map" && hasExplorerMap(this.contentContainer)) {
+						updateMapSelection(this.contentContainer, this.selectedPath);
+					} else {
+						this.renderContent();
+					}
+				},
+			};
+			renderRestaurantSidePanel(sideEl, rfm, bodyContent, resourcePath, "viewer", sideCb);
 
 			const mainCb: RestaurantMainCallbacks = {
 				onViewSource: () => {},
@@ -688,6 +715,21 @@ export class ExplorerView extends ItemView {
 				}
 			});
 		}
+	}
+
+	private buildNearbyRestaurants(fm: RestaurantFrontmatter, currentPath: string): NearbyRestaurant[] {
+		if (fm.lat == null || fm.lng == null) return [];
+		const all = this.plugin.noteIndex.getRestaurants();
+		const nearby: NearbyRestaurant[] = [];
+		for (const note of all) {
+			if (note.path === currentPath) continue;
+			const nfm = note.frontmatter as RestaurantFrontmatter;
+			if (nfm.lat == null || nfm.lng == null) continue;
+			if (Math.abs(nfm.lat - fm.lat) > 0.05 || Math.abs(nfm.lng - fm.lng) > 0.05) continue;
+			nearby.push({ name: note.name, lat: nfm.lat, lng: nfm.lng, path: note.path });
+			if (nearby.length >= 15) break;
+		}
+		return nearby;
 	}
 
 	private surpriseMe(): void {
