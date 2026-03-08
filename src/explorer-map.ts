@@ -52,6 +52,7 @@ export function updateMapSelection(container: HTMLElement, selectedPath: string 
 
 		if (isSelected && map) {
 			map.flyTo(marker.getLatLng(), Math.max(map.getZoom(), 15));
+			marker.openPopup();
 		}
 	}
 }
