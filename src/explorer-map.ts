@@ -184,6 +184,17 @@ function enableSmoothWheelZoom(map: L.Map, tileLayer: L.TileLayer): void {
 	let targetZoom = map.getZoom();
 	let displayZoom = targetZoom;
 	let rafId: number | null = null;
+	let mouseContainerPt = map.getSize().divideBy(2);
+
+	/** Compute new map center that keeps the mouse pointer fixed while zooming */
+	function zoomAroundCenter(zoom: number): L.LatLng {
+		const scale = map.getZoomScale(zoom);
+		const viewHalf = map.getSize().divideBy(2);
+		const centerOffset = mouseContainerPt
+			.subtract(viewHalf)
+			.multiplyBy(1 - 1 / scale);
+		return map.containerPointToLatLng(viewHalf.add(centerOffset));
+	}
 
 	function animate() {
 		try {
@@ -204,7 +215,7 @@ function enableSmoothWheelZoom(map: L.Map, tileLayer: L.TileLayer): void {
 				const gl = tileLayer as any;
 				const origResetAll = gl._resetAll;
 				gl._resetAll = function () {};
-				map.setView(map.getCenter(), targetZoom, { animate: false });
+				map.setView(zoomAroundCenter(targetZoom), targetZoom, { animate: false });
 				gl._resetAll = origResetAll;
 
 				rafId = null;
@@ -212,7 +223,7 @@ function enableSmoothWheelZoom(map: L.Map, tileLayer: L.TileLayer): void {
 			}
 			displayZoom += diff * LERP_FACTOR;
 			map.fire("zoomanim", {
-				center: map.getCenter(),
+				center: zoomAroundCenter(displayZoom),
 				zoom: displayZoom,
 				noUpdate: true,
 			});
@@ -224,6 +235,7 @@ function enableSmoothWheelZoom(map: L.Map, tileLayer: L.TileLayer): void {
 
 	map.getContainer().addEventListener("wheel", (e) => {
 		e.preventDefault();
+		mouseContainerPt = new L.Point(e.offsetX, e.offsetY);
 		const delta = -e.deltaY * ZOOM_SPEED;
 		const min = map.getMinZoom();
 		const max = map.getMaxZoom();
