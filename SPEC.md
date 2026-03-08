@@ -501,7 +501,7 @@ When a restaurant note is opened via the Gourmet Explorer or a command, the plug
 
 **Side Panel** (left, sticky):
 - Image thumbnail (same lightbox as Recipe View)
-- Leaflet mini-map (if `lat`/`lng` available) — interactive in editor, read-only in viewer
+- Leaflet mini-map (if `lat`/`lng` available) — interactive in editor, read-only in viewer with nearby restaurant markers and "Show on Map" overlay
 - Info grid: address, area, cuisine, price range ($ visualization), rating (stars), URL (external link), tags
 - Visit summary: total visits, average rating across all visits
 - Editor mode: metadata input fields, coordinate extraction from URL (sync regex + async fetch for short URLs and place pages) or geocoding by address (Nominatim API). Coordinates are auto-extracted on editor open when URL exists but lat/lng are empty
@@ -516,9 +516,9 @@ When a restaurant note is opened via the Gourmet Explorer or a command, the plug
 
 A Leaflet.js mini-map is rendered in the side panel when `lat`/`lng` coordinates are available. Leaflet is bundled via esbuild (~40KB addition).
 
-- **Viewer mode**: Read-only map with marker, click opens full map in external browser
+- **Viewer mode**: Read-only map with marker, click opens full map in external browser. "Show on Map" overlay button (bottom-right) opens Explorer map view and flies to/selects the marker (hidden when already in map layout). Nearby restaurants (~5km / 0.05° radius, max 15) shown as small gray markers with name tooltips; click navigates to that restaurant note
 - **Editor mode**: Interactive map — click to update coordinates, "Extract from URL" button parses coordinates from Google/Naver/Kakao Maps URLs (sync regex, then async fetch for short/place URLs), "Search by address" button geocodes via Nominatim API. Coordinates auto-extracted on editor open when URL is present but lat/lng are missing
-- Custom SVG map marker icon (red pin with white center)
+- Custom SVG map marker icon (red pin with white center), nearby markers use smaller gray variant (14×21)
 - OpenStreetMap tiles, attribution preserved
 
 #### Restaurant Parser
@@ -613,6 +613,7 @@ src/
 - `onload()`: Load settings, init NoteIndex, generate `.base` files, register views/commands/ribbon/EditorSuggest
 - `onunload()`: Cleanup (automatic via Obsidian's component system)
 - Vault event registration: `metadataCache.on("changed")`, `vault.on("delete")`, `vault.on("rename")`
+- `openExplorerView(tab?, selectOnMapPath?)`: Opens Explorer view; when `selectOnMapPath` is provided, switches to map layout and selects the marker (flyTo + popup + preview)
 - No `file-open` interceptor — recipe/restaurant notes open in the default markdown editor; viewers are entered only via Explorer or commands
 
 **types.ts** — Type definitions
@@ -698,14 +699,17 @@ src/
 - Extends `ItemView`, registered as `VIEW_TYPE_RESTAURANT`
 - Same architecture as `recipe-view.ts`: Viewer/Editor mode toggle, CSS grid layout, `ResizeObserver` responsive breakpoint, debounced auto-save
 - `buildFileContent()`: Collects side + main state, builds frontmatter via `buildFrontmatterString`, builds body with `## Menu Highlights`, `## Notes`, `## Reviews` sections
+- `buildNearbyRestaurants(fm)`: Filters NoteIndex restaurants within 0.05° (~5km) of current note's coordinates, max 15 — passed to side panel for minimap nearby markers
 - `resolveResourcePath()`: Same vault resource resolution as Recipe View
 
 **restaurant-side-panel.ts** — Restaurant side panel
 - `renderRestaurantSidePanel()`: Entry point, delegates to viewer/editor sub-renderers
-- Viewer: Image with lightbox, Leaflet map (or fallback), info grid (address, area, cuisine, price range, rating, URL, tags), visit summary
+- `NearbyRestaurant` interface: `{ name, lat, lng, path }` for nearby marker data
+- `RestaurantSideCallbacks`: `onInput`, `onShowOnMap?`, `nearbyRestaurants?`, `onNearbyClick?`
+- Viewer: Image with lightbox, Leaflet map (or fallback) with "Show on Map" overlay button and nearby gray markers, info grid (address, area, cuisine, price range, rating, URL, tags), visit summary
 - Editor: Image editor, metadata form fields, coordinate section with "Extract from URL" (sync + async) and "Search by address" buttons, auto-extract on open when URL exists but no coords, interactive Leaflet map
 - `collectRestaurantSideState()`: Collects form values for auto-save
-- `renderLeafletMap()`: Creates Leaflet map instance with OpenStreetMap tiles
+- `renderLeafletMap()`: Creates Leaflet map instance with OpenStreetMap tiles, supports optional nearby markers (small gray SVG icons with tooltips and click handlers)
 
 **restaurant-main-panel.ts** — Restaurant main panel
 - `renderRestaurantTitleRow()`: Title (display/input) + mode toggle + view source button
@@ -732,7 +736,8 @@ src/
 - "Surprise Me" button: picks random note from current filtered set, opens preview
 - Body split: content list (left) + preview side panel (right)
 - Single-click selects note and opens preview; double-click opens full viewer
-- Preview panel: renders read-only recipe/restaurant view (reuses `renderSidePanel`/`renderMainPanel` and restaurant equivalents)
+- `selectOnMap(path)`: Switches to restaurant tab + map layout, selects marker (flyTo + popup), and opens preview panel — used by "Show on Map" button
+- Preview panel: renders read-only recipe/restaurant view (reuses `renderSidePanel`/`renderMainPanel` and restaurant equivalents). Restaurant preview includes nearby markers and "Show on Map" button (hidden when already in map layout)
 - "Related Notes" section at bottom of preview: scores notes by tag/cuisine overlap, shows top 5 with click-to-preview
 - Image resolution: `metadataCache.getFirstLinkpathDest()` with filename fallback (shared pattern with recipe/restaurant views)
 - State persistence: saves/restores `tab`, `layout`, `sortBy`, full filter state (`cuisine`, `category`, `difficulty`, `price_range`, `area`, `minRating`, `tags`, `unrated`, `searchIngredients`), and `filterOpen` via `getState()`/`setState()` — restored filter values validated against current data
@@ -766,7 +771,8 @@ src/
 - Markers with tooltips (permanent at zoom ≥ 13, overlap-aware), popups (name, cuisine, price, rating stars), click-to-select
 - `enableSmoothWheelZoom(map, tileLayer)`: Custom smooth zoom — lerp-based `requestAnimationFrame` animation, `zoomanim` CSS transform during interpolation, `setView` on settle; suppresses tile layer `_resetAll` during final `setView` to prevent white flash
 - `zoomAroundCenter(zoom)`: Computes new center keeping mouse pointer fixed (matches Leaflet's `setZoomAround` logic: `viewHalf.add(centerOffset)`)
-- `updateMapSelection(container, selectedPath)`: Updates marker colors and flies to selected marker
+- `updateMapSelection(container, selectedPath)`: Updates marker colors and flies to selected marker with popup
+- Initial render with `selectedPath` also triggers flyTo + popup (supports `selectOnMap` navigation from restaurant view)
 - `destroyExplorerMap(container)` / `hasExplorerMap(container)`: Lifecycle management via `WeakMap`
 - `updateTooltipVisibility(map, markers)`: Shows permanent tooltips at high zoom, suppresses overlapping ones (pixel-distance threshold)
 - OpenStreetMap tiles, scale control, `zoomSnap: 0` for fractional zoom
