@@ -2625,3 +2625,56 @@
 	color: #f59e0b;
 }
 
+/* ── Map Navigation Control ── */
+
+.gl-map-nav {
+	display: flex;
+	flex-direction: column;
+	border-radius: 8px;
+	overflow: hidden;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+}
+
+.gl-map-nav__group {
+	display: flex;
+	flex-direction: column;
+}
+
+.gl-map-nav__divider {
+	height: 1px;
+	background: var(--background-modifier-border);
+}
+
+.gl-map-nav__btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	border: none;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+	padding: 0;
+}
+
+.gl-map-nav__btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.gl-map-nav__btn:active {
+	background: var(--background-modifier-border);
+}
+
+.gl-map-nav__group > .gl-map-nav__btn + .gl-map-nav__btn {
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.gl-map-nav__preset--active {
+	color: var(--interactive-accent);
+}
+

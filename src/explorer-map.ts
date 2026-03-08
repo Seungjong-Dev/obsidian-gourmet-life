@@ -91,7 +91,7 @@ export function renderMapView(
 
 		try {
 			const map = L.map(mapEl, {
-				zoomControl: true,
+				zoomControl: false,
 				attributionControl: false,
 				zoomSnap: 0,
 				scrollWheelZoom: false,
@@ -160,6 +160,11 @@ export function renderMapView(
 				map.setView([fm.lat!, fm.lng!], 15);
 			} else if (bounds.isValid()) {
 				map.fitBounds(bounds, { padding: [30, 30] });
+			}
+
+			// Nav control (needs valid bounds for presets + fit-all)
+			if (bounds.isValid()) {
+				createMapNavControl(map, bounds).addTo(map);
 			}
 
 			updateTooltipVisibility(map, markers);
@@ -277,6 +282,99 @@ function updateTooltipVisibility(map: L.Map, markers: Map<string, L.Marker>): vo
 			opened.push(pt);
 		}
 	}
+}
+
+// ── Map Navigation Control ──
+
+const ZOOM_PRESETS = [
+	{ zoom: 11, label: "City", icon: '<circle cx="12" cy="12" r="2.5"/>' },
+	{ zoom: 14, label: "Area", icon: '<circle cx="8" cy="12" r="2.5"/><circle cx="16" cy="12" r="2.5"/>' },
+	{ zoom: 17, label: "Street", icon: '<circle cx="4" cy="12" r="2.5"/><circle cx="12" cy="12" r="2.5"/><circle cx="20" cy="12" r="2.5"/>' },
+] as const;
+
+const PRESET_ACTIVE_THRESHOLD = 1.5;
+
+const ICON_ZOOM_IN = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>';
+const ICON_ZOOM_OUT = '<line x1="5" y1="12" x2="19" y2="12"/>';
+const ICON_FIT_ALL = '<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>';
+
+function svgIcon(content: string): string {
+	return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${content}</svg>`;
+}
+
+function createMapNavControl(map: L.Map, initialBounds: L.LatLngBounds): L.Control {
+	const boundsCenter = initialBounds.getCenter();
+
+	const NavControl = L.Control.extend({
+		options: { position: "bottomright" as L.ControlPosition },
+
+		onAdd() {
+			const container = L.DomUtil.create("div", "gl-map-nav");
+			L.DomEvent.disableClickPropagation(container);
+			L.DomEvent.disableScrollPropagation(container);
+
+			// Zoom in/out group
+			const zoomGroup = L.DomUtil.create("div", "gl-map-nav__group", container);
+			makeBtn(zoomGroup, svgIcon(ICON_ZOOM_IN), "Zoom in", () => map.zoomIn(1));
+			makeBtn(zoomGroup, svgIcon(ICON_ZOOM_OUT), "Zoom out", () => map.zoomOut(1));
+
+			// Divider
+			L.DomUtil.create("div", "gl-map-nav__divider", container);
+
+			// Preset group
+			const presetGroup = L.DomUtil.create("div", "gl-map-nav__group", container);
+			const presetBtns: HTMLElement[] = [];
+			for (const p of ZOOM_PRESETS) {
+				const btn = makeBtn(presetGroup, svgIcon(p.icon), p.label, () =>
+					map.flyTo(boundsCenter, p.zoom)
+				);
+				btn.classList.add("gl-map-nav__preset");
+				btn.dataset.zoom = String(p.zoom);
+				presetBtns.push(btn);
+			}
+
+			// Divider
+			L.DomUtil.create("div", "gl-map-nav__divider", container);
+
+			// Fit all group
+			const fitGroup = L.DomUtil.create("div", "gl-map-nav__group", container);
+			makeBtn(fitGroup, svgIcon(ICON_FIT_ALL), "Fit all", () =>
+				map.fitBounds(initialBounds, { padding: [30, 30] })
+			);
+
+			// Active preset highlight
+			const updateActivePreset = () => {
+				const currentZoom = map.getZoom();
+				for (const btn of presetBtns) {
+					const presetZoom = Number(btn.dataset.zoom);
+					btn.classList.toggle(
+						"gl-map-nav__preset--active",
+						Math.abs(currentZoom - presetZoom) <= PRESET_ACTIVE_THRESHOLD
+					);
+				}
+			};
+
+			map.on("zoomend", updateActivePreset);
+			updateActivePreset();
+
+			return container;
+		},
+	});
+
+	return new NavControl();
+}
+
+function makeBtn(
+	parent: HTMLElement,
+	html: string,
+	ariaLabel: string,
+	onClick: () => void
+): HTMLElement {
+	const btn = L.DomUtil.create("button", "gl-map-nav__btn", parent);
+	btn.innerHTML = html;
+	btn.setAttribute("aria-label", ariaLabel);
+	btn.addEventListener("click", onClick);
+	return btn;
 }
 
 function escapeHtml(str: string): string {
