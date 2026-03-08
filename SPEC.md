@@ -805,6 +805,7 @@ Vault Files (markdown + frontmatter)
   NoteIndex.buildIndex() ──── on("changed") ───▶ NoteIndex.updateFile()
         │                      on("delete")  ───▶ NoteIndex.removeFile()
         │                      on("rename")  ───▶ NoteIndex.renameFile()
+        ├──▶ ExplorerView.refresh() (for views restored before index ready)
         ▼
   GourmetNote[] (in-memory index)
         │
@@ -822,6 +823,7 @@ Vault Files (markdown + frontmatter)
 | Event | Source | Handler |
 |-------|--------|---------|
 | Plugin load | Obsidian | `BasesGenerator.generateBaseFiles()` (create missing `.base` files) |
+| `onLayoutReady` | Obsidian | `NoteIndex.buildIndex()`, then refresh any already-open ExplorerView |
 | Settings change | Settings UI | `BasesGenerator.generateBaseFiles()` (regenerate if folders changed) |
 | `metadataCache.on("changed")` | File save / frontmatter edit | `NoteIndex.updateFile()` |
 | `vault.on("delete")` | File deletion | `NoteIndex.removeFile()` |
