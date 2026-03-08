@@ -2,6 +2,9 @@ import * as L from "leaflet";
 import type { GourmetNote, RestaurantFrontmatter } from "./types";
 import { LEAFLET_CSS } from "./restaurant-side-panel";
 
+const TOOLTIP_ZOOM_THRESHOLD = 13;
+const TOOLTIP_OVERLAP_PX = 60;
+
 const activeMaps = new WeakMap<HTMLElement, L.Map>();
 const activeMarkers = new WeakMap<HTMLElement, Map<string, L.Marker>>();
 const pendingRAFs = new WeakMap<HTMLElement, number>();
@@ -111,9 +114,9 @@ export function renderMapView(
 
 				const marker = L.marker([lat, lng], { icon: markerIcon }).addTo(map);
 
-				// Permanent tooltip with restaurant name
+				// Tooltip with restaurant name (permanent at high zoom)
 				marker.bindTooltip(escapeHtml(r.name), {
-					permanent: true,
+					permanent: false,
 					direction: "top",
 					offset: [0, -36],
 				});
@@ -135,12 +138,18 @@ export function renderMapView(
 
 			activeMarkers.set(container, markers);
 
+			map.on("zoomend", () => {
+				updateTooltipVisibility(map, markers);
+			});
+
 			if (withCoords.length === 1) {
 				const fm = withCoords[0].frontmatter as RestaurantFrontmatter;
 				map.setView([fm.lat!, fm.lng!], 15);
 			} else {
 				map.fitBounds(bounds, { padding: [30, 30] });
 			}
+
+			updateTooltipVisibility(map, markers);
 		} catch (err) {
 			console.error("[GourmetLife] Explorer map render failed:", err);
 			mapEl.empty();
@@ -152,6 +161,36 @@ export function renderMapView(
 	});
 
 	pendingRAFs.set(container, rafId);
+}
+
+function updateTooltipVisibility(map: L.Map, markers: Map<string, L.Marker>): void {
+	const zoom = map.getZoom();
+	if (zoom < TOOLTIP_ZOOM_THRESHOLD) {
+		for (const marker of markers.values()) marker.closeTooltip();
+		return;
+	}
+
+	const thresholdSq = TOOLTIP_OVERLAP_PX * TOOLTIP_OVERLAP_PX;
+	const opened: L.Point[] = [];
+
+	for (const marker of markers.values()) {
+		const pt = map.latLngToContainerPoint(marker.getLatLng());
+		let tooClose = false;
+		for (const op of opened) {
+			const dx = pt.x - op.x;
+			const dy = pt.y - op.y;
+			if (dx * dx + dy * dy < thresholdSq) {
+				tooClose = true;
+				break;
+			}
+		}
+		if (tooClose) {
+			marker.closeTooltip();
+		} else {
+			marker.openTooltip();
+			opened.push(pt);
+		}
+	}
 }
 
 function escapeHtml(str: string): string {
