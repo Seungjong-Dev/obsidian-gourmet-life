@@ -95,6 +95,7 @@ export function renderMapView(
 				attributionControl: false,
 				zoomSnap: 0,
 				scrollWheelZoom: false,
+				fadeAnimation: false,
 			});
 			activeMaps.set(container, map);
 			enableSmoothWheelZoom(map);
@@ -102,6 +103,7 @@ export function renderMapView(
 			L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
 				maxZoom: 19,
 				updateWhenZooming: false,
+				keepBuffer: 4,
 			}).addTo(map);
 
 			L.control.scale({ metric: true, imperial: false }).addTo(map);

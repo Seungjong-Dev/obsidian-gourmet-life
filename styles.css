@@ -1434,6 +1434,7 @@
 	border-radius: 10px;
 	overflow: hidden;
 	margin-bottom: 16px;
+	background: #d1d1d1;
 	border: 1px solid var(--background-modifier-border);
 }
 
@@ -2604,6 +2605,7 @@
 .gl-explorer__map-inner {
 	flex: 1;
 	min-height: 200px;
+	background: #d1d1d1;
 }
 
 .gl-map-popup__cuisine {

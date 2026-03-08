@@ -451,6 +451,7 @@ function renderLeafletMap(
 				scrollWheelZoom: interactive,
 				doubleClickZoom: interactive,
 				touchZoom: interactive,
+				fadeAnimation: false,
 			}).setView([lat, lng], 15);
 
 			// Store reference for cleanup immediately so destroyLeafletMap always finds it
@@ -458,6 +459,8 @@ function renderLeafletMap(
 
 			L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
 				maxZoom: 19,
+				updateWhenZooming: false,
+				keepBuffer: 4,
 			}).addTo(map);
 
 			const markerIcon = L.divIcon({
