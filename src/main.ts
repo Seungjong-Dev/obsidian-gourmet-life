@@ -235,6 +235,9 @@ export default class GourmetLifePlugin extends Plugin {
 
 		this.app.workspace.onLayoutReady(async () => {
 			this.noteIndex.buildIndex();
+			for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_EXPLORER)) {
+				(leaf.view as ExplorerView).refresh();
+			}
 		});
 
 		// ── Vault Events ──

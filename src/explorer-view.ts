@@ -351,7 +351,7 @@ export class ExplorerView extends ItemView {
 		this.closePreview();
 	}
 
-	private refresh(): void {
+	refresh(): void {
 		this.updateTabButtons();
 		this.updateLayoutButtons();
 		this.updateFilterPanel();
