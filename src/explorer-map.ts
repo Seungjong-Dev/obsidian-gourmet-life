@@ -95,16 +95,15 @@ export function renderMapView(
 				attributionControl: false,
 				zoomSnap: 0,
 				scrollWheelZoom: false,
-				fadeAnimation: false,
 			});
 			activeMaps.set(container, map);
-			enableSmoothWheelZoom(map);
 
-			L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+			const tileLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
 				maxZoom: 19,
 				updateWhenZooming: false,
 				keepBuffer: 4,
 			}).addTo(map);
+			enableSmoothWheelZoom(map, tileLayer);
 
 			L.control.scale({ metric: true, imperial: false }).addTo(map);
 
@@ -177,7 +176,7 @@ export function renderMapView(
 	pendingRAFs.set(container, rafId);
 }
 
-function enableSmoothWheelZoom(map: L.Map): void {
+function enableSmoothWheelZoom(map: L.Map, tileLayer: L.TileLayer): void {
 	const ZOOM_SPEED = 1 / 300;
 	const LERP_FACTOR = 0.15;
 	const EPSILON = 0.005;
@@ -191,7 +190,23 @@ function enableSmoothWheelZoom(map: L.Map): void {
 			const diff = targetZoom - displayZoom;
 			if (Math.abs(diff) < EPSILON) {
 				displayZoom = targetZoom;
+
+				/*
+				 * Suppress _resetAll on the tile layer during setView.
+				 * Without this, setView({animate:false}) fires viewreset
+				 * → _resetAll → removes ALL tiles from the DOM before new
+				 * ones load, causing a white flash.
+				 * With _resetAll suppressed, old tiles stay visible while
+				 * the zoom event's _setView path loads new tiles via
+				 * _updateLevels + _update. Normal _pruneTiles (with
+				 * fadeAnimation delay) then fades out old tiles gracefully.
+				 */
+				const gl = tileLayer as any;
+				const origResetAll = gl._resetAll;
+				gl._resetAll = function () {};
 				map.setView(map.getCenter(), targetZoom, { animate: false });
+				gl._resetAll = origResetAll;
+
 				rafId = null;
 				return;
 			}
