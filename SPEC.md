@@ -594,7 +594,8 @@ src/
 ├── restaurant-side-panel.ts # Restaurant side panel (image, map, metadata, visit summary)
 ├── restaurant-main-panel.ts # Restaurant main panel (menu, notes, reviews timeline)
 ├── restaurant-parser.ts     # Restaurant body parser (sections, visits, menu, coordinates)
-├── explorer-view.ts         # Gourmet Explorer ItemView (tabs, toolbar, sort, preview, state)
+├── device.ts                # Layout tier detection (wide/medium/narrow), touch/mobile helpers, ghost click suppression
+├── explorer-view.ts         # Gourmet Explorer ItemView (tabs, toolbar, sort, preview, state, responsive tiers)
 ├── explorer-filter.ts       # Explorer filter/sort logic, filter option extraction
 ├── explorer-cards.ts        # Explorer card grid / list view / filter bar / tag cloud
 ├── explorer-stats.ts        # Explorer summary stats bar + mini timeline
@@ -731,18 +732,34 @@ src/
 - `fetchCoordsFromUrl(url)`: Async rule-based extraction for short URLs (Google `maps.app.goo.gl`), Kakao Place pages, Naver Place pages (redirect follow + HTML scrape) → `Promise<GeoCoords | null>`
 - `geocodeAddress(address)`: Nominatim API geocoding → `GeoCoords`
 
+**device.ts** — Layout tier detection and mobile helpers
+- `LayoutTier`: `"wide" | "medium" | "narrow"`
+- `getLayoutTier(width)`: Returns tier — wide (≥ 800px), medium (≥ 500px), narrow (< 500px)
+- `isMobileDevice()`: Delegates to `Platform.isMobile`
+- `isTouchDevice()`: `Platform.isMobile || "ontouchstart" in window`
+- `hapticFeedback()`: `navigator.vibrate(10)` when supported
+- `suppressGhostClick(container)`: One-shot capture handler swallows pointer events for 400ms — prevents Android ghost clicks after overlay transitions
+
 **explorer-view.ts** — Gourmet Explorer view
 - `ConfirmDeleteModal` (exported): Confirmation modal for note deletion — reused by RecipeView and RestaurantView
 - Extends `ItemView`, registered as `VIEW_TYPE_EXPLORER`
 - Tab switching: recipe / restaurant tabs with independent filter state
 - Layout toggle: card grid / list / graph / map view
-- Toolbar: tab buttons, collapsible filter panel toggle, sort dropdown, search input with debounce and ingredient search mode toggle, "Surprise Me" random picker, layout buttons
+- **Responsive layout tiers** via `ResizeObserver` (not media queries, so it adapts correctly inside Obsidian sidebars):
+  - **Wide** (≥ 800px): Full toolbar with tab buttons, search input, layout buttons, filter toggle, sort dropdown, "Surprise Me" button. Preview panel as right side column
+  - **Medium** (≥ 500px): Same toolbar, preview panel opens with reduced width
+  - **Narrow** (< 500px): Compact segment-control toolbar with overflow menu (⋯), iOS-style expandable search bar, filter dropdown with backdrop overlay, fullscreen preview overlay with swipe-back gesture, 2-column card grid, ghost click suppression on overlay close
+- Toolbar (wide/medium): tab buttons, collapsible filter panel toggle, sort dropdown, search input with debounce and ingredient search mode toggle (leaf icon), "Surprise Me" random picker, layout buttons
+- Narrow toolbar: segment-control tab switcher, search icon (expands inline search bar with cancel button), overflow menu (⋯) containing sort, filter, layout options, and "Surprise Me"
+- Narrow search bar: `.gl-explorer__narrow-search-inner` wraps input + ingredient mode button (leaf icon, `position: relative` anchors the absolute-positioned icon)
 - Sort dropdown: tab-aware options — recipes: Name A-Z/Z-A, Rating, Cook time, Newest, Difficulty; restaurants: Name A-Z/Z-A, Rating, Newest, Price
 - "Surprise Me" button: picks random note from current filtered set, opens preview
 - Body split: content list (left) + preview side panel (right)
 - Single-click selects note and opens preview; double-click opens full viewer
 - `selectOnMap(path)`: Switches to restaurant tab + map layout, selects marker (flyTo + popup), and opens preview panel — used by "Show on Map" button
-- Preview panel: renders read-only recipe/restaurant view (reuses `renderSidePanel`/`renderMainPanel` and restaurant equivalents). Restaurant preview includes nearby markers and "Show on Map" button (hidden when already in map layout)
+- Preview panel: renders read-only recipe/restaurant view (reuses `renderSidePanel`/`renderMainPanel` and restaurant equivalents). Restaurant preview includes nearby markers and "Show on Map" button (hidden when already in map layout). Narrow tier renders preview as fullscreen overlay with swipe-back gesture (right-to-left swipe closes)
+- `onLayoutTierChanged(tier)`: Migrates filter panel (collapsible ↔ dropdown), validates layout, and re-renders preview/content on tier change
+- Sidebar swipe interference: `touchstart`/`touchmove` listeners on container prevent Obsidian sidebar gestures from triggering during Explorer interaction
 - "Related Notes" section at bottom of preview: scores notes by tag/cuisine overlap, shows top 5 with click-to-preview
 - Image resolution: `metadataCache.getFirstLinkpathDest()` with filename fallback (shared pattern with recipe/restaurant views)
 - State persistence: saves/restores `tab`, `layout`, `sortBy`, full filter state (`cuisine`, `category`, `difficulty`, `price_range`, `area`, `minRating`, `tags`, `unrated`, `searchIngredients`), and `filterOpen` via `getState()`/`setState()` — restored filter values validated against current data
@@ -759,13 +776,14 @@ src/
 **explorer-cards.ts** — Explorer card/list rendering
 - `renderFilterBar()`: Renders chip-based filter rows per field with counts + rating stars + "unrated" toggle chip (mutually exclusive with minRating)
 - `renderTagCloud()`: Renders weighted tag cloud with size tiers (sm/md/lg) based on frequency
-- `renderCardGrid()`: Card grid with image thumbnail, metadata chips (including area), rating, cook time / address, "new" badge on cards created within 7 days
-- `renderListView()`: Compact list rows with thumbnail, "new" dot, name, metadata summary, rating
+- `renderCardGrid()`: Card grid with image thumbnail, metadata chips (including area), rating, cook time / address, "new" badge on cards created within 7 days. Narrow tier uses 2-column grid layout
+- `renderListView()`: Compact list rows with thumbnail, "new" dot, name, metadata summary, rating. Narrow tier uses compact variant
 - Both card and list accept `resolveImage(imagePath, notePath)` callback for proper vault image resolution
 - Both support `onSelect` / `selectedPath` for preview selection highlighting
+- Both accept optional `layoutTier` parameter for tier-aware rendering
 
 **explorer-stats.ts** — Explorer summary stats bar
-- `renderStatsBar(container, notes, tab)`: Renders one-line stats between filter panel and card grid
+- `renderStatsBar(container, notes, tab, layoutTier?)`: Renders one-line stats between filter panel and card grid; compact layout on narrow tier
 - Recipe stats: total count, top 3 cuisines, difficulty distribution (colored dots), average rating
 - Restaurant stats: total count, top 3 areas, price range distribution, average rating
 - Mini timeline: 12-month activity chart (CSS bars, no external library) based on `created` field
@@ -967,6 +985,11 @@ Responsive breakpoints:
 - Tablet/Desktop (≥ 600px): Recipe view 2-column CSS grid (30/70)
 - Side panel ≤300px (container query): Ingredient names left-aligned instead of centered
 - `.is-mobile`: `env(safe-area-inset-bottom)` on root, `padding-bottom: 48px` on single-column
+
+Explorer layout tiers (via `ResizeObserver`, adapts to actual container width including sidebars):
+- `.gl-explorer--wide` (≥ 800px): Full toolbar, side-panel preview
+- `.gl-explorer--medium` (≥ 500px): Full toolbar, narrower preview panel
+- `.gl-explorer--narrow` (< 500px): Segment-control tabs, overflow menu (⋯), expandable search bar, filter dropdown with backdrop, fullscreen preview overlay with swipe-back, 2-column card grid, touch-friendly tap targets, ghost click suppression
 
 ---
 
