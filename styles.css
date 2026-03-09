@@ -3008,8 +3008,16 @@
 	padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
 }
 
+.is-mobile .gl-explorer--narrow .gl-explorer__content {
+	padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
 .gl-explorer--narrow .gl-explorer__preview-overlay {
 	padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.is-mobile .gl-explorer--narrow .gl-explorer__preview-overlay {
+	padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
 }
 
 /* ── Explorer needs position:relative for overlays ── */
