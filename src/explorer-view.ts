@@ -599,11 +599,11 @@ export class ExplorerView extends ItemView {
 
 		menu.addSeparator();
 
-		// Layout options (narrow: hide graph for recipe, always show card/list)
+		// Layout options
 		const layouts: { value: ExplorerLayout; label: string; icon: string; show: boolean }[] = [
 			{ value: "card", label: "Card view", icon: "layout-grid", show: true },
 			{ value: "list", label: "List view", icon: "list", show: true },
-			{ value: "graph", label: "Graph view", icon: "git-fork", show: this.tab === "recipe" && this.currentTier !== "narrow" },
+			{ value: "graph", label: "Graph view", icon: "git-fork", show: this.tab === "recipe" },
 			{ value: "map", label: "Map view", icon: "map-pin", show: this.tab === "restaurant" },
 		];
 		for (const l of layouts) {

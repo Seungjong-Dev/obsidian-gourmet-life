@@ -2808,6 +2808,7 @@
 }
 
 .gl-explorer__narrow-search-inner {
+	position: relative;
 	display: flex;
 	align-items: center;
 	gap: 6px;
