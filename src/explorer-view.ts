@@ -179,6 +179,8 @@ export class ExplorerView extends ItemView {
 	}
 
 	selectOnMap(path: string): void {
+		this.flushPreviewAutoSave();
+		this.previewMode = "viewer";
 		this.tab = "restaurant";
 		this.layout = "map";
 		this.filter = createEmptyFilter();
@@ -485,6 +487,8 @@ export class ExplorerView extends ItemView {
 			if (this.selectedPath === path) {
 				this.closePreview();
 			} else {
+				this.flushPreviewAutoSave();
+				this.previewMode = "viewer";
 				this.selectedPath = path;
 				this.renderPreview();
 			}
@@ -706,6 +710,8 @@ export class ExplorerView extends ItemView {
 				} : undefined,
 				nearbyRestaurants,
 				onNearbyClick: (path: string) => {
+					this.flushPreviewAutoSave();
+					this.previewMode = "viewer";
 					this.selectedPath = path;
 					this.renderPreview();
 					if (this.layout === "map" && hasExplorerMap(this.contentContainer)) {
@@ -776,6 +782,8 @@ export class ExplorerView extends ItemView {
 				renderStarsDom(ratingSpan, rating);
 			}
 			item.addEventListener("click", () => {
+				this.flushPreviewAutoSave();
+				this.previewMode = "viewer";
 				this.selectedPath = note.path;
 				this.renderPreview();
 				if (this.layout === "map" && hasExplorerMap(this.contentContainer)) {
@@ -919,6 +927,8 @@ export class ExplorerView extends ItemView {
 		if (filtered.length === 0) return;
 
 		const random = filtered[Math.floor(Math.random() * filtered.length)];
+		this.flushPreviewAutoSave();
+		this.previewMode = "viewer";
 		this.selectedPath = random.path;
 		this.renderPreview();
 		this.renderContent();
