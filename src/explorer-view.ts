@@ -494,12 +494,6 @@ export class ExplorerView extends ItemView {
 		});
 		setIcon(this.narrowSearchModeBtn, "leaf");
 		this.narrowSearchModeBtn.addEventListener("click", () => this.toggleSearchIngredients());
-
-		const cancelBtn = wrap.createEl("button", {
-			cls: "gl-explorer__narrow-search-cancel",
-			text: "Cancel",
-		});
-		cancelBtn.addEventListener("click", () => this.closeNarrowSearch());
 	}
 
 	// ── Common Tab Switch ──
