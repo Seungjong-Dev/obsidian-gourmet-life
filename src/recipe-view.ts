@@ -1,4 +1,5 @@
 import { ItemView, TFile, WorkspaceLeaf } from "obsidian";
+import { ConfirmDeleteModal } from "./explorer-view";
 import { VIEW_TYPE_RECIPE, type RecipeFrontmatter, type RecipeViewMode } from "./types";
 import {
 	renderSidePanel,
@@ -242,6 +243,7 @@ export class RecipeView extends ItemView {
 			onShareCard: () => {
 				exportShareCard(this.app, this.filePath, fm, bodyContent, title(this.filePath));
 			},
+			onDelete: () => this.handleDelete(),
 		};
 
 		const editorCallbacks = {
@@ -286,6 +288,7 @@ export class RecipeView extends ItemView {
 			onToggleMode: () => {
 				this.toggleMode();
 			},
+			onDelete: () => this.handleDelete(),
 		};
 
 		// Title row — at root level, above side/main
@@ -374,6 +377,17 @@ export class RecipeView extends ItemView {
 		if (!file || !(file instanceof TFile)) return;
 		const leaf = this.app.workspace.getLeaf(false);
 		await leaf.openFile(file);
+	}
+
+	private handleDelete(): void {
+		const file = this.app.vault.getAbstractFileByPath(this.filePath);
+		if (!file || !(file instanceof TFile)) return;
+		const name = title(this.filePath);
+		new ConfirmDeleteModal(this.app, name, async (confirmed) => {
+			if (!confirmed) return;
+			await this.app.vault.trash(file, true);
+			this.leaf.detach();
+		}).open();
 	}
 
 	private navigateToIngredient(name: string): void {

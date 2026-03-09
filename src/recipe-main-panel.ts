@@ -20,6 +20,7 @@ export interface MainPanelCallbacks {
 	onToggleMode: () => void;
 	onTitleChange: (newTitle: string) => void;
 	onShareCard?: () => void;
+	onDelete?: () => void;
 }
 
 export interface MainState {
@@ -76,6 +77,13 @@ export function renderTitleRow(
 		shareBtn.title = "Share as image";
 		setIcon(shareBtn, "share-2");
 		shareBtn.addEventListener("click", callbacks.onShareCard);
+	}
+
+	if (callbacks.onDelete) {
+		const deleteBtn = btnGroup.createEl("button", { cls: "gl-recipe__delete-btn" });
+		deleteBtn.title = "Delete";
+		setIcon(deleteBtn, "trash-2");
+		deleteBtn.addEventListener("click", callbacks.onDelete);
 	}
 
 	const viewSourceBtn = btnGroup.createEl("button", {

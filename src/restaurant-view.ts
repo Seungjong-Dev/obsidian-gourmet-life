@@ -1,4 +1,5 @@
 import { ItemView, TFile, WorkspaceLeaf } from "obsidian";
+import { ConfirmDeleteModal } from "./explorer-view";
 import { VIEW_TYPE_RESTAURANT, type RestaurantFrontmatter, type RestaurantViewMode } from "./types";
 import {
 	renderRestaurantSidePanel,
@@ -225,6 +226,7 @@ export class RestaurantView extends ItemView {
 				onMenuInput: () => this.scheduleAutoSave(),
 				onNotesInput: () => this.scheduleAutoSave(),
 				onReviewsInput: () => this.scheduleAutoSave(),
+				onDelete: () => this.handleDelete(),
 			};
 
 			const title = this.filePath
@@ -329,6 +331,19 @@ export class RestaurantView extends ItemView {
 	}
 
 	// ── Navigation ──
+
+	private handleDelete(): void {
+		const file = this.app.vault.getAbstractFileByPath(this.filePath);
+		if (!file || !(file instanceof TFile)) return;
+		const name = this.filePath
+			.substring(this.filePath.lastIndexOf("/") + 1)
+			.replace(/\.md$/, "");
+		new ConfirmDeleteModal(this.app, name, async (confirmed) => {
+			if (!confirmed) return;
+			await this.app.vault.trash(file, true);
+			this.leaf.detach();
+		}).open();
+	}
 
 	private async handleViewSource(): Promise<void> {
 		const file = this.app.vault.getAbstractFileByPath(this.filePath);

@@ -963,7 +963,7 @@ export class ExplorerView extends ItemView {
 	}
 }
 
-class ConfirmDeleteModal extends Modal {
+export class ConfirmDeleteModal extends Modal {
 	private name: string;
 	private resolve: (value: boolean) => void;
 	private resolved = false;

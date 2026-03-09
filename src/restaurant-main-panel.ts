@@ -18,6 +18,7 @@ export interface RestaurantMainCallbacks {
 	onMenuInput: () => void;
 	onNotesInput: () => void;
 	onReviewsInput: () => void;
+	onDelete?: () => void;
 }
 
 export interface RestaurantMainState {
@@ -65,6 +66,13 @@ export function renderRestaurantTitleRow(
 	toggleBtn.title = mode === "viewer" ? "Edit" : "View";
 	setIcon(toggleBtn, mode === "viewer" ? "pencil" : "eye");
 	toggleBtn.addEventListener("click", callbacks.onToggleMode);
+
+	if (callbacks.onDelete) {
+		const deleteBtn = btnGroup.createEl("button", { cls: "gl-recipe__delete-btn" });
+		deleteBtn.title = "Delete";
+		setIcon(deleteBtn, "trash-2");
+		deleteBtn.addEventListener("click", callbacks.onDelete);
+	}
 
 	const viewSourceBtn = btnGroup.createEl("button", {
 		text: "</>",
