@@ -599,6 +599,7 @@ src/
 ├── explorer-stats.ts        # Explorer summary stats bar + mini timeline
 ├── explorer-map.ts          # Explorer Leaflet map view (markers, popups, smooth wheel zoom)
 ├── explorer-graph.ts        # Explorer force-directed graph view (recipe–ingredient links)
+├── render-utils.ts          # Shared star-rating rendering (DOM + HTML, half-star support)
 ├── area-suggest.ts          # Best-effort area extraction from address string
 ├── textarea-suggest.ts      # Generic textarea inline autocomplete (image embed, etc.)
 ├── image-suggest-modal.ts   # FuzzySuggestModal for image selection (metadata)
@@ -786,6 +787,13 @@ src/
 - Configurable via `GraphSettings` (charge, link distance, gravity) with settings panel
 - Node sizing by degree (number of connections), colored by type (recipe vs ingredient)
 
+**render-utils.ts** — Shared star-rating rendering
+- `renderStarsDom(container, rating, max?)`: Renders star rating into a DOM container using `createSpan()` — full (★), half (two-layer: ☆ background + ★ clipped at 50%), empty (☆)
+- `renderStarsHtml(rating, max?)`: Returns equivalent HTML string for innerHTML / popup use
+- Rounding rule: fractional part < 0.25 → empty, 0.25–0.74 → half, ≥ 0.75 → full
+- Half-star uses `clip-path: inset(0 50% 0 0)` overlay — glyph-width independent, no overflow hacks
+- Used by: explorer cards/list, explorer map popups, recipe share card, recipe side panel, restaurant side/main panels
+
 **area-suggest.ts** — Area extraction from address
 - `suggestAreaFromLocation(address)`: Best-effort coarse area extraction — Korean 구 name, Japanese 市/区 name, comma-separated western address (second-to-last segment), or fallback to full string
 - Used by restaurant editor (auto-suggest area on address input), note creation modal, and migrate command
@@ -942,6 +950,11 @@ gl-restaurant__dish-review — Dish review row (chip + stars + comment)
 gl-restaurant__dish-chip   — Dish name chip
 gl-restaurant__general-comment — General visit comment
 gl-restaurant__coord-btns  — Coordinate extraction/geocoding buttons
+gl-star                    — Star rating base (inline-block)
+gl-star--full              — Full star (★)
+gl-star--half              — Half-star wrapper (position: relative, contains empty + half-fill)
+gl-star--half-fill         — Half-star front layer (★, absolute, clip-path: inset(0 50% 0 0))
+gl-star--empty             — Empty star (☆, opacity: 0.3)
 ```
 
 Responsive breakpoints:
