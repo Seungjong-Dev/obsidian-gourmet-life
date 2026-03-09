@@ -868,7 +868,12 @@ export class ExplorerView extends ItemView {
 
 	private createNote(): void {
 		const noteType = this.tab === "recipe" ? "recipe" : "restaurant";
-		new NoteCreateModal(this.app, noteType, this.plugin.settings).open();
+		new NoteCreateModal(this.app, noteType, this.plugin.settings, (file) => {
+			this.selectedPath = file.path;
+			this.previewMode = "editor";
+			this.renderContent();
+			this.renderPreview();
+		}).open();
 	}
 
 	private async deleteNote(file: TFile): Promise<void> {
