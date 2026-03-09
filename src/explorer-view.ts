@@ -1,4 +1,4 @@
-import { ItemView, setIcon, TFile, WorkspaceLeaf } from "obsidian";
+import { ItemView, Modal, Notice, setIcon, TFile, WorkspaceLeaf } from "obsidian";
 import {
 	VIEW_TYPE_EXPLORER,
 	type ExplorerTab,
@@ -6,6 +6,7 @@ import {
 	type SortOption,
 	type GourmetNote,
 	type RecipeFrontmatter,
+	type RecipeViewMode,
 	type RestaurantFrontmatter,
 } from "./types";
 import {
@@ -23,14 +24,17 @@ import {
 	renderListView,
 } from "./explorer-cards";
 import { renderStatsBar } from "./explorer-stats";
-import { renderSidePanel, type SidePanelCallbacks } from "./recipe-side-panel";
-import { renderMainPanel, type MainPanelCallbacks } from "./recipe-main-panel";
-import { renderRestaurantSidePanel, destroyLeafletMap, type RestaurantSideCallbacks, type NearbyRestaurant } from "./restaurant-side-panel";
-import { renderRestaurantMainPanel, type RestaurantMainCallbacks } from "./restaurant-main-panel";
-import { readGourmetFrontmatter } from "./frontmatter-utils";
+import { renderSidePanel, collectSideState, refreshSideData, type SidePanelCallbacks } from "./recipe-side-panel";
+import { renderMainPanel, collectMainState, type MainPanelCallbacks } from "./recipe-main-panel";
+import { renderRestaurantSidePanel, collectRestaurantSideState, destroyLeafletMap, type RestaurantSideCallbacks, type NearbyRestaurant } from "./restaurant-side-panel";
+import { renderRestaurantMainPanel, collectRestaurantMainState, type RestaurantMainCallbacks } from "./restaurant-main-panel";
+import { readGourmetFrontmatter, buildFrontmatterString } from "./frontmatter-utils";
+import { buildRecipeBody, buildRecipeFmData } from "./recipe-view";
+import { buildRestaurantBody, buildRestaurantFmData } from "./restaurant-view";
 import { renderGraphView, destroyGraph, hasExplorerGraph, updateGraphSelection } from "./explorer-graph";
 import { renderMapView, destroyExplorerMap, hasExplorerMap, updateMapSelection } from "./explorer-map";
 import type GourmetLifePlugin from "./main";
+import { NoteCreateModal } from "./note-create-modal";
 import { renderStarsDom } from "./render-utils";
 
 interface ExplorerViewState {
@@ -67,6 +71,10 @@ export class ExplorerView extends ItemView {
 
 	private filterOpen = false;
 	private selectedPath: string | null = null;
+	private previewMode: RecipeViewMode = "viewer";
+	private previewAutoSaveTimer: ReturnType<typeof setTimeout> | null = null;
+	private previewIsSaving = false;
+	private previewLastSavedContent = "";
 
 	// DOM refs
 	private tabButtons: HTMLElement[] = [];
@@ -267,6 +275,15 @@ export class ExplorerView extends ItemView {
 			this.renderContent();
 		});
 
+		// Add new note button
+		const addBtn = right.createEl("button", {
+			cls: "gl-explorer__layout-btn",
+			attr: { "aria-label": "New note" },
+		});
+		setIcon(addBtn, "plus");
+		addBtn.title = "Create new note";
+		addBtn.addEventListener("click", () => this.createNote());
+
 		// Surprise Me button
 		const surpriseBtn = right.createEl("button", {
 			cls: "gl-explorer__layout-btn",
@@ -335,7 +352,9 @@ export class ExplorerView extends ItemView {
 
 		// ── Events ──
 		this.registerEvent(
-			this.app.metadataCache.on("changed", () => this.renderContent())
+			this.app.metadataCache.on("changed", () => {
+				if (!this.previewIsSaving) this.renderContent();
+			})
 		);
 		this.registerEvent(
 			this.app.vault.on("delete", () => this.renderContent())
@@ -356,6 +375,7 @@ export class ExplorerView extends ItemView {
 
 	async onClose(): Promise<void> {
 		if (this.searchDebounce) clearTimeout(this.searchDebounce);
+		await this.flushPreviewAutoSave();
 		destroyGraph(this.contentContainer);
 		destroyExplorerMap(this.contentContainer);
 		this.closePreview();
@@ -517,6 +537,8 @@ export class ExplorerView extends ItemView {
 	}
 
 	private closePreview(): void {
+		this.flushPreviewAutoSave();
+		this.previewMode = "viewer";
 		this.selectedPath = null;
 		if (this.previewContainer) {
 			const sideEl = this.previewContainer.querySelector(".gl-restaurant__side");
@@ -550,6 +572,9 @@ export class ExplorerView extends ItemView {
 			return;
 		}
 
+		// Flush any pending auto-save before switching notes
+		await this.flushPreviewAutoSave();
+
 		this.previewContainer.empty();
 		this.previewContainer.addClass("gl-explorer__preview--open");
 
@@ -558,6 +583,16 @@ export class ExplorerView extends ItemView {
 		header.createSpan({ cls: "gl-explorer__preview-title", text: file.basename });
 
 		const headerBtns = header.createDiv({ cls: "gl-explorer__preview-btns" });
+
+		// Edit/View toggle button
+		const editToggleBtn = headerBtns.createEl("button", { cls: "gl-explorer__preview-btn" });
+		editToggleBtn.title = this.previewMode === "viewer" ? "Edit" : "View";
+		setIcon(editToggleBtn, this.previewMode === "viewer" ? "pencil" : "eye");
+		editToggleBtn.addEventListener("click", () => {
+			this.flushPreviewAutoSave();
+			this.previewMode = this.previewMode === "viewer" ? "editor" : "viewer";
+			this.renderPreview();
+		});
 
 		const openBtn = headerBtns.createEl("button", { cls: "gl-explorer__preview-btn" });
 		openBtn.title = "Open in viewer";
@@ -570,6 +605,11 @@ export class ExplorerView extends ItemView {
 			}
 		});
 
+		const deleteBtn = headerBtns.createEl("button", { cls: "gl-explorer__preview-btn gl-explorer__preview-btn--danger" });
+		deleteBtn.title = "Delete note";
+		setIcon(deleteBtn, "trash-2");
+		deleteBtn.addEventListener("click", () => this.deleteNote(file));
+
 		const closeBtn = headerBtns.createEl("button", { cls: "gl-explorer__preview-btn" });
 		closeBtn.title = "Close preview";
 		setIcon(closeBtn, "x");
@@ -581,6 +621,7 @@ export class ExplorerView extends ItemView {
 		const content = await this.app.vault.read(file);
 		const fmMatch = content.match(/^---\n[\s\S]*?\n---\n?/);
 		const bodyContent = fmMatch ? content.substring(fmMatch[0].length) : content;
+		this.previewLastSavedContent = content;
 
 		const cache = this.app.metadataCache.getFileCache(file);
 		const fm = readGourmetFrontmatter(cache);
@@ -596,33 +637,54 @@ export class ExplorerView extends ItemView {
 			return match ? this.app.vault.getResourcePath(match as any) : "";
 		};
 
+		const mode = this.previewMode;
 		const previewBody = this.previewContainer.createDiv();
 
 		if (fm.type === "recipe") {
 			previewBody.addClass("gl-recipe", "gl-recipe--single");
+			previewBody.toggleClass("gl-recipe--editor", mode === "editor");
 
 			const sideEl = previewBody.createDiv({ cls: "gl-recipe__side" });
 			const mainEl = previewBody.createDiv({ cls: "gl-recipe__main" });
 
 			const sideCb: SidePanelCallbacks = {
 				onIngredientHover: () => {},
-				onInput: () => {},
+				onInput: () => this.schedulePreviewAutoSave(),
 			};
-			renderSidePanel(sideEl, fm as RecipeFrontmatter, bodyContent, resourcePath, "viewer", sideCb);
+			renderSidePanel(sideEl, fm as RecipeFrontmatter, bodyContent, resourcePath, mode, sideCb);
 
 			const mainCb: MainPanelCallbacks = {
 				onStepHover: () => {},
 				onIngredientChipClick: () => {},
-				onBodyInput: () => {},
-				onNotesInput: () => {},
-				onReviewsInput: () => {},
+				onBodyInput: (newBody: string) => {
+					if (mode === "editor") {
+						const sideState = collectSideState(sideEl);
+						const liveFm: RecipeFrontmatter = {
+							...(fm as RecipeFrontmatter),
+							prep_time: parseInt(sideState.prep_time, 10) || undefined,
+							cook_time: parseInt(sideState.cook_time, 10) || undefined,
+						};
+						refreshSideData(sideEl, newBody, liveFm, {
+							onIngredientHover: () => {},
+							onInput: () => this.schedulePreviewAutoSave(),
+						}, mode);
+					}
+					this.schedulePreviewAutoSave();
+				},
+				onNotesInput: () => this.schedulePreviewAutoSave(),
+				onReviewsInput: () => this.schedulePreviewAutoSave(),
 				onViewSource: () => {},
-				onToggleMode: () => {},
+				onToggleMode: () => {
+					this.flushPreviewAutoSave();
+					this.previewMode = this.previewMode === "viewer" ? "editor" : "viewer";
+					this.renderPreview();
+				},
 				onTitleChange: () => {},
 			};
-			renderMainPanel(mainEl, bodyContent, (fm as RecipeFrontmatter).source, "viewer", mainCb, this.app, file.path, resourcePath, this);
+			renderMainPanel(mainEl, bodyContent, (fm as RecipeFrontmatter).source, mode, mainCb, this.app, file.path, resourcePath, this);
 		} else if (fm.type === "restaurant") {
 			previewBody.addClass("gl-restaurant", "gl-restaurant--single");
+			previewBody.toggleClass("gl-restaurant--editor", mode === "editor");
 
 			const sideEl = previewBody.createDiv({ cls: "gl-restaurant__side" });
 			const mainEl = previewBody.createDiv({ cls: "gl-restaurant__main" });
@@ -630,7 +692,7 @@ export class ExplorerView extends ItemView {
 			const rfm = fm as RestaurantFrontmatter;
 			const nearbyRestaurants = this.buildNearbyRestaurants(rfm, file.path);
 			const sideCb: RestaurantSideCallbacks = {
-				onInput: () => {},
+				onInput: () => this.schedulePreviewAutoSave(),
 				onShowOnMap: this.layout !== "map" ? () => {
 					this.layout = "map";
 					this.selectedPath = file.path;
@@ -647,17 +709,21 @@ export class ExplorerView extends ItemView {
 					}
 				},
 			};
-			renderRestaurantSidePanel(sideEl, rfm, bodyContent, resourcePath, "viewer", sideCb);
+			renderRestaurantSidePanel(sideEl, rfm, bodyContent, resourcePath, mode, sideCb);
 
 			const mainCb: RestaurantMainCallbacks = {
 				onViewSource: () => {},
-				onToggleMode: () => {},
+				onToggleMode: () => {
+					this.flushPreviewAutoSave();
+					this.previewMode = this.previewMode === "viewer" ? "editor" : "viewer";
+					this.renderPreview();
+				},
 				onTitleChange: () => {},
-				onMenuInput: () => {},
-				onNotesInput: () => {},
-				onReviewsInput: () => {},
+				onMenuInput: () => this.schedulePreviewAutoSave(),
+				onNotesInput: () => this.schedulePreviewAutoSave(),
+				onReviewsInput: () => this.schedulePreviewAutoSave(),
 			};
-			renderRestaurantMainPanel(mainEl, bodyContent, "viewer", mainCb, this.app, file.path, this);
+			renderRestaurantMainPanel(mainEl, bodyContent, mode, mainCb, this.app, file.path, this);
 		}
 
 		// Related notes section
@@ -717,6 +783,74 @@ export class ExplorerView extends ItemView {
 		}
 	}
 
+	// ── Preview auto-save ──
+
+	private schedulePreviewAutoSave(): void {
+		if (this.previewAutoSaveTimer) clearTimeout(this.previewAutoSaveTimer);
+		this.previewAutoSaveTimer = setTimeout(() => {
+			this.previewAutoSaveTimer = null;
+			this.previewAutoSave();
+		}, 1000);
+	}
+
+	private async previewAutoSave(): Promise<void> {
+		if (this.previewMode !== "editor" || !this.selectedPath) return;
+
+		const file = this.app.vault.getAbstractFileByPath(this.selectedPath);
+		if (!file || !(file instanceof TFile)) return;
+
+		const content = this.buildPreviewFileContent(file);
+		if (!content || content === this.previewLastSavedContent) return;
+
+		this.previewIsSaving = true;
+		await this.app.vault.modify(file, content);
+		this.previewLastSavedContent = content;
+
+		setTimeout(() => {
+			this.previewIsSaving = false;
+		}, 200);
+	}
+
+	private async flushPreviewAutoSave(): Promise<void> {
+		if (this.previewAutoSaveTimer) {
+			clearTimeout(this.previewAutoSaveTimer);
+			this.previewAutoSaveTimer = null;
+			await this.previewAutoSave();
+		}
+	}
+
+	private buildPreviewFileContent(file: TFile): string | null {
+		const previewBody = this.previewContainer.querySelector(".gl-recipe, .gl-restaurant") as HTMLElement | null;
+		if (!previewBody) return null;
+
+		const cache = this.app.metadataCache.getFileCache(file);
+		const origFm = cache?.frontmatter;
+
+		if (previewBody.classList.contains("gl-recipe")) {
+			const sideEl = previewBody.querySelector(".gl-recipe__side") as HTMLElement;
+			const mainEl = previewBody.querySelector(".gl-recipe__main") as HTMLElement;
+			if (!sideEl || !mainEl) return null;
+
+			const sideState = collectSideState(sideEl);
+			const mainState = collectMainState(mainEl);
+			const fmData = buildRecipeFmData(sideState, origFm);
+			const frontmatter = buildFrontmatterString(fmData);
+			const body = buildRecipeBody(mainState.body, mainState.notes, mainState.reviews);
+			return `${frontmatter}\n${body}`;
+		} else {
+			const sideEl = previewBody.querySelector(".gl-restaurant__side") as HTMLElement;
+			const mainEl = previewBody.querySelector(".gl-restaurant__main") as HTMLElement;
+			if (!sideEl || !mainEl) return null;
+
+			const sideState = collectRestaurantSideState(sideEl);
+			const mainState = collectRestaurantMainState(mainEl);
+			const fmData = buildRestaurantFmData(sideState, origFm);
+			const frontmatter = buildFrontmatterString(fmData);
+			const body = buildRestaurantBody(mainState.menuHighlights, mainState.notes, mainState.reviews);
+			return `${frontmatter}\n${body}`;
+		}
+	}
+
 	private buildNearbyRestaurants(fm: RestaurantFrontmatter, currentPath: string): NearbyRestaurant[] {
 		if (fm.lat == null || fm.lng == null) return [];
 		const all = this.plugin.noteIndex.getRestaurants();
@@ -730,6 +864,24 @@ export class ExplorerView extends ItemView {
 			if (nearby.length >= 15) break;
 		}
 		return nearby;
+	}
+
+	private createNote(): void {
+		const noteType = this.tab === "recipe" ? "recipe" : "restaurant";
+		new NoteCreateModal(this.app, noteType, this.plugin.settings).open();
+	}
+
+	private async deleteNote(file: TFile): Promise<void> {
+		const confirmed = await new Promise<boolean>((resolve) => {
+			const modal = new ConfirmDeleteModal(this.app, file.basename, resolve);
+			modal.open();
+		});
+		if (!confirmed) return;
+
+		this.closePreview();
+		await this.app.vault.trash(file, true);
+		new Notice(`Deleted "${file.basename}"`);
+		this.renderContent();
 	}
 
 	private surpriseMe(): void {
@@ -772,5 +924,32 @@ export class ExplorerView extends ItemView {
 		else this.filter.tags.push(tag);
 		this.renderFilters();
 		this.renderContent();
+	}
+}
+
+class ConfirmDeleteModal extends Modal {
+	private name: string;
+	private resolve: (value: boolean) => void;
+	private resolved = false;
+
+	constructor(app: import("obsidian").App, name: string, resolve: (value: boolean) => void) {
+		super(app);
+		this.name = name;
+		this.resolve = resolve;
+	}
+
+	onOpen(): void {
+		this.contentEl.createEl("p", {
+			text: `Delete "${this.name}"? This cannot be undone.`,
+		});
+		const btnRow = this.contentEl.createDiv({ cls: "modal-button-container" });
+		btnRow.createEl("button", { text: "Cancel" })
+			.addEventListener("click", () => { this.resolved = true; this.resolve(false); this.close(); });
+		btnRow.createEl("button", { cls: "mod-warning", text: "Delete" })
+			.addEventListener("click", () => { this.resolved = true; this.resolve(true); this.close(); });
+	}
+
+	onClose(): void {
+		if (!this.resolved) this.resolve(false);
 	}
 }

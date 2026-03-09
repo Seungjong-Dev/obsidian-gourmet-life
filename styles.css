@@ -2029,6 +2029,9 @@
 	background: var(--background-modifier-hover);
 	color: var(--text-normal);
 }
+.gl-explorer__preview-btn--danger:hover {
+	color: var(--text-error);
+}
 
 .gl-explorer__empty {
 	text-align: center;

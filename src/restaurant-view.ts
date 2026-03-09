@@ -318,30 +318,9 @@ export class RestaurantView extends ItemView {
 		const sideState = collectRestaurantSideState(this.sideContainer);
 		const mainState = collectRestaurantMainState(this.mainContainer);
 
-		const fmData: Record<string, unknown> = { type: "restaurant" };
-		if (sideState.cuisine) fmData.cuisine = sideState.cuisine;
-		if (sideState.address) fmData.address = sideState.address;
-		if (sideState.area) fmData.area = sideState.area;
-		if (sideState.price_range) fmData.price_range = sideState.price_range;
-		const rating = parseFloat(sideState.rating);
-		if (!isNaN(rating) && rating >= 1 && rating <= 5) fmData.rating = rating;
-		if (sideState.url) fmData.url = sideState.url;
-		if (sideState.image) fmData.image = sideState.image;
-		const lat = parseFloat(sideState.lat);
-		const lng = parseFloat(sideState.lng);
-		if (!isNaN(lat)) fmData.lat = lat;
-		if (!isNaN(lng)) fmData.lng = lng;
-		if (sideState.tags) {
-			fmData.tags = sideState.tags
-				.split(",")
-				.map((s: string) => s.trim())
-				.filter(Boolean);
-		}
-
-		// Preserve created date
 		const cache = this.app.metadataCache.getFileCache(file);
 		const origFm = cache?.frontmatter;
-		if (origFm?.created) fmData.created = origFm.created;
+		const fmData = buildRestaurantFmData(sideState, origFm);
 
 		const frontmatter = buildFrontmatterString(fmData);
 		const body = buildRestaurantBody(mainState.menuHighlights, mainState.notes, mainState.reviews);
@@ -359,7 +338,34 @@ export class RestaurantView extends ItemView {
 	}
 }
 
-function buildRestaurantBody(
+export function buildRestaurantFmData(
+	sideState: import("./restaurant-side-panel").RestaurantSideState,
+	origFm?: Record<string, any> | null
+): Record<string, unknown> {
+	const fmData: Record<string, unknown> = { type: "restaurant" };
+	if (sideState.cuisine) fmData.cuisine = sideState.cuisine;
+	if (sideState.address) fmData.address = sideState.address;
+	if (sideState.area) fmData.area = sideState.area;
+	if (sideState.price_range) fmData.price_range = sideState.price_range;
+	const rating = parseFloat(sideState.rating);
+	if (!isNaN(rating) && rating >= 1 && rating <= 5) fmData.rating = rating;
+	if (sideState.url) fmData.url = sideState.url;
+	if (sideState.image) fmData.image = sideState.image;
+	const lat = parseFloat(sideState.lat);
+	const lng = parseFloat(sideState.lng);
+	if (!isNaN(lat)) fmData.lat = lat;
+	if (!isNaN(lng)) fmData.lng = lng;
+	if (sideState.tags) {
+		fmData.tags = sideState.tags
+			.split(",")
+			.map((s: string) => s.trim())
+			.filter(Boolean);
+	}
+	if (origFm?.created) fmData.created = origFm.created;
+	return fmData;
+}
+
+export function buildRestaurantBody(
 	menuHighlights: string,
 	notes: string,
 	reviews: string

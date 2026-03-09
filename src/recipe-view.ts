@@ -357,37 +357,9 @@ export class RecipeView extends ItemView {
 		const sideState = collectSideState(this.sideContainer);
 		const mainState = collectMainState(this.mainContainer);
 
-		// Build frontmatter
-		const fmData: Record<string, unknown> = { type: "recipe" };
-		if (sideState.cuisine) {
-			fmData.cuisine = sideState.cuisine
-				.split(",")
-				.map((s: string) => s.trim())
-				.filter(Boolean);
-		}
-		if (sideState.category) fmData.category = sideState.category;
-		if (sideState.difficulty) fmData.difficulty = sideState.difficulty;
-		const servings = parseInt(sideState.servings, 10);
-		if (!isNaN(servings)) fmData.servings = servings;
-		const prepTime = parseInt(sideState.prep_time, 10);
-		if (!isNaN(prepTime)) fmData.prep_time = prepTime;
-		const cookTime = parseInt(sideState.cook_time, 10);
-		if (!isNaN(cookTime)) fmData.cook_time = cookTime;
-		const rating = parseInt(sideState.rating, 10);
-		if (!isNaN(rating) && rating >= 1 && rating <= 5) fmData.rating = rating;
-		if (sideState.tags) {
-			fmData.tags = sideState.tags
-				.split(",")
-				.map((s: string) => s.trim())
-				.filter(Boolean);
-		}
-		if (sideState.image) fmData.image = sideState.image;
-		if (sideState.source) fmData.source = sideState.source;
-
-		// Preserve created date from original frontmatter
 		const cache = this.app.metadataCache.getFileCache(file);
 		const origFm = cache?.frontmatter;
-		if (origFm?.created) fmData.created = origFm.created;
+		const fmData = buildRecipeFmData(sideState, origFm);
 
 		const frontmatter = buildFrontmatterString(fmData);
 		const body = buildRecipeBody(mainState.body, mainState.notes, mainState.reviews);
@@ -423,7 +395,40 @@ function title(filePath: string): string {
 		.replace(/\.md$/, "");
 }
 
-function buildRecipeBody(
+export function buildRecipeFmData(
+	sideState: import("./recipe-side-panel").SideState,
+	origFm?: Record<string, any> | null
+): Record<string, unknown> {
+	const fmData: Record<string, unknown> = { type: "recipe" };
+	if (sideState.cuisine) {
+		fmData.cuisine = sideState.cuisine
+			.split(",")
+			.map((s: string) => s.trim())
+			.filter(Boolean);
+	}
+	if (sideState.category) fmData.category = sideState.category;
+	if (sideState.difficulty) fmData.difficulty = sideState.difficulty;
+	const servings = parseInt(sideState.servings, 10);
+	if (!isNaN(servings)) fmData.servings = servings;
+	const prepTime = parseInt(sideState.prep_time, 10);
+	if (!isNaN(prepTime)) fmData.prep_time = prepTime;
+	const cookTime = parseInt(sideState.cook_time, 10);
+	if (!isNaN(cookTime)) fmData.cook_time = cookTime;
+	const rating = parseInt(sideState.rating, 10);
+	if (!isNaN(rating) && rating >= 1 && rating <= 5) fmData.rating = rating;
+	if (sideState.tags) {
+		fmData.tags = sideState.tags
+			.split(",")
+			.map((s: string) => s.trim())
+			.filter(Boolean);
+	}
+	if (sideState.image) fmData.image = sideState.image;
+	if (sideState.source) fmData.source = sideState.source;
+	if (origFm?.created) fmData.created = origFm.created;
+	return fmData;
+}
+
+export function buildRecipeBody(
 	recipeBody: string,
 	notes: string,
 	reviews: string
