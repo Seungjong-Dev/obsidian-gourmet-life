@@ -226,6 +226,16 @@ export function renderGraphView(
 	let dragStartPos: { x: number; y: number } | null = null;
 	let dragMoved = false;
 
+	// Touch state
+	let touchDragging: Node | null = null;
+	let touchDragStartPos: { x: number; y: number } | null = null;
+	let touchDragMoved = false;
+	let isTouchPanning = false;
+	let touchPanStart = { x: 0, y: 0 };
+	let pinchStartDist: number | null = null;
+	let pinchStartViewBox: { x: number; y: number; w: number; h: number } | null = null;
+	let pinchCenter: { x: number; y: number } | null = null;
+
 	// Nodes
 	const gNodes = document.createElementNS(ns, "g");
 	gMain.appendChild(gNodes);
@@ -515,6 +525,206 @@ export function renderGraphView(
 		viewBox.y = my - (my - viewBox.y) * factor;
 		svg.setAttribute("viewBox", `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`);
 	}, { passive: false });
+
+	// ── Touch helpers ──
+
+	const clientToSvg = (clientX: number, clientY: number) => {
+		const rect = svg.getBoundingClientRect();
+		return {
+			x: ((clientX - rect.left) / rect.width) * viewBox.w + viewBox.x,
+			y: ((clientY - rect.top) / rect.height) * viewBox.h + viewBox.y,
+		};
+	};
+
+	const findNodeAtPoint = (clientX: number, clientY: number): Node | null => {
+		const pt = clientToSvg(clientX, clientY);
+		const nodeScale = mapNodeScale(settings.nodeSize);
+		const touchPadding = 8;
+		let closest: Node | null = null;
+		let closestDist = Infinity;
+		for (const n of nodes) {
+			if (n.group && n.group.getAttribute("display") === "none") continue;
+			const baseR = n.type === "recipe" ? 8 : 5;
+			const hitR = baseR * nodeScale + touchPadding;
+			const dx = pt.x - n.x;
+			const dy = pt.y - n.y;
+			const dist = Math.sqrt(dx * dx + dy * dy);
+			if (dist < hitR && dist < closestDist) {
+				closest = n;
+				closestDist = dist;
+			}
+		}
+		return closest;
+	};
+
+	const pinchDist = (t1: Touch, t2: Touch): number => {
+		const dx = t2.clientX - t1.clientX;
+		const dy = t2.clientY - t1.clientY;
+		return Math.sqrt(dx * dx + dy * dy);
+	};
+
+	// ── Touch event handlers ──
+
+	svg.addEventListener("touchstart", (e) => {
+		e.preventDefault();
+		const touches = e.touches;
+
+		if (touches.length === 2) {
+			// Cancel any 1-finger action in progress
+			if (touchDragging) {
+				touchDragging.fx = null;
+				touchDragging.fy = null;
+				touchDragging = null;
+			}
+			isTouchPanning = false;
+			touchDragMoved = false;
+
+			// Start pinch zoom
+			pinchStartDist = pinchDist(touches[0], touches[1]);
+			pinchStartViewBox = { ...viewBox };
+			const rect = svg.getBoundingClientRect();
+			const cx = (touches[0].clientX + touches[1].clientX) / 2;
+			const cy = (touches[0].clientY + touches[1].clientY) / 2;
+			pinchCenter = {
+				x: ((cx - rect.left) / rect.width) * viewBox.w + viewBox.x,
+				y: ((cy - rect.top) / rect.height) * viewBox.h + viewBox.y,
+			};
+			return;
+		}
+
+		if (touches.length === 1) {
+			const t = touches[0];
+			const hitNode = findNodeAtPoint(t.clientX, t.clientY);
+			if (hitNode) {
+				// Start node drag
+				touchDragging = hitNode;
+				hitNode.fx = hitNode.x;
+				hitNode.fy = hitNode.y;
+				touchDragStartPos = { x: t.clientX, y: t.clientY };
+				touchDragMoved = false;
+			} else {
+				// Start pan
+				isTouchPanning = true;
+				touchPanStart = { x: t.clientX, y: t.clientY };
+			}
+		}
+	}, { passive: false });
+
+	svg.addEventListener("touchmove", (e) => {
+		e.preventDefault();
+		const touches = e.touches;
+
+		if (touches.length === 2 && pinchStartDist != null && pinchStartViewBox && pinchCenter) {
+			// Pinch zoom
+			const curDist = pinchDist(touches[0], touches[1]);
+			const ratio = pinchStartDist / curDist; // >1 = zoom out, <1 = zoom in
+			viewBox.w = pinchStartViewBox.w * ratio;
+			viewBox.h = pinchStartViewBox.h * ratio;
+			viewBox.x = pinchCenter.x - (pinchCenter.x - pinchStartViewBox.x) * ratio;
+			viewBox.y = pinchCenter.y - (pinchCenter.y - pinchStartViewBox.y) * ratio;
+			svg.setAttribute("viewBox", `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`);
+			return;
+		}
+
+		if (touches.length === 1 && touchDragging) {
+			const t = touches[0];
+			const pt = clientToSvg(t.clientX, t.clientY);
+			touchDragging.fx = pt.x;
+			touchDragging.fy = pt.y;
+			touchDragging.x = pt.x;
+			touchDragging.y = pt.y;
+
+			if (touchDragStartPos && !touchDragMoved) {
+				const dx = t.clientX - touchDragStartPos.x;
+				const dy = t.clientY - touchDragStartPos.y;
+				if (Math.abs(dx) + Math.abs(dy) > 3) {
+					touchDragMoved = true;
+					if (state.alpha < 0.05) {
+						state.alpha = 0.3;
+						startSimulation(state);
+					} else {
+						state.alpha = Math.max(state.alpha, 0.3);
+					}
+				}
+			}
+			return;
+		}
+
+		if (touches.length === 1 && isTouchPanning) {
+			const t = touches[0];
+			const rect = svg.getBoundingClientRect();
+			const dx = ((t.clientX - touchPanStart.x) / rect.width) * viewBox.w;
+			const dy = ((t.clientY - touchPanStart.y) / rect.height) * viewBox.h;
+			viewBox.x -= dx;
+			viewBox.y -= dy;
+			touchPanStart = { x: t.clientX, y: t.clientY };
+			svg.setAttribute("viewBox", `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`);
+		}
+	}, { passive: false });
+
+	svg.addEventListener("touchend", (e) => {
+		e.preventDefault();
+		const remaining = e.touches.length;
+
+		if (remaining === 1 && pinchStartDist != null) {
+			// Transitioning from pinch to single-finger pan
+			pinchStartDist = null;
+			pinchStartViewBox = null;
+			pinchCenter = null;
+			isTouchPanning = true;
+			touchPanStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+			return;
+		}
+
+		if (remaining === 0) {
+			// Pinch ended
+			pinchStartDist = null;
+			pinchStartViewBox = null;
+			pinchCenter = null;
+
+			if (touchDragging) {
+				const node = touchDragging;
+				touchDragging = null;
+
+				if (!touchDragMoved) {
+					// Tap — select or toggle highlight
+					if (node.type === "recipe" && node.path) {
+						onSelect(node.path);
+					} else if (node.type === "ingredient") {
+						if (state.highlightedIng === node.id) {
+							state.highlightedIng = null;
+							clearHighlight(gNodes, gEdges);
+						} else {
+							state.highlightedRecipe = null;
+							state.highlightedIng = node.id;
+							highlightConnected(node, nodes, edges, gNodes, gEdges);
+						}
+					}
+				}
+
+				node.fx = null;
+				node.fy = null;
+				touchDragStartPos = null;
+				touchDragMoved = false;
+			}
+
+			isTouchPanning = false;
+		}
+	}, { passive: false });
+
+	svg.addEventListener("touchcancel", () => {
+		if (touchDragging) {
+			touchDragging.fx = null;
+			touchDragging.fy = null;
+			touchDragging = null;
+		}
+		touchDragStartPos = null;
+		touchDragMoved = false;
+		isTouchPanning = false;
+		pinchStartDist = null;
+		pinchStartViewBox = null;
+		pinchCenter = null;
+	});
 
 	const onKeyDown = (e: KeyboardEvent) => {
 		if (e.key === "Escape" && !state.selectedPath && (state.highlightedIng || state.highlightedRecipe)) {
