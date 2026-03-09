@@ -625,7 +625,13 @@ export class ExplorerView extends ItemView {
 
 		const cache = this.app.metadataCache.getFileCache(file);
 		const fm = readGourmetFrontmatter(cache);
-		if (!fm) return;
+		if (!fm) {
+			// Cache not ready (e.g. newly created file) — retry once
+			setTimeout(() => {
+				if (this.selectedPath === file.path) this.renderPreview();
+			}, 150);
+			return;
+		}
 
 		const resourcePath = (path: string) => {
 			const cleaned = path.replace(/^\[\[|\]\]$/g, "");
@@ -871,8 +877,23 @@ export class ExplorerView extends ItemView {
 		new NoteCreateModal(this.app, noteType, this.plugin.settings, (file) => {
 			this.selectedPath = file.path;
 			this.previewMode = "editor";
-			this.renderContent();
-			this.renderPreview();
+
+			// Wait for metadataCache to index the new file before rendering
+			const ref = this.app.metadataCache.on("changed", (changedFile) => {
+				if (changedFile.path === file.path) {
+					this.app.metadataCache.offref(ref);
+					this.renderContent();
+					this.renderPreview();
+				}
+			});
+			// Fallback in case the event already fired or doesn't come
+			setTimeout(() => {
+				this.app.metadataCache.offref(ref);
+				if (this.selectedPath === file.path) {
+					this.renderContent();
+					this.renderPreview();
+				}
+			}, 500);
 		}).open();
 	}
 
