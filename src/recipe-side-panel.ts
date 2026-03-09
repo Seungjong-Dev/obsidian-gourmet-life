@@ -10,6 +10,7 @@ import {
 } from "./cooklang-parser";
 import { showImageLightbox } from "./recipe-main-panel";
 import { ImageSuggestModal } from "./image-suggest-modal";
+import { renderStarsDom } from "./render-utils";
 
 export interface SidePanelCallbacks {
 	onIngredientHover: (name: string | null) => void;
@@ -105,7 +106,7 @@ function renderSidePanelViewer(
 	// Rating — large star display
 	if (fm.rating != null) {
 		const ratingWrap = metaSection.createDiv({ cls: "gl-recipe__rating-display" });
-		ratingWrap.createSpan({ text: renderStars(fm.rating) });
+		renderStarsDom(ratingWrap, fm.rating);
 		ratingWrap.createSpan({ text: ` ${fm.rating}/5`, cls: "gl-recipe__rating-label" });
 	}
 
@@ -505,11 +506,6 @@ function addViewRow(parent: HTMLElement, label: string, value: string): void {
 	const row = parent.createDiv({ cls: "gl-recipe__meta-row" });
 	row.createSpan({ text: label, cls: "gl-recipe__meta-label" });
 	row.createSpan({ text: value });
-}
-
-function renderStars(rating: number): string {
-	const clamped = Math.max(0, Math.min(5, Math.round(rating)));
-	return "\u2605".repeat(clamped) + "\u2606".repeat(5 - clamped);
 }
 
 function addEditField(

@@ -1,6 +1,7 @@
 import * as L from "leaflet";
 import type { GourmetNote, RestaurantFrontmatter } from "./types";
 import { LEAFLET_CSS } from "./restaurant-side-panel";
+import { renderStarsHtml } from "./render-utils";
 
 const TOOLTIP_ZOOM_THRESHOLD = 13;
 const TOOLTIP_OVERLAP_PX = 60;
@@ -144,7 +145,7 @@ export function renderMapView(
 				const lines: string[] = [`<strong>${escapeHtml(r.name)}</strong>`];
 				if (fm.cuisine) lines.push(`<span class="gl-map-popup__cuisine">${escapeHtml(fm.cuisine)}</span>`);
 				if (fm.price_range) lines.push(`<span class="gl-map-popup__price">${escapeHtml(fm.price_range)}</span>`);
-				if (fm.rating != null) lines.push(`<span class="gl-map-popup__rating">${"\u2605".repeat(Math.round(fm.rating))}</span>`);
+				if (fm.rating != null) lines.push(`<span class="gl-map-popup__rating">${renderStarsHtml(fm.rating)}</span>`);
 				marker.bindPopup(lines.join("<br>"));
 
 				marker.on("click", () => {

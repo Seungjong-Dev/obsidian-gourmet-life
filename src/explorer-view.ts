@@ -31,6 +31,7 @@ import { readGourmetFrontmatter } from "./frontmatter-utils";
 import { renderGraphView, destroyGraph, hasExplorerGraph, updateGraphSelection } from "./explorer-graph";
 import { renderMapView, destroyExplorerMap, hasExplorerMap, updateMapSelection } from "./explorer-map";
 import type GourmetLifePlugin from "./main";
+import { renderStarsDom } from "./render-utils";
 
 interface ExplorerViewState {
 	tab: ExplorerTab;
@@ -699,10 +700,8 @@ export class ExplorerView extends ItemView {
 			item.createSpan({ text: note.name });
 			const rating = (note.frontmatter as any).rating;
 			if (rating) {
-				item.createSpan({
-					cls: "gl-explorer__related-rating",
-					text: "\u2605".repeat(rating),
-				});
+				const ratingSpan = item.createSpan({ cls: "gl-explorer__related-rating" });
+				renderStarsDom(ratingSpan, rating);
 			}
 			item.addEventListener("click", () => {
 				this.selectedPath = note.path;

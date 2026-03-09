@@ -7,6 +7,7 @@ import {
 	type CooklangSegment,
 	type CooklangIngredient,
 } from "./cooklang-parser";
+import { renderStarsDom } from "./render-utils";
 
 // ── Public API ─────────────────────────────────────────────
 
@@ -133,9 +134,8 @@ function buildShareCardDOM(
 	// ── Rating (matches gl-recipe__rating-display) ──
 	if (fm.rating) {
 		const ratingRow = el("div", "gl-share-card__rating");
-		const stars = "★".repeat(fm.rating) + "☆".repeat(5 - fm.rating);
 		const starsSpan = el("span", "gl-share-card__rating-stars");
-		starsSpan.textContent = stars;
+		renderStarsDom(starsSpan, fm.rating);
 		ratingRow.appendChild(starsSpan);
 		const label = el("span", "gl-share-card__rating-label");
 		label.textContent = `${fm.rating}/5`;

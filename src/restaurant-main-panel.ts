@@ -9,6 +9,7 @@ import {
 	type RestaurantMenuItem,
 } from "./restaurant-parser";
 import { createImageSuggest, type TextareaSuggest } from "./textarea-suggest";
+import { renderStarsDom } from "./render-utils";
 
 export interface RestaurantMainCallbacks {
 	onViewSource: () => void;
@@ -175,8 +176,7 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app
 		const visitRating = computeVisitRating(visit);
 		if (visitRating != null) {
 			const ratingEl = header.createSpan({ cls: "gl-restaurant__review-rating" });
-			const stars = Math.max(0, Math.min(5, Math.round(visitRating)));
-			ratingEl.createSpan({ text: "\u2605".repeat(stars) + "\u2606".repeat(5 - stars) });
+			renderStarsDom(ratingEl, visitRating);
 			ratingEl.createSpan({
 				text: ` ${visitRating.toFixed(1)}`,
 				cls: "gl-restaurant__review-rating-num",
@@ -188,8 +188,8 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app
 			const dishEl = card.createDiv({ cls: "gl-restaurant__dish-review" });
 			dishEl.createSpan({ text: dish.name, cls: "gl-restaurant__dish-chip" });
 			if (dish.rating != null) {
-				const stars = "\u2605".repeat(dish.rating);
-				dishEl.createSpan({ text: ` ${stars}`, cls: "gl-restaurant__dish-stars" });
+				const dishStarsEl = dishEl.createSpan({ cls: "gl-restaurant__dish-stars" });
+				renderStarsDom(dishStarsEl, dish.rating);
 			}
 			if (dish.comment) {
 				dishEl.createSpan({

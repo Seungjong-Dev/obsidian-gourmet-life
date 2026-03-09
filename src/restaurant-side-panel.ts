@@ -14,6 +14,7 @@ import {
 import { showImageLightbox } from "./recipe-main-panel";
 import { suggestAreaFromLocation } from "./area-suggest";
 import { ImageSuggestModal } from "./image-suggest-modal";
+import { renderStarsDom } from "./render-utils";
 import * as L from "leaflet";
 
 export interface NearbyRestaurant {
@@ -183,7 +184,7 @@ function renderViewer(
 		const ratingWrap = infoGrid.createDiv({ cls: "gl-restaurant__info-row" });
 		ratingWrap.createSpan({ text: "Rating", cls: "gl-restaurant__info-label" });
 		const ratingVal = ratingWrap.createSpan({ cls: "gl-restaurant__rating" });
-		ratingVal.createSpan({ text: renderStars(displayRating) });
+		renderStarsDom(ratingVal, displayRating);
 		ratingVal.createSpan({
 			text: ` ${displayRating.toFixed(1)}/5`,
 			cls: "gl-restaurant__rating-label",
@@ -546,11 +547,6 @@ function addInfoRow(parent: HTMLElement, label: string, value: string): void {
 	const row = parent.createDiv({ cls: "gl-restaurant__info-row" });
 	row.createSpan({ text: label, cls: "gl-restaurant__info-label" });
 	row.createSpan({ text: value });
-}
-
-function renderStars(rating: number): string {
-	const clamped = Math.max(0, Math.min(5, Math.round(rating)));
-	return "\u2605".repeat(clamped) + "\u2606".repeat(5 - clamped);
 }
 
 function addEditField(

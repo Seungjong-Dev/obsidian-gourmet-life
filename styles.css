@@ -1,5 +1,17 @@
 /* Gourmet Life — styles */
 
+/* ── Star Rating (half-star support) ── */
+
+.gl-star { display: inline-block; }
+.gl-star--half { position: relative; }
+.gl-star--half .gl-star--half-fill {
+	position: absolute;
+	left: 0;
+	top: 0;
+	clip-path: inset(0 50% 0 0);
+}
+.gl-star--empty { opacity: 0.3; }
+
 /* ── Modal ── */
 
 .gl-modal {

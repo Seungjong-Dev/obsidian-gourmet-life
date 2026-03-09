@@ -1,6 +1,7 @@
 import type { App, Vault } from "obsidian";
 import type { GourmetNote, ExplorerTab, RecipeFrontmatter, RestaurantFrontmatter } from "./types";
 import type { ExplorerFilterState, FilterOption } from "./explorer-filter";
+import { renderStarsDom } from "./render-utils";
 
 // ── Filter Bar ──
 
@@ -172,7 +173,7 @@ export function renderCardGrid(
 				});
 			}
 			const info = body.createDiv({ cls: "gl-explorer__card-info" });
-			if (fm.rating) info.createSpan({ text: "\u2605".repeat(fm.rating) + "\u2606".repeat(5 - fm.rating), cls: "gl-explorer__card-rating" });
+			if (fm.rating) { const ratingSpan = info.createSpan({ cls: "gl-explorer__card-rating" }); renderStarsDom(ratingSpan, fm.rating); }
 			if (fm.cook_time) info.createSpan({ text: `${fm.cook_time}min`, cls: "gl-explorer__card-time" });
 		} else {
 			const fm = note.frontmatter as RestaurantFrontmatter;
@@ -180,7 +181,7 @@ export function renderCardGrid(
 			if (fm.price_range) meta.createSpan({ cls: "gl-explorer__card-chip", text: fm.price_range });
 			if (fm.area) meta.createSpan({ cls: "gl-explorer__card-chip", text: fm.area });
 			const info = body.createDiv({ cls: "gl-explorer__card-info" });
-			if (fm.rating) info.createSpan({ text: "\u2605".repeat(fm.rating) + "\u2606".repeat(5 - fm.rating), cls: "gl-explorer__card-rating" });
+			if (fm.rating) { const ratingSpan = info.createSpan({ cls: "gl-explorer__card-rating" }); renderStarsDom(ratingSpan, fm.rating); }
 			if (fm.address) info.createSpan({ text: fm.address, cls: "gl-explorer__card-location" });
 		}
 	}
@@ -263,10 +264,8 @@ export function renderListView(
 
 		const rating = (note.frontmatter as any).rating;
 		if (rating) {
-			row.createSpan({
-				cls: "gl-explorer__list-rating",
-				text: "\u2605".repeat(rating) + "\u2606".repeat(5 - rating),
-			});
+			const ratingSpan = row.createSpan({ cls: "gl-explorer__list-rating" });
+			renderStarsDom(ratingSpan, rating);
 		}
 	}
 }
