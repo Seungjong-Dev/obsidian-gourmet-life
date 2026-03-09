@@ -341,6 +341,7 @@ When a recipe note is opened via the Gourmet Explorer or a command, the plugin r
 - Recipe title (read-only display or editable input depending on mode)
 - Mode toggle button (Viewer ↔ Editor via Ctrl/Cmd+E)
 - Share as image button (Viewer mode only — `share-2` icon)
+- Delete button (`trash-2` icon) — opens `ConfirmDeleteModal`, trashes file via `vault.trash()`, closes tab
 - View Source button
 
 **Main Panel** (right, scrollable):
@@ -476,7 +477,7 @@ When a restaurant note is opened via the Gourmet Explorer or a command, the plug
 ┌─── Restaurant View (CSS grid: auto 1fr rows × 30%/70% columns) ──────────┐
 │                                                                             │
 │  ┌─── Title Row (spans full width) ─────────────────────────────────────┐  │
-│  │  Restaurant Name                     [Mode Toggle] [View Source]      │  │
+│  │  Restaurant Name              [Mode Toggle] [Delete] [View Source]    │  │
 │  └──────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │
 │  ┌─── Side Panel (30%) ──────────┐  ┌─── Main Panel (70%) ─────────────┐  │
@@ -668,6 +669,7 @@ src/
 - Toggles `.gl-recipe--editor` class based on current mode for CSS targeting
 - Delegates to `recipe-side-panel.ts` and `recipe-main-panel.ts`
 - Coordinates Side-Main interactions (hover highlights, qty sync)
+- `handleDelete()`: Opens `ConfirmDeleteModal` (reused from explorer-view), trashes file via `vault.trash()`, detaches leaf
 - `buildRecipeBody()`: Assembles note body with `## Recipe`, `## Notes`, `## Reviews` headings on save
 
 **recipe-side-panel.ts** — Side panel rendering
@@ -677,7 +679,7 @@ src/
 - `highlightIngredients(names)`: Highlights ingredients used in focused step
 
 **recipe-main-panel.ts** — Main panel rendering
-- `renderTitleRow(titleRow, title, mode, callbacks)`: Renders title (display or input) + mode toggle + share button (viewer only) + view source button into the root-level title row element
+- `renderTitleRow(titleRow, title, mode, callbacks)`: Renders title (display or input) + mode toggle + share button (viewer only) + delete button + view source button into the root-level title row element
 - `renderMainViewer(container, note)`: Read-only steps, review timeline cards, and references (in that order) with highlighted ingredient text
 - `parseReviewEntries(text)`: Parses `- YYYY-MM-DD text` (dated) and `- text` (dateless) into timeline cards; colon after date is optional; indented/continuation lines belong to previous entry; pre-entry text collected as preamble
 - `renderReviewCards(container, text)`: Renders preamble (if any) then timeline cards; dateless cards omit the date badge; falls back to plain text if no list items found
@@ -700,6 +702,7 @@ src/
 - Extends `ItemView`, registered as `VIEW_TYPE_RESTAURANT`
 - Same architecture as `recipe-view.ts`: Viewer/Editor mode toggle, CSS grid layout, `ResizeObserver` responsive breakpoint, debounced auto-save
 - `buildFileContent()`: Collects side + main state, builds frontmatter via `buildFrontmatterString`, builds body with `## Menu Highlights`, `## Notes`, `## Reviews` sections
+- `handleDelete()`: Opens `ConfirmDeleteModal` (reused from explorer-view), trashes file via `vault.trash()`, detaches leaf
 - `buildNearbyRestaurants(fm)`: Filters NoteIndex restaurants within 0.05° (~5km) of current note's coordinates, max 15 — passed to side panel for minimap nearby markers
 - `resolveResourcePath()`: Same vault resource resolution as Recipe View
 
@@ -713,7 +716,7 @@ src/
 - `renderLeafletMap()`: Creates Leaflet map instance with OpenStreetMap tiles, supports optional nearby markers (small gray SVG icons with tooltips and click handlers)
 
 **restaurant-main-panel.ts** — Restaurant main panel
-- `renderRestaurantTitleRow()`: Title (display/input) + mode toggle + view source button
+- `renderRestaurantTitleRow()`: Title (display/input) + mode toggle + delete button + view source button
 - `renderRestaurantMainPanel()`: Delegates to viewer/editor
 - Viewer: Menu Highlights list, Notes paragraphs, Reviews as timeline cards (sorted newest-first) with visit ratings, dish chips with stars, general comments
 - Editor: Three textareas (menu-highlights, notes, reviews) + "+ New visit" button
@@ -729,6 +732,7 @@ src/
 - `geocodeAddress(address)`: Nominatim API geocoding → `GeoCoords`
 
 **explorer-view.ts** — Gourmet Explorer view
+- `ConfirmDeleteModal` (exported): Confirmation modal for note deletion — reused by RecipeView and RestaurantView
 - Extends `ItemView`, registered as `VIEW_TYPE_EXPLORER`
 - Tab switching: recipe / restaurant tabs with independent filter state
 - Layout toggle: card grid / list / graph / map view
@@ -918,6 +922,7 @@ gl-suggest__item--active — Keyboard/hover-selected item
 gl-suggest__name       — Item display name
 gl-suggest__path       — Item full path (muted)
 gl-suggest-mirror      — Hidden mirror div for cursor position calculation
+gl-recipe__delete-btn  — Delete note button in title row (trash-2 icon)
 gl-recipe__share-btn   — Share as image button in title row (viewer only)
 gl-share-card          — Share card root (600px fixed, hardcoded light palette)
 gl-share-card__image-wrap — Image container with gradient overlay
