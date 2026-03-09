@@ -33,7 +33,7 @@ import { buildRecipeBody, buildRecipeFmData } from "./recipe-view";
 import { buildRestaurantBody, buildRestaurantFmData } from "./restaurant-view";
 import { renderGraphView, destroyGraph, hasExplorerGraph, updateGraphSelection } from "./explorer-graph";
 import { renderMapView, destroyExplorerMap, hasExplorerMap, updateMapSelection } from "./explorer-map";
-import { getLayoutTier, isMobileDevice, isTouchDevice, suppressGhostClick, type LayoutTier } from "./device";
+import { getLayoutTier, isTouchDevice, suppressGhostClick, type LayoutTier } from "./device";
 import type GourmetLifePlugin from "./main";
 import { NoteCreateModal } from "./note-create-modal";
 import { renderStarsDom } from "./render-utils";
@@ -236,26 +236,6 @@ export class ExplorerView extends ItemView {
 		if (isTouchDevice()) {
 			this.registerDomEvent(container, "touchmove", (e: TouchEvent) => {
 				e.stopPropagation();
-			});
-		}
-
-		// ── Virtual keyboard compensation (mobile) ──
-		if (isMobileDevice() && window.visualViewport) {
-			const vp = window.visualViewport;
-			let fullHeight = vp.height;
-			const syncHeight = () => {
-				if (vp.height >= fullHeight) {
-					fullHeight = vp.height;
-					container.style.height = "";
-				} else {
-					const top = container.getBoundingClientRect().top;
-					container.style.height = `${vp.height - Math.max(top, 0)}px`;
-				}
-			};
-			vp.addEventListener("resize", syncHeight);
-			this.register(() => {
-				vp.removeEventListener("resize", syncHeight);
-				container.style.height = "";
 			});
 		}
 
@@ -560,7 +540,7 @@ export class ExplorerView extends ItemView {
 		} else {
 			this.narrowSearchOpen = true;
 			this.narrowSearchBar.addClass("gl-explorer__narrow-search--open");
-			this.narrowSearchInput.focus();
+			this.narrowSearchInput.focus({ preventScroll: true });
 		}
 	}
 
