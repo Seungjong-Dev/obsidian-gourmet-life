@@ -1,4 +1,4 @@
-import { ItemView, Modal, Notice, setIcon, TFile, WorkspaceLeaf } from "obsidian";
+import { ItemView, Menu, Modal, Notice, setIcon, TFile, WorkspaceLeaf } from "obsidian";
 import {
 	VIEW_TYPE_EXPLORER,
 	type ExplorerTab,
@@ -33,6 +33,7 @@ import { buildRecipeBody, buildRecipeFmData } from "./recipe-view";
 import { buildRestaurantBody, buildRestaurantFmData } from "./restaurant-view";
 import { renderGraphView, destroyGraph, hasExplorerGraph, updateGraphSelection } from "./explorer-graph";
 import { renderMapView, destroyExplorerMap, hasExplorerMap, updateMapSelection } from "./explorer-map";
+import { getLayoutTier, isTouchDevice, suppressGhostClick, type LayoutTier } from "./device";
 import type GourmetLifePlugin from "./main";
 import { NoteCreateModal } from "./note-create-modal";
 import { renderStarsDom } from "./render-utils";
@@ -76,7 +77,14 @@ export class ExplorerView extends ItemView {
 	private previewIsSaving = false;
 	private previewLastSavedContent = "";
 
-	// DOM refs
+	// Layout tier
+	private currentTier: LayoutTier = "wide";
+	private resizeObserver: ResizeObserver | null = null;
+
+	// Narrow search state
+	private narrowSearchOpen = false;
+
+	// DOM refs — wide toolbar
 	private tabButtons: HTMLElement[] = [];
 	private filterToggleBtn: HTMLButtonElement = null!;
 	private sortSelect: HTMLSelectElement = null!;
@@ -86,6 +94,16 @@ export class ExplorerView extends ItemView {
 	private layoutListBtn: HTMLButtonElement = null!;
 	private layoutGraphBtn: HTMLButtonElement = null!;
 	private layoutMapBtn: HTMLButtonElement = null!;
+	private wideToolbar: HTMLElement = null!;
+
+	// DOM refs — narrow toolbar
+	private narrowToolbar: HTMLElement = null!;
+	private narrowTabButtons: HTMLElement[] = [];
+	private narrowSearchBar: HTMLElement = null!;
+	private narrowSearchInput: HTMLInputElement = null!;
+	private narrowSearchModeBtn: HTMLButtonElement = null!;
+
+	// Shared panels
 	private filterPanel: HTMLElement = null!;
 	private filterContainer: HTMLElement = null!;
 	private tagCloudContainer: HTMLElement = null!;
@@ -93,6 +111,16 @@ export class ExplorerView extends ItemView {
 	private bodyContainer: HTMLElement = null!;
 	private contentContainer: HTMLElement = null!;
 	private previewContainer: HTMLElement = null!;
+
+	// Narrow overlay containers
+	private previewOverlay: HTMLElement = null!;
+	private filterDropdown: HTMLElement = null!;
+	private filterBackdrop: HTMLElement = null!;
+
+	// Swipe-back state
+	private swipeStartX = 0;
+	private swipeStartY = 0;
+	private swiping = false;
 
 	constructor(leaf: WorkspaceLeaf, plugin: GourmetLifePlugin) {
 		super(leaf);
@@ -204,9 +232,104 @@ export class ExplorerView extends ItemView {
 		container.empty();
 		container.addClass("gl-explorer");
 
-		// ── Toolbar ──
-		const toolbar = container.createDiv({ cls: "gl-explorer__toolbar" });
+		// ── Sidebar swipe interference prevention ──
+		if (isTouchDevice()) {
+			this.registerDomEvent(container, "touchmove", (e: TouchEvent) => {
+				e.stopPropagation();
+			});
+		}
 
+		// ── Wide Toolbar ──
+		this.wideToolbar = container.createDiv({ cls: "gl-explorer__toolbar gl-explorer__toolbar--wide" });
+		this.buildWideToolbar(this.wideToolbar);
+
+		// ── Narrow Toolbar ──
+		this.narrowToolbar = container.createDiv({ cls: "gl-explorer__toolbar gl-explorer__toolbar--narrow" });
+		this.buildNarrowToolbar(this.narrowToolbar);
+
+		// ── Narrow Search Bar (expandable) ──
+		this.narrowSearchBar = container.createDiv({ cls: "gl-explorer__narrow-search" });
+		this.buildNarrowSearchBar(this.narrowSearchBar);
+
+		// ── Filters (collapsible — for wide/medium) ──
+		this.filterPanel = container.createDiv({ cls: "gl-explorer__filter-panel" });
+		this.filterContainer = this.filterPanel.createDiv({ cls: "gl-explorer__filters" });
+		this.tagCloudContainer = this.filterPanel.createDiv({ cls: "gl-explorer__filters" });
+
+		// ── Narrow Filter Dropdown (overlay) ──
+		this.filterBackdrop = container.createDiv({ cls: "gl-explorer__filter-backdrop" });
+		this.filterBackdrop.addEventListener("click", () => this.closeNarrowFilter());
+		this.filterDropdown = container.createDiv({ cls: "gl-explorer__filter-dropdown" });
+
+		// ── Stats Bar ──
+		this.statsContainer = container.createDiv({ cls: "gl-explorer__stats-wrap" });
+
+		// ── Body (list + preview split) ──
+		this.bodyContainer = container.createDiv({ cls: "gl-explorer__body" });
+		this.contentContainer = this.bodyContainer.createDiv({ cls: "gl-explorer__content" });
+		this.previewContainer = this.bodyContainer.createDiv({ cls: "gl-explorer__preview" });
+
+		// ── Narrow Preview Overlay ──
+		this.previewOverlay = container.createDiv({ cls: "gl-explorer__preview-overlay" });
+
+		// ── ResizeObserver ──
+		this.resizeObserver = new ResizeObserver((entries) => {
+			for (const entry of entries) {
+				const width = entry.contentRect.width;
+				const newTier = getLayoutTier(width);
+				if (newTier !== this.currentTier) {
+					this.currentTier = newTier;
+					this.onLayoutTierChanged(newTier);
+				}
+			}
+		});
+		this.resizeObserver.observe(container);
+		// Set initial tier
+		this.currentTier = getLayoutTier(container.clientWidth);
+		this.applyTierClasses(this.currentTier);
+
+		// ── Events ──
+		this.registerEvent(
+			this.app.metadataCache.on("changed", () => {
+				if (!this.previewIsSaving) this.renderContent();
+			})
+		);
+		this.registerEvent(
+			this.app.vault.on("delete", () => this.renderContent())
+		);
+		this.registerEvent(
+			this.app.vault.on("rename", () => this.renderContent())
+		);
+
+		// ESC closes the side preview panel
+		this.registerDomEvent(container, "keydown", (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				if (this.narrowSearchOpen) {
+					this.closeNarrowSearch();
+				} else if (this.selectedPath) {
+					this.closePreviewAndSync();
+				}
+			}
+		});
+
+		this.refresh();
+	}
+
+	async onClose(): Promise<void> {
+		if (this.searchDebounce) clearTimeout(this.searchDebounce);
+		if (this.resizeObserver) {
+			this.resizeObserver.disconnect();
+			this.resizeObserver = null;
+		}
+		await this.flushPreviewAutoSave();
+		destroyGraph(this.contentContainer);
+		destroyExplorerMap(this.contentContainer);
+		this.closePreview();
+	}
+
+	// ── Wide Toolbar Construction ──
+
+	private buildWideToolbar(toolbar: HTMLElement): void {
 		// Tabs
 		const tabs = toolbar.createDiv({ cls: "gl-explorer__tabs" });
 		this.tabButtons = [];
@@ -215,16 +338,7 @@ export class ExplorerView extends ItemView {
 				cls: "gl-explorer__tab",
 				text: t === "recipe" ? "Recipes" : "Restaurants",
 			});
-			btn.addEventListener("click", () => {
-				this.tab = t;
-				this.filter = createEmptyFilter();
-				this.searchInput.value = "";
-				// Fallback layout for incompatible tab
-				if (this.layout === "graph" && t !== "recipe") this.layout = "card";
-				if (this.layout === "map" && t !== "restaurant") this.layout = "card";
-				this.closePreview();
-				this.refresh();
-			});
+			btn.addEventListener("click", () => this.switchTab(t));
 			this.tabButtons.push(btn);
 		}
 
@@ -248,13 +362,7 @@ export class ExplorerView extends ItemView {
 			cls: "gl-explorer__search",
 			attr: { type: "text", placeholder: "Search..." },
 		});
-		this.searchInput.addEventListener("input", () => {
-			if (this.searchDebounce) clearTimeout(this.searchDebounce);
-			this.searchDebounce = setTimeout(() => {
-				this.filter.search = this.searchInput.value;
-				this.renderContent();
-			}, 300);
-		});
+		this.searchInput.addEventListener("input", () => this.onSearchInput(this.searchInput));
 
 		this.searchModeBtn = searchWrap.createEl("button", {
 			cls: "gl-explorer__search-mode",
@@ -262,11 +370,7 @@ export class ExplorerView extends ItemView {
 		});
 		setIcon(this.searchModeBtn, "leaf");
 		this.searchModeBtn.title = "Include ingredient names in search";
-		this.searchModeBtn.addEventListener("click", () => {
-			this.filter.searchIngredients = !this.filter.searchIngredients;
-			this.updateSearchMode();
-			if (this.filter.search) this.renderContent();
-		});
+		this.searchModeBtn.addEventListener("click", () => this.toggleSearchIngredients());
 
 		// Sort dropdown
 		this.sortSelect = right.createEl("select", {
@@ -338,49 +442,276 @@ export class ExplorerView extends ItemView {
 			this.updateLayoutButtons();
 			this.renderContent();
 		});
+	}
 
-		// ── Filters (collapsible) ──
-		this.filterPanel = container.createDiv({ cls: "gl-explorer__filter-panel" });
-		this.filterContainer = this.filterPanel.createDiv({ cls: "gl-explorer__filters" });
-		this.tagCloudContainer = this.filterPanel.createDiv({ cls: "gl-explorer__filters" });
+	// ── Narrow Toolbar Construction ──
 
-		// ── Stats Bar ──
-		this.statsContainer = container.createDiv({ cls: "gl-explorer__stats-wrap" });
+	private buildNarrowToolbar(toolbar: HTMLElement): void {
+		// Segment control (pill toggle)
+		const segment = toolbar.createDiv({ cls: "gl-explorer__segment" });
+		this.narrowTabButtons = [];
+		for (const t of ["recipe", "restaurant"] as ExplorerTab[]) {
+			const btn = segment.createEl("button", {
+				cls: "gl-explorer__segment-btn",
+				text: t === "recipe" ? "Recipes" : "Restaurants",
+			});
+			btn.addEventListener("click", () => this.switchTab(t));
+			this.narrowTabButtons.push(btn);
+		}
 
-		// ── Body (list + preview split) ──
-		this.bodyContainer = container.createDiv({ cls: "gl-explorer__body" });
-		this.contentContainer = this.bodyContainer.createDiv({ cls: "gl-explorer__content" });
-		this.previewContainer = this.bodyContainer.createDiv({ cls: "gl-explorer__preview" });
+		// Right icons
+		const right = toolbar.createDiv({ cls: "gl-explorer__toolbar-right" });
 
-		// ── Events ──
-		this.registerEvent(
-			this.app.metadataCache.on("changed", () => {
-				if (!this.previewIsSaving) this.renderContent();
-			})
-		);
-		this.registerEvent(
-			this.app.vault.on("delete", () => this.renderContent())
-		);
-		this.registerEvent(
-			this.app.vault.on("rename", () => this.renderContent())
-		);
-
-		// ESC closes the side preview panel
-		this.registerDomEvent(container, "keydown", (e: KeyboardEvent) => {
-			if (e.key === "Escape" && this.selectedPath) {
-				this.closePreviewAndSync();
-			}
+		const searchBtn = right.createEl("button", {
+			cls: "gl-explorer__layout-btn",
+			attr: { "aria-label": "Search" },
 		});
+		setIcon(searchBtn, "search");
+		searchBtn.addEventListener("click", () => this.toggleNarrowSearch());
 
+		const overflowBtn = right.createEl("button", {
+			cls: "gl-explorer__layout-btn",
+			attr: { "aria-label": "More options" },
+		});
+		setIcon(overflowBtn, "more-vertical");
+		overflowBtn.addEventListener("click", (e) => this.showOverflowMenu(e));
+	}
+
+	// ── Narrow Search Bar ──
+
+	private buildNarrowSearchBar(bar: HTMLElement): void {
+		const wrap = bar.createDiv({ cls: "gl-explorer__narrow-search-inner" });
+
+		this.narrowSearchInput = wrap.createEl("input", {
+			cls: "gl-explorer__search",
+			attr: { type: "text", placeholder: "Search..." },
+		});
+		this.narrowSearchInput.addEventListener("input", () => this.onSearchInput(this.narrowSearchInput));
+
+		this.narrowSearchModeBtn = wrap.createEl("button", {
+			cls: "gl-explorer__search-mode",
+			attr: { "aria-label": "Toggle ingredient search" },
+		});
+		setIcon(this.narrowSearchModeBtn, "leaf");
+		this.narrowSearchModeBtn.addEventListener("click", () => this.toggleSearchIngredients());
+
+		const cancelBtn = wrap.createEl("button", {
+			cls: "gl-explorer__narrow-search-cancel",
+			text: "Cancel",
+		});
+		cancelBtn.addEventListener("click", () => this.closeNarrowSearch());
+	}
+
+	// ── Common Tab Switch ──
+
+	private switchTab(t: ExplorerTab): void {
+		this.tab = t;
+		this.filter = createEmptyFilter();
+		this.searchInput.value = "";
+		this.narrowSearchInput.value = "";
+		// Fallback layout for incompatible tab
+		if (this.layout === "graph" && t !== "recipe") this.layout = "card";
+		if (this.layout === "map" && t !== "restaurant") this.layout = "card";
+		this.closePreview();
 		this.refresh();
 	}
 
-	async onClose(): Promise<void> {
+	// ── Search Helpers ──
+
+	private onSearchInput(input: HTMLInputElement): void {
 		if (this.searchDebounce) clearTimeout(this.searchDebounce);
-		await this.flushPreviewAutoSave();
-		destroyGraph(this.contentContainer);
-		destroyExplorerMap(this.contentContainer);
-		this.closePreview();
+		this.searchDebounce = setTimeout(() => {
+			this.filter.search = input.value;
+			// Sync both inputs
+			if (input === this.searchInput) {
+				this.narrowSearchInput.value = input.value;
+			} else {
+				this.searchInput.value = input.value;
+			}
+			this.renderContent();
+		}, 300);
+	}
+
+	private toggleSearchIngredients(): void {
+		this.filter.searchIngredients = !this.filter.searchIngredients;
+		this.updateSearchMode();
+		if (this.filter.search) this.renderContent();
+	}
+
+	// ── Narrow Search Expand/Collapse ──
+
+	private toggleNarrowSearch(): void {
+		if (this.narrowSearchOpen) {
+			this.closeNarrowSearch();
+		} else {
+			this.narrowSearchOpen = true;
+			this.narrowSearchBar.addClass("gl-explorer__narrow-search--open");
+			this.narrowSearchInput.focus();
+		}
+	}
+
+	private closeNarrowSearch(): void {
+		this.narrowSearchOpen = false;
+		this.narrowSearchBar.removeClass("gl-explorer__narrow-search--open");
+		if (!this.narrowSearchInput.value) {
+			this.filter.search = "";
+			this.searchInput.value = "";
+			this.narrowSearchInput.value = "";
+			this.renderContent();
+		}
+	}
+
+	// ── Overflow Menu (Narrow) ──
+
+	private showOverflowMenu(e: MouseEvent | Event): void {
+		const menu = new Menu();
+
+		// Sort submenu
+		const sortOpts = this.tab === "recipe" ? RECIPE_SORT_OPTIONS : RESTAURANT_SORT_OPTIONS;
+		for (const opt of sortOpts) {
+			menu.addItem((item) => {
+				item.setTitle(`Sort: ${opt.label}`);
+				if (opt.value === this.filter.sortBy) item.setIcon("check");
+				item.onClick(() => {
+					this.filter.sortBy = opt.value;
+					this.sortSelect.value = opt.value;
+					this.renderContent();
+				});
+			});
+		}
+
+		menu.addSeparator();
+
+		// Filter toggle
+		menu.addItem((item) => {
+			item.setTitle("Filters");
+			item.setIcon("filter");
+			if (this.filterOpen) item.setIcon("check");
+			item.onClick(() => {
+				if (this.currentTier === "narrow") {
+					this.toggleNarrowFilter();
+				} else {
+					this.filterOpen = !this.filterOpen;
+					this.updateFilterPanel();
+				}
+			});
+		});
+
+		menu.addSeparator();
+
+		// Layout options (narrow: hide graph for recipe, always show card/list)
+		const layouts: { value: ExplorerLayout; label: string; icon: string; show: boolean }[] = [
+			{ value: "card", label: "Card view", icon: "layout-grid", show: true },
+			{ value: "list", label: "List view", icon: "list", show: true },
+			{ value: "graph", label: "Graph view", icon: "git-fork", show: this.tab === "recipe" && this.currentTier !== "narrow" },
+			{ value: "map", label: "Map view", icon: "map-pin", show: this.tab === "restaurant" },
+		];
+		for (const l of layouts) {
+			if (!l.show) continue;
+			menu.addItem((item) => {
+				item.setTitle(l.label);
+				item.setIcon(l.icon);
+				if (this.layout === l.value) item.setIcon("check");
+				item.onClick(() => {
+					this.layout = l.value;
+					this.updateLayoutButtons();
+					this.renderContent();
+				});
+			});
+		}
+
+		menu.addSeparator();
+
+		// Add new note
+		menu.addItem((item) => {
+			item.setTitle("New note");
+			item.setIcon("plus");
+			item.onClick(() => this.createNote());
+		});
+
+		// Surprise me
+		menu.addItem((item) => {
+			item.setTitle("Surprise me!");
+			item.setIcon("shuffle");
+			item.onClick(() => this.surpriseMe());
+		});
+
+		menu.showAtMouseEvent(e as MouseEvent);
+	}
+
+	// ── Narrow Filter Dropdown ──
+
+	private toggleNarrowFilter(): void {
+		if (this.filterOpen) {
+			this.closeNarrowFilter();
+		} else {
+			this.filterOpen = true;
+			this.renderNarrowFilterContent();
+			this.filterDropdown.addClass("gl-explorer__filter-dropdown--open");
+			this.filterBackdrop.addClass("gl-explorer__filter-backdrop--open");
+		}
+	}
+
+	private closeNarrowFilter(): void {
+		this.filterOpen = false;
+		this.filterDropdown.removeClass("gl-explorer__filter-dropdown--open");
+		this.filterBackdrop.removeClass("gl-explorer__filter-backdrop--open");
+	}
+
+	private renderNarrowFilterContent(): void {
+		this.filterDropdown.empty();
+		const notes = this.getNotes();
+		const options = extractFilterOptions(notes);
+		const tagCounts = extractTagCounts(notes);
+
+		const filterEl = this.filterDropdown.createDiv({ cls: "gl-explorer__filters" });
+		renderFilterBar(filterEl, this.tab, options, this.filter, (field, value) => {
+			this.onFilterChange(field, value);
+			this.renderNarrowFilterContent();
+		});
+
+		const tagEl = this.filterDropdown.createDiv({ cls: "gl-explorer__filters" });
+		renderTagCloud(tagEl, tagCounts, this.filter.tags, (tag) => {
+			this.onTagToggle(tag);
+			this.renderNarrowFilterContent();
+		});
+	}
+
+	// ── Layout Tier Management ──
+
+	private onLayoutTierChanged(tier: LayoutTier): void {
+		this.applyTierClasses(tier);
+
+		// If narrow and filter was open via collapsible panel, migrate to dropdown
+		if (tier === "narrow" && this.filterOpen) {
+			this.filterPanel.removeClass("gl-explorer__filter-panel--open");
+			this.renderNarrowFilterContent();
+			this.filterDropdown.addClass("gl-explorer__filter-dropdown--open");
+			this.filterBackdrop.addClass("gl-explorer__filter-backdrop--open");
+		} else if (tier !== "narrow" && this.filterOpen) {
+			this.filterDropdown.removeClass("gl-explorer__filter-dropdown--open");
+			this.filterBackdrop.removeClass("gl-explorer__filter-backdrop--open");
+			this.filterPanel.addClass("gl-explorer__filter-panel--open");
+		}
+
+		// If switching away from narrow and graph was hidden, ensure valid layout
+		if (tier !== "narrow" && this.layout === "graph" && this.tab !== "recipe") {
+			this.layout = "card";
+		}
+
+		// Migrate preview positioning
+		if (this.selectedPath) {
+			this.renderPreview();
+		}
+
+		this.updateLayoutButtons();
+		this.renderContent();
+	}
+
+	private applyTierClasses(tier: LayoutTier): void {
+		const container = this.contentEl;
+		container.removeClass("gl-explorer--wide", "gl-explorer--medium", "gl-explorer--narrow");
+		container.addClass(`gl-explorer--${tier}`);
 	}
 
 	refresh(): void {
@@ -398,10 +729,27 @@ export class ExplorerView extends ItemView {
 		for (let i = 0; i < this.tabButtons.length; i++) {
 			this.tabButtons[i].toggleClass("gl-explorer__tab--active", tabs[i] === this.tab);
 		}
+		for (let i = 0; i < this.narrowTabButtons.length; i++) {
+			this.narrowTabButtons[i].toggleClass("gl-explorer__segment-btn--active", tabs[i] === this.tab);
+		}
 	}
 
 	private updateFilterPanel(): void {
-		this.filterPanel.toggleClass("gl-explorer__filter-panel--open", this.filterOpen);
+		if (this.currentTier === "narrow") {
+			this.filterPanel.removeClass("gl-explorer__filter-panel--open");
+			if (this.filterOpen) {
+				this.renderNarrowFilterContent();
+				this.filterDropdown.addClass("gl-explorer__filter-dropdown--open");
+				this.filterBackdrop.addClass("gl-explorer__filter-backdrop--open");
+			} else {
+				this.filterDropdown.removeClass("gl-explorer__filter-dropdown--open");
+				this.filterBackdrop.removeClass("gl-explorer__filter-backdrop--open");
+			}
+		} else {
+			this.filterPanel.toggleClass("gl-explorer__filter-panel--open", this.filterOpen);
+			this.filterDropdown.removeClass("gl-explorer__filter-dropdown--open");
+			this.filterBackdrop.removeClass("gl-explorer__filter-backdrop--open");
+		}
 		this.filterToggleBtn.toggleClass("gl-explorer__layout-btn--active", this.filterOpen);
 	}
 
@@ -427,7 +775,10 @@ export class ExplorerView extends ItemView {
 
 	private updateSearchMode(): void {
 		this.searchModeBtn.toggleClass("gl-explorer__search-mode--active", this.filter.searchIngredients);
-		this.searchInput.placeholder = this.filter.searchIngredients ? "Search name + ingredients..." : "Search...";
+		this.narrowSearchModeBtn.toggleClass("gl-explorer__search-mode--active", this.filter.searchIngredients);
+		const placeholder = this.filter.searchIngredients ? "Search name + ingredients..." : "Search...";
+		this.searchInput.placeholder = placeholder;
+		this.narrowSearchInput.placeholder = placeholder;
 	}
 
 	private getNotes(): GourmetNote[] {
@@ -471,7 +822,7 @@ export class ExplorerView extends ItemView {
 		}
 
 		// Stats bar
-		renderStatsBar(this.statsContainer, sorted, this.tab);
+		renderStatsBar(this.statsContainer, sorted, this.tab, this.currentTier);
 
 		const onOpen = (path: string) => {
 			const file = this.app.vault.getAbstractFileByPath(path);
@@ -534,9 +885,9 @@ export class ExplorerView extends ItemView {
 		} else if (this.layout === "map") {
 			renderMapView(this.contentContainer, sorted, onSelect, this.selectedPath);
 		} else if (this.layout === "card") {
-			renderCardGrid(this.contentContainer, sorted, this.tab, onOpen, this.app.vault, onSelect, this.selectedPath, resolveImage);
+			renderCardGrid(this.contentContainer, sorted, this.tab, onOpen, this.app.vault, onSelect, this.selectedPath, resolveImage, this.currentTier);
 		} else {
-			renderListView(this.contentContainer, sorted, this.tab, onOpen, this.app.vault, onSelect, this.selectedPath, resolveImage);
+			renderListView(this.contentContainer, sorted, this.tab, onOpen, this.app.vault, onSelect, this.selectedPath, resolveImage, this.currentTier);
 		}
 	}
 
@@ -550,10 +901,19 @@ export class ExplorerView extends ItemView {
 			this.previewContainer.empty();
 			this.previewContainer.removeClass("gl-explorer__preview--open");
 		}
+		if (this.previewOverlay) {
+			const sideEl = this.previewOverlay.querySelector(".gl-restaurant__side");
+			if (sideEl) destroyLeafletMap(sideEl as HTMLElement);
+			this.previewOverlay.empty();
+			this.previewOverlay.removeClass("gl-explorer__preview-overlay--open");
+		}
 	}
 
 	/** Close preview and sync the view selection without full re-render */
 	private closePreviewAndSync(): void {
+		if (this.currentTier === "narrow") {
+			suppressGhostClick(this.contentContainer);
+		}
 		this.closePreview();
 		if (this.layout === "map" && hasExplorerMap(this.contentContainer)) {
 			updateMapSelection(this.contentContainer, null);
@@ -579,11 +939,39 @@ export class ExplorerView extends ItemView {
 		// Flush any pending auto-save before switching notes
 		await this.flushPreviewAutoSave();
 
+		// Determine target container based on tier
+		const isNarrow = this.currentTier === "narrow";
+		const isMedium = this.currentTier === "medium";
+		const targetContainer = isNarrow ? this.previewOverlay : this.previewContainer;
+
+		// Clean both containers
 		this.previewContainer.empty();
-		this.previewContainer.addClass("gl-explorer__preview--open");
+		this.previewOverlay.empty();
+
+		if (isNarrow) {
+			this.previewContainer.removeClass("gl-explorer__preview--open");
+			this.previewOverlay.addClass("gl-explorer__preview-overlay--open");
+			this.setupSwipeBack(this.previewOverlay);
+		} else {
+			this.previewOverlay.removeClass("gl-explorer__preview-overlay--open");
+			targetContainer.addClass("gl-explorer__preview--open");
+			if (isMedium) {
+				targetContainer.addClass("gl-explorer__preview--medium");
+			} else {
+				targetContainer.removeClass("gl-explorer__preview--medium");
+			}
+		}
 
 		// Header bar
-		const header = this.previewContainer.createDiv({ cls: "gl-explorer__preview-header" });
+		const header = targetContainer.createDiv({ cls: "gl-explorer__preview-header" });
+
+		if (isNarrow) {
+			const backBtn = header.createEl("button", { cls: "gl-explorer__preview-btn gl-explorer__preview-back-btn" });
+			setIcon(backBtn, "arrow-left");
+			backBtn.title = "Back";
+			backBtn.addEventListener("click", () => this.closePreviewAndSync());
+		}
+
 		header.createSpan({ cls: "gl-explorer__preview-title", text: file.basename });
 
 		const headerBtns = header.createDiv({ cls: "gl-explorer__preview-btns" });
@@ -614,12 +1002,14 @@ export class ExplorerView extends ItemView {
 		setIcon(deleteBtn, "trash-2");
 		deleteBtn.addEventListener("click", () => this.deleteNote(file));
 
-		const closeBtn = headerBtns.createEl("button", { cls: "gl-explorer__preview-btn" });
-		closeBtn.title = "Close preview";
-		setIcon(closeBtn, "x");
-		closeBtn.addEventListener("click", () => {
-			this.closePreviewAndSync();
-		});
+		if (!isNarrow) {
+			const closeBtn = headerBtns.createEl("button", { cls: "gl-explorer__preview-btn" });
+			closeBtn.title = "Close preview";
+			setIcon(closeBtn, "x");
+			closeBtn.addEventListener("click", () => {
+				this.closePreviewAndSync();
+			});
+		}
 
 		// Read file content
 		const content = await this.app.vault.read(file);
@@ -648,7 +1038,7 @@ export class ExplorerView extends ItemView {
 		};
 
 		const mode = this.previewMode;
-		const previewBody = this.previewContainer.createDiv();
+		const previewBody = targetContainer.createDiv();
 
 		if (fm.type === "recipe") {
 			previewBody.addClass("gl-recipe", "gl-recipe--single");
@@ -739,7 +1129,51 @@ export class ExplorerView extends ItemView {
 		}
 
 		// Related notes section
-		this.renderRelatedNotes(this.previewContainer, fm, file.path);
+		this.renderRelatedNotes(targetContainer, fm, file.path);
+	}
+
+	// ── Swipe Back (narrow preview) ──
+
+	private setupSwipeBack(overlay: HTMLElement): void {
+		const onTouchStart = (e: TouchEvent) => {
+			const touch = e.touches[0];
+			// Only trigger from left edge (20px zone)
+			if (touch.clientX > 20) return;
+			this.swipeStartX = touch.clientX;
+			this.swipeStartY = touch.clientY;
+			this.swiping = true;
+		};
+
+		const onTouchMove = (e: TouchEvent) => {
+			if (!this.swiping) return;
+			const touch = e.touches[0];
+			const dx = touch.clientX - this.swipeStartX;
+			const dy = Math.abs(touch.clientY - this.swipeStartY);
+			// If vertical movement exceeds horizontal, cancel swipe
+			if (dy > Math.abs(dx)) {
+				this.swiping = false;
+				overlay.style.transform = "";
+				return;
+			}
+			if (dx > 0) {
+				overlay.style.transform = `translateX(${dx}px)`;
+			}
+		};
+
+		const onTouchEnd = (e: TouchEvent) => {
+			if (!this.swiping) return;
+			this.swiping = false;
+			const touch = e.changedTouches[0];
+			const dx = touch.clientX - this.swipeStartX;
+			overlay.style.transform = "";
+			if (dx > 75) {
+				this.closePreviewAndSync();
+			}
+		};
+
+		overlay.addEventListener("touchstart", onTouchStart, { passive: true });
+		overlay.addEventListener("touchmove", onTouchMove, { passive: true });
+		overlay.addEventListener("touchend", onTouchEnd, { passive: true });
 	}
 
 	private renderRelatedNotes(container: HTMLElement, fm: any, currentPath: string): void {
@@ -834,7 +1268,11 @@ export class ExplorerView extends ItemView {
 	}
 
 	private buildPreviewFileContent(file: TFile): string | null {
-		const previewBody = this.previewContainer.querySelector(".gl-recipe, .gl-restaurant") as HTMLElement | null;
+		// Check both containers
+		let previewBody = this.previewContainer.querySelector(".gl-recipe, .gl-restaurant") as HTMLElement | null;
+		if (!previewBody) {
+			previewBody = this.previewOverlay.querySelector(".gl-recipe, .gl-restaurant") as HTMLElement | null;
+		}
 		if (!previewBody) return null;
 
 		const cache = this.app.metadataCache.getFileCache(file);

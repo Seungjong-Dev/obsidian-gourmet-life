@@ -1,6 +1,7 @@
 import type { App, Vault } from "obsidian";
 import type { GourmetNote, ExplorerTab, RecipeFrontmatter, RestaurantFrontmatter } from "./types";
 import type { ExplorerFilterState, FilterOption } from "./explorer-filter";
+import type { LayoutTier } from "./device";
 import { renderStarsDom } from "./render-utils";
 
 // ── Filter Bar ──
@@ -103,7 +104,8 @@ export function renderCardGrid(
 	vault: Vault,
 	onSelect?: (path: string) => void,
 	selectedPath?: string | null,
-	resolveImage?: (imagePath: string, notePath: string) => string
+	resolveImage?: (imagePath: string, notePath: string) => string,
+	layoutTier?: LayoutTier
 ): void {
 	container.empty();
 	if (notes.length === 0) {
@@ -111,14 +113,23 @@ export function renderCardGrid(
 		return;
 	}
 
+	const isNarrow = layoutTier === "narrow";
 	const now = Date.now();
 	const sevenDays = 7 * 24 * 60 * 60 * 1000;
 
-	const grid = container.createDiv({ cls: "gl-explorer__grid" });
+	const gridCls = "gl-explorer__grid" + (isNarrow ? " gl-explorer__grid--narrow" : "");
+	const grid = container.createDiv({ cls: gridCls });
 	for (const note of notes) {
 		const cls = "gl-explorer__card" + (selectedPath === note.path ? " gl-explorer__card--selected" : "");
 		const card = grid.createDiv({ cls });
-		if (onSelect) {
+
+		if (isNarrow) {
+			// Single tap = preview (no dblclick)
+			card.addEventListener("click", () => {
+				if (onSelect) onSelect(note.path);
+				else onOpen(note.path);
+			});
+		} else if (onSelect) {
 			card.addEventListener("click", () => onSelect(note.path));
 			card.addEventListener("dblclick", () => onOpen(note.path));
 		} else {
@@ -197,7 +208,8 @@ export function renderListView(
 	vault: Vault,
 	onSelect?: (path: string) => void,
 	selectedPath?: string | null,
-	resolveImage?: (imagePath: string, notePath: string) => string
+	resolveImage?: (imagePath: string, notePath: string) => string,
+	layoutTier?: LayoutTier
 ): void {
 	container.empty();
 	if (notes.length === 0) {
@@ -205,14 +217,23 @@ export function renderListView(
 		return;
 	}
 
+	const isNarrow = layoutTier === "narrow";
 	const now = Date.now();
 	const sevenDays = 7 * 24 * 60 * 60 * 1000;
 
-	const list = container.createDiv({ cls: "gl-explorer__list" });
+	const listCls = "gl-explorer__list" + (isNarrow ? " gl-explorer__list--narrow" : "");
+	const list = container.createDiv({ cls: listCls });
 	for (const note of notes) {
 		const cls = "gl-explorer__list-item" + (selectedPath === note.path ? " gl-explorer__list-item--selected" : "");
 		const row = list.createDiv({ cls });
-		if (onSelect) {
+
+		if (isNarrow) {
+			// Single tap = preview (no dblclick)
+			row.addEventListener("click", () => {
+				if (onSelect) onSelect(note.path);
+				else onOpen(note.path);
+			});
+		} else if (onSelect) {
 			row.addEventListener("click", () => onSelect(note.path));
 			row.addEventListener("dblclick", () => onOpen(note.path));
 		} else {

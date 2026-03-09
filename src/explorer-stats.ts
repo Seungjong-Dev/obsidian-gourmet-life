@@ -1,14 +1,18 @@
 import type { GourmetNote, ExplorerTab, RecipeFrontmatter, RestaurantFrontmatter } from "./types";
+import type { LayoutTier } from "./device";
 
 export function renderStatsBar(
 	container: HTMLElement,
 	notes: GourmetNote[],
-	tab: ExplorerTab
+	tab: ExplorerTab,
+	layoutTier?: LayoutTier
 ): void {
 	container.empty();
 	if (notes.length === 0) return;
 
 	container.addClass("gl-explorer__stats");
+
+	const isNarrow = layoutTier === "narrow";
 
 	// Total count
 	container.createSpan({
@@ -16,23 +20,26 @@ export function renderStatsBar(
 		text: `${notes.length} ${tab === "recipe" ? "recipes" : "restaurants"}`,
 	});
 
+	// Average rating (shared)
+	const rated = notes.filter((n) => (n.frontmatter as any).rating > 0);
+	if (rated.length > 0) {
+		const avg = rated.reduce((sum, n) => sum + ((n.frontmatter as any).rating ?? 0), 0) / rated.length;
+		container.createSpan({ cls: "gl-explorer__stats-sep", text: "\u00b7" });
+		container.createSpan({
+			cls: "gl-explorer__stats-item gl-explorer__stats-rating",
+			text: `avg \u2605${avg.toFixed(1)}`,
+		});
+	}
+
+	// Narrow: only count + avg rating
+	if (isNarrow) return;
+
 	container.createSpan({ cls: "gl-explorer__stats-sep", text: "|" });
 
 	if (tab === "recipe") {
 		renderRecipeStats(container, notes);
 	} else {
 		renderRestaurantStats(container, notes);
-	}
-
-	// Average rating (shared)
-	const rated = notes.filter((n) => (n.frontmatter as any).rating > 0);
-	if (rated.length > 0) {
-		const avg = rated.reduce((sum, n) => sum + ((n.frontmatter as any).rating ?? 0), 0) / rated.length;
-		container.createSpan({ cls: "gl-explorer__stats-sep", text: "|" });
-		container.createSpan({
-			cls: "gl-explorer__stats-item gl-explorer__stats-rating",
-			text: `avg ★ ${avg.toFixed(1)}`,
-		});
 	}
 
 	// Cooking timeline (last 12 months)
