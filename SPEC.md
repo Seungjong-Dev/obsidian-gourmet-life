@@ -581,9 +581,12 @@ Registered as `VIEW_TYPE_RESTAURANT` ItemView. Activates when a restaurant note 
 src/
 ├── main.ts                  # Plugin class, lifecycle, commands, ribbon
 ├── types.ts                 # Interfaces, constants, DEFAULT_SETTINGS
+├── constants.ts             # Centralized magic numbers/strings (breakpoints, timers, regex, section names)
+├── view-utils.ts            # Shared view helpers (titleFromPath, resolveResourcePath, splitFrontmatterBody)
+├── confirm-delete-modal.ts  # Reusable delete confirmation modal (shared by all views)
 ├── settings.ts              # PluginSettingTab
 ├── note-index.ts            # Vault scanner/indexer (auto-link, recipe view, ingredient search)
-├── frontmatter-utils.ts     # Frontmatter read/write helpers
+├── frontmatter-utils.ts     # Frontmatter read/write helpers + type guard
 ├── bases-generator.ts       # Auto-generate .base files for dashboard
 ├── cooklang-parser.ts       # Cooklang body parser (steps, ingredients, tools, timers)
 ├── recipe-view.ts           # Recipe 2-column ItemView (viewer + editor)
@@ -595,7 +598,9 @@ src/
 ├── restaurant-main-panel.ts # Restaurant main panel (menu, notes, reviews timeline)
 ├── restaurant-parser.ts     # Restaurant body parser (sections, visits, menu, coordinates)
 ├── device.ts                # Layout tier detection (wide/medium/narrow), touch/mobile helpers, ghost click suppression
-├── explorer-view.ts         # Gourmet Explorer ItemView (tabs, toolbar, sort, preview, state, responsive tiers)
+├── explorer-view.ts         # Gourmet Explorer orchestrator (tabs, layout, filters, state, responsive tiers)
+├── explorer-toolbar.ts      # Explorer wide/narrow toolbar construction + overflow menu + UI update helpers
+├── explorer-preview.ts      # Explorer preview panel rendering, auto-save, related notes, swipe gestures
 ├── explorer-filter.ts       # Explorer filter/sort logic, filter option extraction
 ├── explorer-cards.ts        # Explorer card grid / list view / filter bar / tag cloud
 ├── explorer-stats.ts        # Explorer summary stats bar + mini timeline
@@ -630,9 +635,27 @@ src/
 - `RecipeViewMode`, `RestaurantViewMode`: `'viewer' | 'editor'`
 - `BaseFileConfig`: Type for `.base` file generation config
 
+**constants.ts** — Centralized magic numbers and strings
+- `SINGLE_COLUMN_BREAKPOINT` (600px): Threshold for single-column layout in recipe/restaurant views
+- `AUTO_SAVE_DELAY_MS` (1000ms), `SEARCH_DEBOUNCE_MS` (300ms), `SAVE_FLAG_RESET_MS` (200ms), `GHOST_CLICK_SUPPRESSION_MS` (400ms): Timing constants
+- `NEW_BADGE_DAYS` (7): Days a note is considered "new" in card/list views
+- `MAX_NEARBY_RESTAURANTS` (15), `NEARBY_RADIUS_DEG` (0.05°): Proximity search limits
+- `SECTION_HEADING_RE`: Regex for matching `## Heading` lines (shared across parsers)
+- `RECIPE_END_SECTIONS`: `["notes", "reviews"]` — sections that end the recipe content zone
+
+**view-utils.ts** — Shared view helpers
+- `titleFromPath(filePath)`: Extract display name from file path (strip folder + `.md`)
+- `resolveResourcePath(app, path, sourcePath)`: Resolve wiki-link or filename to vault resource URL — replaces duplicate private methods in recipe-view, restaurant-view, and explorer preview
+- `splitFrontmatterBody(content)`: Extract frontmatter block and body from raw file text
+
+**confirm-delete-modal.ts** — Reusable delete confirmation modal
+- Extends `Modal` with "Cancel" / "Delete" buttons
+- Promise-based resolution via callback
+- Shared by ExplorerView, RecipeView, and RestaurantView (previously duplicated in explorer-view.ts)
+
 **note-index.ts** — Core data layer
 - `NoteIndex` class: Maintains `Map<string, GourmetNote>` keyed by file path
-- `buildIndex()`: Full scan of configured folders via MetadataCache, then async ingredient indexing
+- `buildIndex()`: Async — full scan of configured folders via MetadataCache, then **awaits** `buildRecipeIngredientIndex()` to ensure ingredient data is ready before views refresh
 - `recipeIngredients`: `Map<string, Set<string>>` — recipe path → set of ingredient names (lowercase), built by parsing Cooklang bodies via `vault.cachedRead` + `parseCooklangBody`
 - `updateFile(file)`: Single-file re-index on cache change, re-indexes recipe ingredients if applicable
 - `removeFile(path)`: Remove from index on delete (clears ingredient cache too)
@@ -642,7 +665,8 @@ src/
 - Note: Dashboard browsing is handled by Bases; NoteIndex serves auto-link, recipe view, and Explorer ingredient search
 
 **frontmatter-utils.ts** — Frontmatter helpers
-- `readGourmetFrontmatter(cache)`: Extract typed frontmatter from CachedMetadata
+- `isGourmetFrontmatter(fm)`: Type guard — validates `type` field is `"recipe" | "ingredient" | "restaurant"`
+- `readGourmetFrontmatter(cache)`: Extract typed frontmatter from CachedMetadata using type guard
 - `isGourmetNote(cache, folder, settings)`: Check if file qualifies
 - `buildFrontmatterString(data)`: Generate YAML frontmatter block
 
@@ -656,7 +680,7 @@ src/
 **cooklang-parser.ts** — Cooklang body parser
 - `parseCooklangBody(body)`: Parse recipe body into steps, ingredients, tools, timers, comments, sections
 - `parseCooklangLine(line)`: Scanner-based segment parser for `@ingredient{qty%unit}`, `#tool{}`, `~{time%unit}` markers
-- `getRecipeContentZone(body)`: Extract recipe content (before `## Notes` / `## Reviews`), skipping `## Recipe` heading
+- `getRecipeContentZone(body)`: Extract recipe content (before `## Notes` / `## Reviews` per `RECIPE_END_SECTIONS`), skipping `## Recipe` heading; uses `SECTION_HEADING_RE` from constants
 - `extractCooklangIngredientsGrouped(body)`: Ingredients grouped by section
 - `parseNotesSection(body)` / `parseReviewsSection(body)`: Extract section content
 - `calculateTotalTime(timers)`: Sum timers to total minutes
@@ -666,11 +690,12 @@ src/
 - Extends `ItemView`, registered as `VIEW_TYPE_RECIPE`
 - Manages Viewer/Editor mode toggle (Ctrl/Cmd+E)
 - Creates CSS grid layout: Title Row (full-width) + Side Panel (30%) + Main Panel (70%)
-- Toggles `.gl-recipe--single` via `ResizeObserver` at 600px breakpoint
+- Toggles `.gl-recipe--single` via `ResizeObserver` at `SINGLE_COLUMN_BREAKPOINT` (600px)
 - Toggles `.gl-recipe--editor` class based on current mode for CSS targeting
 - Delegates to `recipe-side-panel.ts` and `recipe-main-panel.ts`
 - Coordinates Side-Main interactions (hover highlights, qty sync)
-- `handleDelete()`: Opens `ConfirmDeleteModal` (reused from explorer-view), trashes file via `vault.trash()`, detaches leaf
+- Uses shared utilities: `titleFromPath()` for display name, `resolveResourcePath()` for image resolution, `splitFrontmatterBody()` for content parsing
+- `handleDelete()`: Opens `ConfirmDeleteModal` (from confirm-delete-modal.ts), trashes file via `vault.trash()`, detaches leaf
 - `buildRecipeBody()`: Assembles note body with `## Recipe`, `## Notes`, `## Reviews` headings on save
 
 **recipe-side-panel.ts** — Side panel rendering
@@ -701,11 +726,11 @@ src/
 
 **restaurant-view.ts** — Restaurant 2-column view
 - Extends `ItemView`, registered as `VIEW_TYPE_RESTAURANT`
-- Same architecture as `recipe-view.ts`: Viewer/Editor mode toggle, CSS grid layout, `ResizeObserver` responsive breakpoint, debounced auto-save
+- Same architecture as `recipe-view.ts`: Viewer/Editor mode toggle, CSS grid layout, `ResizeObserver` at `SINGLE_COLUMN_BREAKPOINT`, debounced auto-save
+- Uses same shared utilities as recipe-view: `titleFromPath()`, `resolveResourcePath()`, `splitFrontmatterBody()`
 - `buildFileContent()`: Collects side + main state, builds frontmatter via `buildFrontmatterString`, builds body with `## Menu Highlights`, `## Notes`, `## Reviews` sections
-- `handleDelete()`: Opens `ConfirmDeleteModal` (reused from explorer-view), trashes file via `vault.trash()`, detaches leaf
-- `buildNearbyRestaurants(fm)`: Filters NoteIndex restaurants within 0.05° (~5km) of current note's coordinates, max 15 — passed to side panel for minimap nearby markers
-- `resolveResourcePath()`: Same vault resource resolution as Recipe View
+- `handleDelete()`: Opens `ConfirmDeleteModal` (from confirm-delete-modal.ts), trashes file via `vault.trash()`, detaches leaf
+- `buildNearbyRestaurants(fm)`: Filters NoteIndex restaurants within `NEARBY_RADIUS_DEG` (~5km) of current note's coordinates, max `MAX_NEARBY_RESTAURANTS` — passed to side panel for minimap nearby markers
 
 **restaurant-side-panel.ts** — Restaurant side panel
 - `renderRestaurantSidePanel()`: Entry point, delegates to viewer/editor sub-renderers
@@ -738,31 +763,49 @@ src/
 - `isMobileDevice()`: Delegates to `Platform.isMobile`
 - `isTouchDevice()`: `Platform.isMobile || "ontouchstart" in window`
 - `hapticFeedback()`: `navigator.vibrate(10)` when supported
-- `suppressGhostClick(container)`: One-shot capture handler swallows pointer events for 400ms — prevents Android ghost clicks after overlay transitions
+- `suppressGhostClick(container)`: One-shot capture handler swallows pointer events for `GHOST_CLICK_SUPPRESSION_MS` — prevents Android ghost clicks after overlay transitions
 
-**explorer-view.ts** — Gourmet Explorer view
-- `ConfirmDeleteModal` (exported): Confirmation modal for note deletion — reused by RecipeView and RestaurantView
+**explorer-view.ts** — Gourmet Explorer orchestrator
 - Extends `ItemView`, registered as `VIEW_TYPE_EXPLORER`
+- Implements `PreviewHost` interface (defined in explorer-preview.ts) for preview delegation
+- **Orchestrator pattern**: delegates toolbar construction to `explorer-toolbar.ts` and preview rendering to `explorer-preview.ts`, keeping the view class focused on state management and coordination
 - Tab switching: recipe / restaurant tabs with independent filter state
 - Layout toggle: card grid / list / graph / map view
 - **Responsive layout tiers** via `ResizeObserver` (not media queries, so it adapts correctly inside Obsidian sidebars):
   - **Wide** (≥ 800px): Full toolbar with tab buttons, search input, layout buttons, filter toggle, sort dropdown, "Surprise Me" button. Preview panel as right side column
   - **Medium** (≥ 500px): Same toolbar, preview panel opens with reduced width
   - **Narrow** (< 500px): Compact segment-control toolbar with overflow menu (⋯), iOS-style expandable search bar, filter dropdown with backdrop overlay, fullscreen preview overlay with swipe-back gesture, 2-column card grid, ghost click suppression on overlay close
-- Toolbar (wide/medium): tab buttons, collapsible filter panel toggle, sort dropdown, search input with debounce and ingredient search mode toggle (leaf icon), "Surprise Me" random picker, layout buttons
-- Narrow toolbar: segment-control tab switcher, search icon (expands inline search bar with cancel button), overflow menu (⋯) containing sort, filter, layout options, and "Surprise Me"
-- Narrow search bar: `.gl-explorer__narrow-search-inner` wraps input + ingredient mode button (leaf icon, `position: relative` anchors the absolute-positioned icon)
 - Sort dropdown: tab-aware options — recipes: Name A-Z/Z-A, Rating, Cook time, Newest, Difficulty; restaurants: Name A-Z/Z-A, Rating, Newest, Price
 - "Surprise Me" button: picks random note from current filtered set, opens preview
 - Body split: content list (left) + preview side panel (right)
 - Single-click selects note and opens preview; double-click opens full viewer
 - `selectOnMap(path)`: Switches to restaurant tab + map layout, selects marker (flyTo + popup), and opens preview panel — used by "Show on Map" button
-- Preview panel: renders read-only recipe/restaurant view (reuses `renderSidePanel`/`renderMainPanel` and restaurant equivalents). Restaurant preview includes nearby markers and "Show on Map" button (hidden when already in map layout). Narrow tier renders preview as fullscreen overlay with swipe-back gesture (right-to-left swipe closes)
 - `onLayoutTierChanged(tier)`: Migrates filter panel (collapsible ↔ dropdown), validates layout, and re-renders preview/content on tier change
 - Sidebar swipe interference: `touchstart`/`touchmove` listeners on container prevent Obsidian sidebar gestures from triggering during Explorer interaction
-- "Related Notes" section at bottom of preview: scores notes by tag/cuisine overlap, shows top 5 with click-to-preview
-- Image resolution: `metadataCache.getFirstLinkpathDest()` with filename fallback (shared pattern with recipe/restaurant views)
 - State persistence: saves/restores `tab`, `layout`, `sortBy`, full filter state (`cuisine`, `category`, `difficulty`, `price_range`, `area`, `minRating`, `tags`, `unrated`, `searchIngredients`), and `filterOpen` via `getState()`/`setState()` — restored filter values validated against current data
+
+**explorer-toolbar.ts** — Explorer toolbar construction
+- `buildWideToolbar(toolbar, callbacks)`: Creates wide toolbar DOM (tab buttons, filter toggle, search input with ingredient mode, sort dropdown, add/surprise/layout buttons) and returns `WideToolbarRefs` for later UI updates
+- `buildNarrowToolbar(toolbar, callbacks)`: Creates narrow segment-control toolbar with search/overflow icons, returns `NarrowToolbarRefs`
+- `buildNarrowSearchBar(bar, callbacks)`: Creates expandable search bar with ingredient mode toggle, returns `NarrowSearchBarRefs`
+- Narrow search bar: `.gl-explorer__narrow-search-inner` wraps input + ingredient mode button (leaf icon, `position: relative` anchors the absolute-positioned icon)
+- `showOverflowMenu(e, tab, layout, filter, tier, callbacks)`: Renders Obsidian `Menu` with sort options, filter toggle, layout options, new note, and surprise me
+- `RECIPE_SORT_OPTIONS` / `RESTAURANT_SORT_OPTIONS`: Tab-specific sort option definitions
+- `ToolbarCallbacks` interface: Unifies all toolbar action callbacks for clean delegation
+- UI update helpers: `updateTabButtons()`, `updateLayoutButtons()`, `updateSortOptions()`, `updateSearchMode()` — pure functions that sync DOM state to view model
+
+**explorer-preview.ts** — Explorer preview panel
+- `PreviewHost` interface: Defines the contract between ExplorerView and preview functions (app, plugin, state, DOM refs, methods)
+- `renderPreview(host)`: Main preview render — reads file, determines container (overlay for narrow, panel for wide/medium), renders header bar, delegates to recipe or restaurant sub-renderer
+- Recipe preview: reuses `renderSidePanel`/`renderMainPanel` from recipe panel modules
+- Restaurant preview: reuses restaurant equivalents, includes nearby markers and "Show on Map" button (hidden when already in map layout)
+- Narrow tier renders preview as fullscreen overlay with swipe-back gesture (right-to-left swipe from left edge closes)
+- "Related Notes" section at bottom of preview: scores notes by tag/cuisine overlap, shows top 5 with click-to-preview
+- Auto-save cycle: `schedulePreviewAutoSave()` → `previewAutoSave()` → `flushPreviewAutoSave()` with `AUTO_SAVE_DELAY_MS` debounce
+- `buildPreviewFileContent(host, file)`: Collects UI state from recipe or restaurant panels, reconstructs frontmatter + body
+- `buildNearbyRestaurants(host, fm, path)`: Proximity search using `NEARBY_RADIUS_DEG` / `MAX_NEARBY_RESTAURANTS` constants
+- `deleteNote(host, file)`: Confirmation modal → trash → refresh
+- Image resolution: `metadataCache.getFirstLinkpathDest()` with filename fallback
 
 **explorer-filter.ts** — Explorer filter logic
 - `ExplorerFilterState`: Filter state interface (cuisine, category, difficulty, price_range, area, minRating, tags, search, sortBy, unrated, searchIngredients)
@@ -776,7 +819,7 @@ src/
 **explorer-cards.ts** — Explorer card/list rendering
 - `renderFilterBar()`: Renders chip-based filter rows per field with counts + rating stars + "unrated" toggle chip (mutually exclusive with minRating)
 - `renderTagCloud()`: Renders weighted tag cloud with size tiers (sm/md/lg) based on frequency
-- `renderCardGrid()`: Card grid with image thumbnail, metadata chips (including area), rating, cook time / address, "new" badge on cards created within 7 days. Narrow tier uses 2-column grid layout
+- `renderCardGrid()`: Card grid with image thumbnail, metadata chips (including area), rating, cook time / address, "new" badge on cards created within `NEW_BADGE_DAYS`. Narrow tier uses 2-column grid layout
 - `renderListView()`: Compact list rows with thumbnail, "new" dot, name, metadata summary, rating. Narrow tier uses compact variant
 - Both card and list accept `resolveImage(imagePath, notePath)` callback for proper vault image resolution
 - Both support `onSelect` / `selectedPath` for preview selection highlighting
@@ -859,7 +902,7 @@ Vault Files (markdown + frontmatter)
   MetadataCache (Obsidian built-in)
         │
         ▼
-  NoteIndex.buildIndex() ──── on("changed") ───▶ NoteIndex.updateFile()
+  await NoteIndex.buildIndex() ── on("changed") ──▶ NoteIndex.updateFile()
         │                      on("delete")  ───▶ NoteIndex.removeFile()
         │                      on("rename")  ───▶ NoteIndex.renameFile()
         ├──▶ ExplorerView.refresh() (for views restored before index ready)
@@ -880,7 +923,7 @@ Vault Files (markdown + frontmatter)
 | Event | Source | Handler |
 |-------|--------|---------|
 | Plugin load | Obsidian | `BasesGenerator.generateBaseFiles()` (create missing `.base` files) |
-| `onLayoutReady` | Obsidian | `NoteIndex.buildIndex()`, then refresh any already-open ExplorerView |
+| `onLayoutReady` | Obsidian | `await NoteIndex.buildIndex()`, then refresh any already-open ExplorerView |
 | Settings change | Settings UI | `BasesGenerator.generateBaseFiles()` (regenerate if folders changed) |
 | `metadataCache.on("changed")` | File save / frontmatter edit | `NoteIndex.updateFile()` |
 | `vault.on("delete")` | File deletion | `NoteIndex.removeFile()` |
