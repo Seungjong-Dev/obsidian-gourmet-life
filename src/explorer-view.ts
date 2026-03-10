@@ -263,7 +263,7 @@ export class ExplorerView extends ItemView {
 		this.filterDropdown = container.createDiv({ cls: "gl-explorer__filter-dropdown" });
 
 		// ── Stats Bar ──
-		this.statsContainer = container.createDiv({ cls: "gl-explorer__stats-wrap" });
+		this.statsContainer = narrowHeader.createDiv({ cls: "gl-explorer__stats-wrap" });
 
 		// ── Body (list + preview split) ──
 		this.bodyContainer = container.createDiv({ cls: "gl-explorer__body" });
