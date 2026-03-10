@@ -2241,6 +2241,7 @@
 /* Sort Dropdown */
 
 .gl-explorer__sort {
+	min-width: 110px;
 	padding: 4px 8px;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
