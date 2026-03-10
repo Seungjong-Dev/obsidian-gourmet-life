@@ -3031,7 +3031,7 @@
 	overflow-x: hidden;
 }
 
-.gl-explorer--narrow .gl-explorer__toolbar--narrow {
+.gl-explorer--narrow .gl-explorer__narrow-header {
 	position: sticky;
 	top: 0;
 	z-index: 7;

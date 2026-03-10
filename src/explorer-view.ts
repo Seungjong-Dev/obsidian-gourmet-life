@@ -243,12 +243,13 @@ export class ExplorerView extends ItemView {
 		this.wideToolbar = container.createDiv({ cls: "gl-explorer__toolbar gl-explorer__toolbar--wide" });
 		this.buildWideToolbar(this.wideToolbar);
 
-		// ── Narrow Toolbar ──
-		this.narrowToolbar = container.createDiv({ cls: "gl-explorer__toolbar gl-explorer__toolbar--narrow" });
+		// ── Narrow Header (sticky wrapper for toolbar + search) ──
+		const narrowHeader = container.createDiv({ cls: "gl-explorer__narrow-header" });
+		this.narrowToolbar = narrowHeader.createDiv({ cls: "gl-explorer__toolbar gl-explorer__toolbar--narrow" });
 		this.buildNarrowToolbar(this.narrowToolbar);
 
 		// ── Narrow Search Bar (expandable) ──
-		this.narrowSearchBar = container.createDiv({ cls: "gl-explorer__narrow-search" });
+		this.narrowSearchBar = narrowHeader.createDiv({ cls: "gl-explorer__narrow-search" });
 		this.buildNarrowSearchBar(this.narrowSearchBar);
 
 		// ── Filters (collapsible — for wide/medium) ──
