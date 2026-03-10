@@ -3022,28 +3022,16 @@
 	padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
 }
 
-/* ── Narrow scroll model (recipe-single pattern) ── */
-.gl-explorer--narrow {
-	position: relative;
-	height: auto;
-	min-height: 100%;
-	overflow-y: auto;
-	overflow-x: hidden;
-}
-
+/* ── Narrow scroll model (nested scroll, same as wide) ── */
 .gl-explorer--narrow .gl-explorer__narrow-header {
-	position: sticky;
-	top: 0;
+	flex-shrink: 0;
 	z-index: 7;
 	background: var(--background-primary);
 }
 
 .gl-explorer--narrow .gl-explorer__body {
-	overflow: visible;
-}
-
-.gl-explorer--narrow .gl-explorer__content {
-	overflow-y: visible;
+	overflow-y: auto;
+	overscroll-behavior: contain;
 }
 
 
