@@ -1,4 +1,5 @@
 import { Platform } from "obsidian";
+import { GHOST_CLICK_SUPPRESSION_MS } from "./constants";
 
 // ── Layout Tiers ──
 
@@ -46,5 +47,5 @@ export function suppressGhostClick(container: HTMLElement): void {
 	setTimeout(() => {
 		container.removeEventListener("click", handler, true);
 		container.removeEventListener("touchend", handler, true);
-	}, 400);
+	}, GHOST_CLICK_SUPPRESSION_MS);
 }

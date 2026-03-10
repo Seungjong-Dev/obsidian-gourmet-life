@@ -1,6 +1,8 @@
 import { ItemView, TFile, WorkspaceLeaf } from "obsidian";
-import { ConfirmDeleteModal } from "./explorer-view";
+import { ConfirmDeleteModal } from "./confirm-delete-modal";
 import { VIEW_TYPE_RESTAURANT, type RestaurantFrontmatter, type RestaurantViewMode } from "./types";
+import { SINGLE_COLUMN_BREAKPOINT, AUTO_SAVE_DELAY_MS, SAVE_FLAG_RESET_MS, MAX_NEARBY_RESTAURANTS, NEARBY_RADIUS_DEG } from "./constants";
+import { titleFromPath, resolveResourcePath, splitFrontmatterBody } from "./view-utils";
 import {
 	renderRestaurantSidePanel,
 	collectRestaurantSideState,
@@ -46,12 +48,7 @@ export class RestaurantView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		if (this.filePath) {
-			return this.filePath
-				.substring(this.filePath.lastIndexOf("/") + 1)
-				.replace(/\.md$/, "");
-		}
-		return "Restaurant";
+		return this.filePath ? titleFromPath(this.filePath) : "Restaurant";
 	}
 
 	getIcon(): string {
@@ -86,11 +83,7 @@ export class RestaurantView extends ItemView {
 		this.resizeObserver = new ResizeObserver((entries) => {
 			for (const entry of entries) {
 				const width = entry.contentRect.width;
-				if (width < 600) {
-					this.rootContainer.addClass("gl-restaurant--single");
-				} else {
-					this.rootContainer.removeClass("gl-restaurant--single");
-				}
+				this.rootContainer.toggleClass("gl-restaurant--single", width < SINGLE_COLUMN_BREAKPOINT);
 			}
 		});
 		this.resizeObserver.observe(container);
@@ -160,7 +153,7 @@ export class RestaurantView extends ItemView {
 		if (!file || !(file instanceof TFile)) return;
 
 		const cache = this.app.metadataCache.getFileCache(file);
-		const fm = cache?.frontmatter as unknown as RestaurantFrontmatter;
+		const fm = cache?.frontmatter as RestaurantFrontmatter | undefined;
 		if (!fm || fm.type !== "restaurant") {
 			// Cache not ready — schedule one retry
 			if (thisRender === this.renderVersion) {
@@ -173,8 +166,7 @@ export class RestaurantView extends ItemView {
 		try {
 			const content = await this.app.vault.read(file);
 			if (thisRender !== this.renderVersion) return;
-			const fmMatch = content.match(/^---\n[\s\S]*?\n---\n?/);
-			const bodyContent = fmMatch ? content.substring(fmMatch[0].length) : content;
+			const { body: bodyContent } = splitFrontmatterBody(content);
 
 			this.lastSavedContent = content;
 
@@ -183,7 +175,7 @@ export class RestaurantView extends ItemView {
 			const sideScroll = this.sideContainer?.scrollTop ?? 0;
 			const mainScroll = this.mainContainer?.scrollTop ?? 0;
 
-			const resourcePath = (path: string) => this.resolveResourcePath(path);
+			const resourcePath = (path: string) => resolveResourcePath(this.app, path, this.filePath);
 
 			// Side panel — build nearby restaurants
 			const nearbyRestaurants = this.buildNearbyRestaurants(fm);
@@ -229,12 +221,8 @@ export class RestaurantView extends ItemView {
 				onDelete: () => this.handleDelete(),
 			};
 
-			const title = this.filePath
-				.substring(this.filePath.lastIndexOf("/") + 1)
-				.replace(/\.md$/, "");
-
 			try {
-				renderRestaurantTitleRow(this.titleRow, title, this.mode, callbacks);
+				renderRestaurantTitleRow(this.titleRow, titleFromPath(this.filePath), this.mode, callbacks);
 			} catch (err) {
 				console.error("[GourmetLife] Title row render failed:", err);
 			}
@@ -269,23 +257,11 @@ export class RestaurantView extends ItemView {
 			if (note.path === this.filePath) continue;
 			const nfm = note.frontmatter as RestaurantFrontmatter;
 			if (nfm.lat == null || nfm.lng == null) continue;
-			if (Math.abs(nfm.lat - fm.lat) > 0.05 || Math.abs(nfm.lng - fm.lng) > 0.05) continue;
+			if (Math.abs(nfm.lat - fm.lat) > NEARBY_RADIUS_DEG || Math.abs(nfm.lng - fm.lng) > NEARBY_RADIUS_DEG) continue;
 			nearby.push({ name: note.name, lat: nfm.lat, lng: nfm.lng, path: note.path });
-			if (nearby.length >= 15) break;
+			if (nearby.length >= MAX_NEARBY_RESTAURANTS) break;
 		}
 		return nearby;
-	}
-
-	// ── Resource resolution ──
-
-	private resolveResourcePath(path: string): string {
-		const cleaned = path.replace(/^\[\[|\]\]$/g, "");
-		const resolved = this.app.metadataCache.getFirstLinkpathDest(cleaned, this.filePath ?? "");
-		if (resolved) {
-			return this.app.vault.adapter.getResourcePath(resolved.path);
-		}
-		const match = this.app.vault.getFiles().find(f => f.name === cleaned || f.path === cleaned);
-		return this.app.vault.adapter.getResourcePath(match?.path ?? cleaned);
 	}
 
 	// ── Auto-save ──
@@ -295,7 +271,7 @@ export class RestaurantView extends ItemView {
 		this.autoSaveTimer = setTimeout(() => {
 			this.autoSaveTimer = null;
 			this.autoSave();
-		}, 1000);
+		}, AUTO_SAVE_DELAY_MS);
 	}
 
 	private async autoSave(): Promise<void> {
@@ -313,7 +289,7 @@ export class RestaurantView extends ItemView {
 
 		setTimeout(() => {
 			this.isSaving = false;
-		}, 200);
+		}, SAVE_FLAG_RESET_MS);
 	}
 
 	private buildFileContent(file: TFile): string {
@@ -335,10 +311,7 @@ export class RestaurantView extends ItemView {
 	private handleDelete(): void {
 		const file = this.app.vault.getAbstractFileByPath(this.filePath);
 		if (!file || !(file instanceof TFile)) return;
-		const name = this.filePath
-			.substring(this.filePath.lastIndexOf("/") + 1)
-			.replace(/\.md$/, "");
-		new ConfirmDeleteModal(this.app, name, async (confirmed) => {
+		new ConfirmDeleteModal(this.app, titleFromPath(this.filePath), async (confirmed) => {
 			if (!confirmed) return;
 			await this.app.vault.trash(file, true);
 			this.leaf.detach();

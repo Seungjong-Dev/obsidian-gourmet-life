@@ -3,6 +3,7 @@
 // Reviews use visit-based structure with dish reviews and general comments
 
 import { requestUrl } from "obsidian";
+import { SECTION_HEADING_RE } from "./constants";
 
 export interface DishReview {
 	name: string;
@@ -38,7 +39,7 @@ export function parseRestaurantSections(body: string): {
 	const lines = body.split("\n");
 
 	for (const line of lines) {
-		const match = line.match(/^##\s+(.+)/);
+		const match = line.match(SECTION_HEADING_RE);
 		if (match) {
 			currentSection = match[1].trim().toLowerCase();
 			continue;

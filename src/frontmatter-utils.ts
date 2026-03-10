@@ -6,6 +6,17 @@ import type {
 } from "./types";
 
 /**
+ * Type guard: check whether a value has a valid gourmet `type`.
+ */
+export function isGourmetFrontmatter(
+	fm: unknown
+): fm is GourmetFrontmatter {
+	if (!fm || typeof fm !== "object") return false;
+	const type = (fm as Record<string, unknown>).type;
+	return type === "recipe" || type === "ingredient" || type === "restaurant";
+}
+
+/**
  * Extract typed frontmatter from Obsidian's CachedMetadata.
  * Returns null if the frontmatter doesn't have a valid gourmet `type` field.
  */
@@ -13,14 +24,8 @@ export function readGourmetFrontmatter(
 	cache: CachedMetadata | null
 ): GourmetFrontmatter | null {
 	if (!cache?.frontmatter) return null;
-
-	const fm = cache.frontmatter;
-	const type = fm.type;
-	if (type !== "recipe" && type !== "ingredient" && type !== "restaurant") {
-		return null;
-	}
-
-	return fm as unknown as GourmetFrontmatter;
+	if (!isGourmetFrontmatter(cache.frontmatter)) return null;
+	return cache.frontmatter as unknown as GourmetFrontmatter;
 }
 
 /**

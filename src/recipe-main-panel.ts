@@ -1,5 +1,6 @@
 import { MarkdownRenderer, setIcon, type App, type Component } from "obsidian";
 import type { RecipeViewMode } from "./types";
+import { SECTION_HEADING_RE, RECIPE_END_SECTIONS } from "./constants";
 import {
 	parseCooklangBody,
 	parseNotesSection,
@@ -971,11 +972,11 @@ function insertAtCursor(
  */
 function getRecipeEditableContent(body: string): string {
 	const lines = body.split("\n");
-	const endSections = ["notes", "reviews"];
+	const endSections: readonly string[] = RECIPE_END_SECTIONS;
 	const resultLines: string[] = [];
 
 	for (const line of lines) {
-		const match = line.match(/^##\s+(.+)/);
+		const match = line.match(SECTION_HEADING_RE);
 		if (match && endSections.includes(match[1].trim().toLowerCase())) {
 			break;
 		}

@@ -1,6 +1,8 @@
 import { ItemView, TFile, WorkspaceLeaf } from "obsidian";
-import { ConfirmDeleteModal } from "./explorer-view";
+import { ConfirmDeleteModal } from "./confirm-delete-modal";
 import { VIEW_TYPE_RECIPE, type RecipeFrontmatter, type RecipeViewMode } from "./types";
+import { SINGLE_COLUMN_BREAKPOINT, AUTO_SAVE_DELAY_MS, SAVE_FLAG_RESET_MS } from "./constants";
+import { titleFromPath, resolveResourcePath, splitFrontmatterBody } from "./view-utils";
 import {
 	renderSidePanel,
 	refreshSideData,
@@ -47,13 +49,7 @@ export class RecipeView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		if (this.filePath) {
-			const name = this.filePath
-				.substring(this.filePath.lastIndexOf("/") + 1)
-				.replace(/\.md$/, "");
-			return name;
-		}
-		return "Recipe";
+		return this.filePath ? titleFromPath(this.filePath) : "Recipe";
 	}
 
 	getIcon(): string {
@@ -94,11 +90,7 @@ export class RecipeView extends ItemView {
 		this.resizeObserver = new ResizeObserver((entries) => {
 			for (const entry of entries) {
 				const width = entry.contentRect.width;
-				if (width < 600) {
-					this.rootContainer.addClass("gl-recipe--single");
-				} else {
-					this.rootContainer.removeClass("gl-recipe--single");
-				}
+				this.rootContainer.toggleClass("gl-recipe--single", width < SINGLE_COLUMN_BREAKPOINT);
 			}
 		});
 		this.resizeObserver.observe(container);
@@ -172,7 +164,7 @@ export class RecipeView extends ItemView {
 		if (!file || !(file instanceof TFile)) return;
 
 		const cache = this.app.metadataCache.getFileCache(file);
-		const fm = cache?.frontmatter as unknown as RecipeFrontmatter;
+		const fm = cache?.frontmatter as RecipeFrontmatter | undefined;
 		if (!fm || fm.type !== "recipe") {
 			// Cache not ready — schedule one retry
 			if (thisRender === this.renderVersion) {
@@ -183,10 +175,7 @@ export class RecipeView extends ItemView {
 
 		const content = await this.app.vault.read(file);
 		if (thisRender !== this.renderVersion) return;
-		const fmMatch = content.match(/^---\n[\s\S]*?\n---\n?/);
-		const bodyContent = fmMatch
-			? content.substring(fmMatch[0].length)
-			: content;
+		const { body: bodyContent } = splitFrontmatterBody(content);
 
 		this.lastSavedContent = content;
 
@@ -197,7 +186,7 @@ export class RecipeView extends ItemView {
 		const sideScroll = this.sideContainer?.scrollTop ?? 0;
 		const mainScroll = this.mainContainer?.scrollTop ?? 0;
 
-		const resourcePath = (path: string) => this.resolveResourcePath(path);
+		const resourcePath = (path: string) => resolveResourcePath(this.app, path, this.filePath);
 
 		// Side panel
 		renderSidePanel(
@@ -241,7 +230,7 @@ export class RecipeView extends ItemView {
 			},
 			onTitleChange: () => {},
 			onShareCard: () => {
-				exportShareCard(this.app, this.filePath, fm, bodyContent, title(this.filePath));
+				exportShareCard(this.app, this.filePath, fm, bodyContent, titleFromPath(this.filePath));
 			},
 			onDelete: () => this.handleDelete(),
 		};
@@ -293,7 +282,7 @@ export class RecipeView extends ItemView {
 
 		// Title row — at root level, above side/main
 		const callbacks = this.mode === "viewer" ? viewerCallbacks : editorCallbacks;
-		renderTitleRow(this.titleRow, title(this.filePath), this.mode, callbacks);
+		renderTitleRow(this.titleRow, titleFromPath(this.filePath), this.mode, callbacks);
 
 		renderMainPanel(
 			this.mainContainer,
@@ -312,20 +301,6 @@ export class RecipeView extends ItemView {
 		this.mainContainer.scrollTop = mainScroll;
 	}
 
-	// ── Resource resolution ──
-
-	private resolveResourcePath(path: string): string {
-		// Strip [[wikilink]] brackets if present
-		const cleaned = path.replace(/^\[\[|\]\]$/g, "");
-		const resolved = this.app.metadataCache.getFirstLinkpathDest(cleaned, this.filePath ?? "");
-		if (resolved) {
-			return this.app.vault.adapter.getResourcePath(resolved.path);
-		}
-		// Fallback: search vault files by name (for filename-only image references)
-		const match = this.app.vault.getFiles().find(f => f.name === cleaned || f.path === cleaned);
-		return this.app.vault.adapter.getResourcePath(match?.path ?? cleaned);
-	}
-
 	// ── Auto-save ──
 
 	private scheduleAutoSave(): void {
@@ -335,7 +310,7 @@ export class RecipeView extends ItemView {
 		this.autoSaveTimer = setTimeout(() => {
 			this.autoSaveTimer = null;
 			this.autoSave();
-		}, 1000);
+		}, AUTO_SAVE_DELAY_MS);
 	}
 
 	private async autoSave(): Promise<void> {
@@ -353,7 +328,7 @@ export class RecipeView extends ItemView {
 
 		setTimeout(() => {
 			this.isSaving = false;
-		}, 200);
+		}, SAVE_FLAG_RESET_MS);
 	}
 
 	private buildFileContent(file: TFile): string {
@@ -382,8 +357,7 @@ export class RecipeView extends ItemView {
 	private handleDelete(): void {
 		const file = this.app.vault.getAbstractFileByPath(this.filePath);
 		if (!file || !(file instanceof TFile)) return;
-		const name = title(this.filePath);
-		new ConfirmDeleteModal(this.app, name, async (confirmed) => {
+		new ConfirmDeleteModal(this.app, titleFromPath(this.filePath), async (confirmed) => {
 			if (!confirmed) return;
 			await this.app.vault.trash(file, true);
 			this.leaf.detach();
@@ -401,12 +375,6 @@ export class RecipeView extends ItemView {
 		const leaf = this.app.workspace.getLeaf(false);
 		leaf.openFile(file);
 	}
-}
-
-function title(filePath: string): string {
-	return filePath
-		.substring(filePath.lastIndexOf("/") + 1)
-		.replace(/\.md$/, "");
 }
 
 export function buildRecipeFmData(

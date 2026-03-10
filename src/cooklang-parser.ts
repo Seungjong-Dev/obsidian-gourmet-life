@@ -1,3 +1,5 @@
+import { SECTION_HEADING_RE, RECIPE_END_SECTIONS } from "./constants";
+
 // ── Types ──────────────────────────────────────────────────
 
 export interface CooklangIngredient {
@@ -231,11 +233,11 @@ export function parseCooklangLine(line: string): CooklangSegment[] {
  */
 export function getRecipeContentZone(body: string): string {
 	const lines = body.split("\n");
-	const endSections = ["notes", "reviews"];
+	const endSections: readonly string[] = RECIPE_END_SECTIONS;
 	const resultLines: string[] = [];
 
 	for (const line of lines) {
-		const match = line.match(/^##\s+(.+)/);
+		const match = line.match(SECTION_HEADING_RE);
 		if (match && endSections.includes(match[1].trim().toLowerCase())) {
 			break;
 		}
@@ -354,7 +356,7 @@ function parseSectionContent(body: string, sectionName: string): string {
 	const resultLines: string[] = [];
 
 	for (const line of lines) {
-		const match = line.match(/^##\s+(.+)/);
+		const match = line.match(SECTION_HEADING_RE);
 		if (match) {
 			if (inSection) break;
 			if (match[1].trim().toLowerCase() === sectionName) {

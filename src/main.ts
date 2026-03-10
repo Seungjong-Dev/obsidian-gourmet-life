@@ -17,6 +17,7 @@ import {
 	IngredientSuggest,
 	batchLinkIngredients,
 } from "./ingredient-suggest";
+import { readGourmetFrontmatter } from "./frontmatter-utils";
 import { RecipeView } from "./recipe-view";
 import { RestaurantView } from "./restaurant-view";
 import { ExplorerView } from "./explorer-view";
@@ -148,13 +149,13 @@ export default class GourmetLifePlugin extends Plugin {
 				if (checking) return true;
 				const file = this.app.vault.getAbstractFileByPath(state.file);
 				if (!file || !(file instanceof TFile)) return false;
-				const cache = this.app.metadataCache.getFileCache(file as TFile);
-				const fm = cache?.frontmatter;
+				const cache = this.app.metadataCache.getFileCache(file);
+				const fm = readGourmetFrontmatter(cache);
 				if (!fm || fm.type !== "recipe") return false;
-				this.app.vault.read(file as TFile).then((content) => {
+				this.app.vault.read(file).then((content) => {
 					const match = content.match(/^---\n[\s\S]*?\n---\n?/);
 					const body = match ? content.substring(match[0].length) : content;
-					exportShareCard(this.app, state.file, fm as any, body, (file as TFile).basename);
+					exportShareCard(this.app, state.file, fm, body, file.basename);
 				});
 				return true;
 			},
@@ -234,7 +235,7 @@ export default class GourmetLifePlugin extends Plugin {
 		// ── Layout Ready ──
 
 		this.app.workspace.onLayoutReady(async () => {
-			this.noteIndex.buildIndex();
+			await this.noteIndex.buildIndex();
 			for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_EXPLORER)) {
 				(leaf.view as ExplorerView).refresh();
 			}
@@ -356,8 +357,8 @@ export default class GourmetLifePlugin extends Plugin {
 		}
 	}
 
-	onFolderSettingsChanged(): void {
+	async onFolderSettingsChanged(): Promise<void> {
 		this.noteIndex.updateSettings(this.settings);
-		this.noteIndex.buildIndex();
+		await this.noteIndex.buildIndex();
 	}
 }

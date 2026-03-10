@@ -3,6 +3,7 @@ import type { GourmetNote, ExplorerTab, RecipeFrontmatter, RestaurantFrontmatter
 import type { ExplorerFilterState, FilterOption } from "./explorer-filter";
 import type { LayoutTier } from "./device";
 import { renderStarsDom } from "./render-utils";
+import { NEW_BADGE_DAYS } from "./constants";
 
 // ── Filter Bar ──
 
@@ -115,7 +116,7 @@ export function renderCardGrid(
 
 	const isNarrow = layoutTier === "narrow";
 	const now = Date.now();
-	const sevenDays = 7 * 24 * 60 * 60 * 1000;
+	const newBadgeMs = NEW_BADGE_DAYS * 24 * 60 * 60 * 1000;
 
 	const gridCls = "gl-explorer__grid" + (isNarrow ? " gl-explorer__grid--narrow" : "");
 	const grid = container.createDiv({ cls: gridCls });
@@ -149,7 +150,7 @@ export function renderCardGrid(
 				const created = (note.frontmatter as any).created;
 				if (created) {
 					const createdDate = new Date(created);
-					if (!isNaN(createdDate.getTime()) && (now - createdDate.getTime()) < sevenDays) {
+					if (!isNaN(createdDate.getTime()) && (now - createdDate.getTime()) < newBadgeMs) {
 						imgWrap.createSpan({ cls: "gl-explorer__card-new", text: "new" });
 					}
 				}
@@ -159,7 +160,7 @@ export function renderCardGrid(
 			const created = (note.frontmatter as any).created;
 			if (created) {
 				const createdDate = new Date(created);
-				if (!isNaN(createdDate.getTime()) && (now - createdDate.getTime()) < sevenDays) {
+				if (!isNaN(createdDate.getTime()) && (now - createdDate.getTime()) < newBadgeMs) {
 					card.createSpan({ cls: "gl-explorer__card-new gl-explorer__card-new--no-img", text: "new" });
 				}
 			}
@@ -219,7 +220,7 @@ export function renderListView(
 
 	const isNarrow = layoutTier === "narrow";
 	const now = Date.now();
-	const sevenDays = 7 * 24 * 60 * 60 * 1000;
+	const newBadgeMs = NEW_BADGE_DAYS * 24 * 60 * 60 * 1000;
 
 	const listCls = "gl-explorer__list" + (isNarrow ? " gl-explorer__list--narrow" : "");
 	const list = container.createDiv({ cls: listCls });
@@ -256,7 +257,7 @@ export function renderListView(
 		const created = (note.frontmatter as any).created;
 		if (created) {
 			const createdDate = new Date(created);
-			if (!isNaN(createdDate.getTime()) && (now - createdDate.getTime()) < sevenDays) {
+			if (!isNaN(createdDate.getTime()) && (now - createdDate.getTime()) < newBadgeMs) {
 				row.createSpan({ cls: "gl-explorer__list-new" });
 			}
 		}

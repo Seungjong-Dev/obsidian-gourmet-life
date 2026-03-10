@@ -30,7 +30,7 @@ export class NoteIndex {
 	}
 
 	/** Full scan of all configured folders */
-	buildIndex(): void {
+	async buildIndex(): Promise<void> {
 		this.notes.clear();
 		this.ingredientNames.clear();
 		this.recipeIngredients.clear();
@@ -40,7 +40,7 @@ export class NoteIndex {
 			this.indexFile(file);
 		}
 
-		this.buildRecipeIngredientIndex();
+		await this.buildRecipeIngredientIndex();
 
 		console.log(
 			`[Gourmet Life] Index built: ${this.notes.size} notes ` +
