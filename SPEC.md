@@ -991,6 +991,32 @@ Explorer layout tiers (via `ResizeObserver`, adapts to actual container width in
 - `.gl-explorer--medium` (≥ 500px): Full toolbar, narrower preview panel
 - `.gl-explorer--narrow` (< 500px): Segment-control tabs, overflow menu (⋯), expandable search bar, filter dropdown with backdrop, fullscreen preview overlay with swipe-back, 2-column card grid, touch-friendly tap targets, ghost click suppression
 
+Explorer scroll model (all tiers use the same nested scroll pattern):
+```
+.gl-explorer (flex column, height: 100%, overflow: hidden)
+├── header area (flex-shrink: 0, stays outside scroll)
+│   ├── wide/medium: toolbar
+│   └── narrow: narrowHeader (toolbar + search bar + stats bar)
+└── body (flex: 1, overflow-y: auto ← scroll container)
+    └── content (cards/list/map)
+```
+- The root `.gl-explorer` is always a flex column filling its parent (`height: 100%`, `overflow: hidden`)
+- Header elements use `flex-shrink: 0` to remain fixed above the scroll area — **never use `position: sticky`** for headers, as sticky elements are inside the scroll flow and content bleeds through them
+- `.gl-explorer__body` is the sole scroll container (`flex: 1`, `overflow-y: auto`, `overscroll-behavior: contain`)
+- `.gl-explorer__body` has `min-height: 200px` to prevent complete collapse when iOS keyboard opens
+
+#### Scroll & Mobile Conventions
+
+These conventions apply across all views (Explorer, Recipe, Restaurant) and **must** be followed when modifying layout or scroll behavior:
+
+1. **Nested scroll, not flat scroll**: Headers must be structurally outside the scroll container (flex siblings), not sticky overlays inside it. Sticky headers cause content bleed-through on scroll.
+2. **Never override the root flex column**: `.gl-explorer` base styles (`height: 100%`, `overflow: hidden`, `display: flex`, `flex-direction: column`) must not be overridden per tier. Tier-specific classes should only style children.
+3. **Single scroll container per view**: Only one element should have `overflow-y: auto` in the scroll chain. Nested scrollable areas (e.g., preview overlay) are acceptable only when they are independent overlay layers.
+4. **`overscroll-behavior: contain`**: Always set on scroll containers to prevent scroll chaining to parent (Obsidian workspace panes).
+5. **`min-height` on scroll body**: Use `min-height: 200px` (or similar) on the scroll container to prevent it from collapsing to zero when the iOS virtual keyboard opens and shrinks the viewport.
+6. **`env(safe-area-inset-bottom)`**: Apply on mobile for notched devices. Use `padding-bottom: calc(Npx + env(safe-area-inset-bottom, 0px))` where N accounts for Obsidian's floating nav bar (typically 48–56px on mobile).
+7. **No `height: auto` + `min-height: 100%` on view roots**: This pattern creates a flat scroll model where the entire view scrolls, making it impossible to keep headers fixed without sticky (which causes bleed-through). Use `height: 100%` + flex layout instead.
+
 ---
 
 ## 8. Future Roadmap
