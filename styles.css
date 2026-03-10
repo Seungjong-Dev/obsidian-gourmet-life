@@ -1967,6 +1967,7 @@
 .gl-explorer__content {
 	flex: 1;
 	overflow-y: auto;
+	overscroll-behavior: contain;
 	padding: 12px;
 	min-width: 0;
 }
@@ -2884,10 +2885,10 @@
 	display: block;
 }
 
-/* Position filter dropdown relative to body; prevent keyboard shrink */
+/* Position filter dropdown relative to body */
 .gl-explorer--narrow .gl-explorer__body {
 	position: relative;
-	min-height: 50vh;
+	min-height: 200px;
 }
 
 /* ── Narrow Preview Overlay ── */
@@ -3021,9 +3022,28 @@
 	padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
 }
 
-/* ── Explorer needs position:relative for overlays ── */
-
+/* ── Narrow scroll model (recipe-single pattern) ── */
 .gl-explorer--narrow {
 	position: relative;
+	height: auto;
+	min-height: 100%;
+	overflow-y: auto;
+	overflow-x: hidden;
 }
+
+.gl-explorer--narrow .gl-explorer__toolbar--narrow {
+	position: sticky;
+	top: 0;
+	z-index: 7;
+	background: var(--background-primary);
+}
+
+.gl-explorer--narrow .gl-explorer__body {
+	overflow: visible;
+}
+
+.gl-explorer--narrow .gl-explorer__content {
+	overflow-y: visible;
+}
+
 
