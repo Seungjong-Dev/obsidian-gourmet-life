@@ -2884,9 +2884,10 @@
 	display: block;
 }
 
-/* Position filter dropdown relative to body */
+/* Position filter dropdown relative to body; prevent keyboard shrink */
 .gl-explorer--narrow .gl-explorer__body {
 	position: relative;
+	min-height: 50vh;
 }
 
 /* ── Narrow Preview Overlay ── */
