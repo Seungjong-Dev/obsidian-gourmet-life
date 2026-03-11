@@ -2786,6 +2786,20 @@
 	text-align: center;
 }
 
+.is-mobile .gl-explorer__map-inner .gl-map-nav {
+	margin-bottom: calc(52px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+.is-mobile .gl-explorer__map-inner .leaflet-popup-content-wrapper {
+	min-width: 160px;
+}
+
+.is-mobile .gl-explorer__map-inner .leaflet-popup-content {
+	margin: 12px 16px;
+	line-height: 1.5;
+	font-size: 14px;
+}
+
 /* ══════════════════════════════════════════════════════════════
    Mobile UX — Layout Tier Styles
    ══════════════════════════════════════════════════════════════ */
@@ -3058,6 +3072,13 @@
 
 .gl-explorer__body--map {
 	overflow: hidden !important;
+}
+
+.gl-explorer__body--map .gl-explorer__content {
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	padding: 0;
 }
 
 
