@@ -781,7 +781,8 @@ src/
 - Single-click selects note and opens preview; double-click opens full viewer
 - `selectOnMap(path)`: Switches to restaurant tab + map layout, selects marker (flyTo + popup), and opens preview panel — used by "Show on Map" button
 - `onLayoutTierChanged(tier)`: Migrates filter panel (collapsible ↔ dropdown), validates layout, and re-renders preview/content on tier change
-- Sidebar swipe interference: `touchstart`/`touchmove` listeners on container prevent Obsidian sidebar gestures from triggering during Explorer interaction
+- Sidebar swipe interference: `touchmove` listener on container calls `stopPropagation` to prevent Obsidian sidebar gestures — **excludes** map (`.gl-explorer__map-inner`) and graph (`.gl-explorer__graph-container`) areas so Leaflet's document-level touch handlers (dragging, pinch-zoom) still fire
+- Map selection on narrow tier: skips `updateMapSelection` (marker highlight + popup) when the preview overlay fully covers the map, avoiding invisible DOM work
 - State persistence: saves/restores `tab`, `layout`, `sortBy`, full filter state (`cuisine`, `category`, `difficulty`, `price_range`, `area`, `minRating`, `tags`, `unrated`, `searchIngredients`), and `filterOpen` via `getState()`/`setState()` — restored filter values validated against current data
 
 **explorer-toolbar.ts** — Explorer toolbar construction
@@ -842,6 +843,7 @@ src/
 - `destroyExplorerMap(container)` / `hasExplorerMap(container)`: Lifecycle management via `WeakMap`
 - `updateTooltipVisibility(map, markers)`: Shows permanent tooltips at high zoom, suppresses overlapping ones (pixel-distance threshold)
 - OpenStreetMap tiles, scale control, `zoomSnap: 0` for fractional zoom
+- Touch/mobile: larger markers (32×44 vs 18×27), larger popup close button (32×32), enlarged nav buttons (44×44), nav control offset for Obsidian bottom bar (`margin-bottom: calc(52px + safe-area)`), increased `fitBounds` padding (50px vs 30px), map content area fills full height with no scroll/padding override
 
 **explorer-graph.ts** — Explorer graph view
 - Force-directed graph of recipe–ingredient relationships using SVG + `requestAnimationFrame` simulation
@@ -1047,6 +1049,7 @@ Explorer scroll model (all tiers use the same nested scroll pattern):
 - Header elements use `flex-shrink: 0` to remain fixed above the scroll area — **never use `position: sticky`** for headers, as sticky elements are inside the scroll flow and content bleeds through them
 - `.gl-explorer__body` is the sole scroll container (`flex: 1`, `overflow-y: auto`, `overscroll-behavior: contain`)
 - `.gl-explorer__body` has `min-height: 200px` to prevent complete collapse when iOS keyboard opens
+- **Map layout exception**: `.gl-explorer__body--map` switches body to `overflow: hidden` and content to `overflow: hidden; display: flex; flex-direction: column; padding: 0` — this preserves the flex chain so the Leaflet map fills the full available height instead of collapsing to `min-height: 200px`
 
 #### Scroll & Mobile Conventions
 
