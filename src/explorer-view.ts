@@ -602,7 +602,11 @@ export class ExplorerView extends ItemView implements PreviewHost {
 			}
 
 			if (this.layout === "map" && hasExplorerMap(this.contentContainer)) {
-				updateMapSelection(this.contentContainer, this.selectedPath);
+				// On narrow tier the preview overlay covers the map, so skip
+				// marker highlight + popup (which would be invisible anyway)
+				if (this.currentTier !== "narrow") {
+					updateMapSelection(this.contentContainer, this.selectedPath);
+				}
 				return;
 			}
 			if (this.layout === "graph" && hasExplorerGraph(this.contentContainer)) {
