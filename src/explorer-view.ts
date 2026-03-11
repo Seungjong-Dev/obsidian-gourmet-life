@@ -223,6 +223,10 @@ export class ExplorerView extends ItemView implements PreviewHost {
 		// Sidebar swipe interference prevention
 		if (isTouchDevice()) {
 			this.registerDomEvent(container, "touchmove", (e: TouchEvent) => {
+				// Skip stopPropagation for map/graph areas so Leaflet's
+				// document-level touch handlers (dragging, pinch-zoom) still fire
+				const target = e.target as HTMLElement;
+				if (target.closest(".gl-explorer__map-inner") || target.closest(".gl-explorer__graph-container")) return;
 				e.stopPropagation();
 			});
 		}

@@ -183,16 +183,17 @@ export function renderMapView(
 				updateTooltipVisibility(map, markers);
 			});
 
+			const fitPad: L.PointExpression = touch ? [50, 50] : [30, 30];
 			if (withCoords.length === 1) {
 				const fm = withCoords[0].frontmatter as RestaurantFrontmatter;
 				map.setView([fm.lat!, fm.lng!], 15);
 			} else if (bounds.isValid()) {
-				map.fitBounds(bounds, { padding: [30, 30] });
+				map.fitBounds(bounds, { padding: fitPad });
 			}
 
 			// Nav control (needs valid bounds for presets + fit-all)
 			if (bounds.isValid()) {
-				createMapNavControl(map, bounds).addTo(map);
+				createMapNavControl(map, bounds, fitPad).addTo(map);
 			}
 
 			updateTooltipVisibility(map, markers);
@@ -343,7 +344,7 @@ function svgIcon(content: string): string {
 	return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${content}</svg>`;
 }
 
-function createMapNavControl(map: L.Map, initialBounds: L.LatLngBounds): L.Control {
+function createMapNavControl(map: L.Map, initialBounds: L.LatLngBounds, fitPad: L.PointExpression): L.Control {
 	const NavControl = L.Control.extend({
 		options: { position: "bottomright" as L.ControlPosition },
 
@@ -378,7 +379,7 @@ function createMapNavControl(map: L.Map, initialBounds: L.LatLngBounds): L.Contr
 			// Fit all group
 			const fitGroup = L.DomUtil.create("div", "gl-map-nav__group", container);
 			makeBtn(fitGroup, svgIcon(ICON_FIT_ALL), "Fit all", () =>
-				map.fitBounds(initialBounds, { padding: [30, 30] })
+				map.fitBounds(initialBounds, { padding: fitPad })
 			);
 
 			// Active preset highlight
