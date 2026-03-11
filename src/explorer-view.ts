@@ -619,6 +619,9 @@ export class ExplorerView extends ItemView implements PreviewHost {
 		destroyGraph(this.contentContainer);
 		destroyExplorerMap(this.contentContainer);
 
+		// Disable body scroll when map is active (prevents touch event theft)
+		this.bodyContainer.toggleClass("gl-explorer__body--map", this.layout === "map");
+
 		if (this.layout === "graph") {
 			renderGraphView(
 				this.contentContainer,

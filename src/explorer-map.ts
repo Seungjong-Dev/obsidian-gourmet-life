@@ -2,12 +2,14 @@ import * as L from "leaflet";
 import type { GourmetNote, RestaurantFrontmatter } from "./types";
 import { LEAFLET_CSS } from "./restaurant-side-panel";
 import { renderStarsHtml } from "./render-utils";
+import { isTouchDevice } from "./device";
 
 const TOOLTIP_ZOOM_THRESHOLD = 13;
 const TOOLTIP_OVERLAP_PX = 60;
 
 const activeMaps = new WeakMap<HTMLElement, L.Map>();
 const activeMarkers = new WeakMap<HTMLElement, Map<string, L.Marker>>();
+const activeObservers = new WeakMap<HTMLElement, ResizeObserver>();
 const pendingRAFs = new WeakMap<HTMLElement, number>();
 
 export function destroyExplorerMap(container: HTMLElement): void {
@@ -15,6 +17,11 @@ export function destroyExplorerMap(container: HTMLElement): void {
 	if (raf != null) {
 		cancelAnimationFrame(raf);
 		pendingRAFs.delete(container);
+	}
+	const ro = activeObservers.get(container);
+	if (ro) {
+		ro.disconnect();
+		activeObservers.delete(container);
 	}
 	const map = activeMaps.get(container);
 	if (map) {
@@ -28,11 +35,26 @@ export function hasExplorerMap(container: HTMLElement): boolean {
 	return activeMaps.has(container);
 }
 
+function createMarkerIcon(color: string, isTouch: boolean): L.DivIcon {
+	const size: [number, number] = isTouch ? [32, 44] : [18, 27];
+	const anchor: [number, number] = isTouch ? [16, 44] : [9, 27];
+	const svgW = isTouch ? 24 : 18;
+	const svgH = isTouch ? 36 : 27;
+	return L.divIcon({
+		className: "gl-map-marker",
+		html: `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 24 36"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z" fill="${color}"/><circle cx="12" cy="11" r="5" fill="#fff"/></svg>`,
+		iconSize: size,
+		iconAnchor: anchor,
+		popupAnchor: [0, -anchor[1]],
+	});
+}
+
 export function updateMapSelection(container: HTMLElement, selectedPath: string | null): void {
 	const markers = activeMarkers.get(container);
 	if (!markers) return;
 
 	const map = activeMaps.get(container);
+	const touch = isTouchDevice();
 
 	// Close any open popups when deselecting
 	if (!selectedPath && map) {
@@ -42,14 +64,7 @@ export function updateMapSelection(container: HTMLElement, selectedPath: string 
 	for (const [path, marker] of markers) {
 		const isSelected = path === selectedPath;
 		const color = isSelected ? "var(--interactive-accent, #7c3aed)" : "#e74c3c";
-		const icon = L.divIcon({
-			className: "gl-map-marker",
-			html: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="27" viewBox="0 0 24 36"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z" fill="${color}"/><circle cx="12" cy="11" r="5" fill="#fff"/></svg>`,
-			iconSize: [18, 27],
-			iconAnchor: [9, 27],
-			popupAnchor: [0, -27],
-		});
-		marker.setIcon(icon);
+		marker.setIcon(createMarkerIcon(color, touch));
 
 		if (isSelected && map) {
 			map.flyTo(marker.getLatLng(), Math.max(map.getZoom(), 15));
@@ -102,8 +117,19 @@ export function renderMapView(
 				attributionControl: false,
 				zoomSnap: 0,
 				scrollWheelZoom: false,
+				touchZoom: true,
+				dragging: true,
+				tap: true,
+				tapTolerance: 15,
 			});
 			activeMaps.set(container, map);
+
+			// ResizeObserver to keep Leaflet in sync with flex layout changes
+			const ro = new ResizeObserver(() => {
+				map.invalidateSize({ animate: false });
+			});
+			ro.observe(mapEl);
+			activeObservers.set(container, ro);
 
 			const tileLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
 				maxZoom: 19,
@@ -116,6 +142,7 @@ export function renderMapView(
 
 			const bounds = L.latLngBounds([]);
 			const markers = new Map<string, L.Marker>();
+			const touch = isTouchDevice();
 
 			for (const r of withCoords) {
 				const fm = r.frontmatter as RestaurantFrontmatter;
@@ -124,13 +151,7 @@ export function renderMapView(
 				const isSelected = r.path === selectedPath;
 
 				const markerColor = isSelected ? "var(--interactive-accent, #7c3aed)" : "#e74c3c";
-				const markerIcon = L.divIcon({
-					className: "gl-map-marker",
-					html: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="27" viewBox="0 0 24 36"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z" fill="${markerColor}"/><circle cx="12" cy="11" r="5" fill="#fff"/></svg>`,
-					iconSize: [18, 27],
-					iconAnchor: [9, 27],
-					popupAnchor: [0, -27],
-				});
+				const markerIcon = createMarkerIcon(markerColor, touch);
 
 				const marker = L.marker([lat, lng], { icon: markerIcon, riseOnHover: true }).addTo(map);
 
@@ -269,6 +290,12 @@ function enableSmoothWheelZoom(map: L.Map, tileLayer: L.TileLayer): void {
 }
 
 function updateTooltipVisibility(map: L.Map, markers: Map<string, L.Marker>): void {
+	// Touch devices: permanent tooltips interfere with touch interactions
+	if (isTouchDevice()) {
+		for (const marker of markers.values()) marker.closeTooltip();
+		return;
+	}
+
 	const zoom = map.getZoom();
 	if (zoom < TOOLTIP_ZOOM_THRESHOLD) {
 		for (const marker of markers.values()) marker.closeTooltip();

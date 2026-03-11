@@ -2691,6 +2691,7 @@
 	flex: 1;
 	min-height: 200px;
 	background: #d1d1d1;
+	touch-action: none;
 }
 
 .gl-map-popup__cuisine {
@@ -2763,6 +2764,26 @@
 
 .gl-map-nav__preset--active {
 	color: var(--interactive-accent);
+}
+
+/* ── Map Mobile Touch Targets ── */
+
+.is-mobile .gl-map-nav__btn {
+	width: 44px;
+	height: 44px;
+}
+
+.is-mobile .gl-map-nav {
+	border-radius: 10px;
+}
+
+.is-mobile .gl-explorer__map-inner .leaflet-popup-close-button {
+	width: 32px;
+	height: 32px;
+	font-size: 20px;
+	line-height: 32px;
+	padding: 0;
+	text-align: center;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -3033,6 +3054,10 @@
 .gl-explorer--narrow .gl-explorer__body {
 	overflow-y: auto;
 	overscroll-behavior: contain;
+}
+
+.gl-explorer__body--map {
+	overflow: hidden !important;
 }
 
 
