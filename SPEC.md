@@ -774,7 +774,7 @@ src/
 - **Responsive layout tiers** via `ResizeObserver` (not media queries, so it adapts correctly inside Obsidian sidebars):
   - **Wide** (≥ 800px): Full toolbar with tab buttons, search input, layout buttons, filter toggle, sort dropdown, "Surprise Me" button. Preview panel as right side column
   - **Medium** (≥ 500px): Same toolbar, preview panel opens with reduced width
-  - **Narrow** (< 500px): Compact segment-control toolbar with overflow menu (⋯), iOS-style expandable search bar, filter dropdown with backdrop overlay, fullscreen preview overlay with swipe-back gesture, 2-column card grid, ghost click suppression on overlay close
+  - **Narrow** (< 500px): Compact segment-control toolbar with overflow menu (⋯), iOS-style expandable search bar, filter dropdown with backdrop overlay, preview overlay (covers body area below toolbar) with swipe-back gesture, 2-column card grid, ghost click suppression on overlay close
 - Sort dropdown: tab-aware options — recipes: Name A-Z/Z-A, Rating, Cook time, Newest, Difficulty; restaurants: Name A-Z/Z-A, Rating, Newest, Price
 - "Surprise Me" button: picks random note from current filtered set, opens preview
 - Body split: content list (left) + preview side panel (right)
@@ -800,7 +800,7 @@ src/
 - `renderPreview(host)`: Main preview render — reads file, determines container (overlay for narrow, panel for wide/medium), renders header bar, delegates to recipe or restaurant sub-renderer
 - Recipe preview: reuses `renderSidePanel`/`renderMainPanel` from recipe panel modules
 - Restaurant preview: reuses restaurant equivalents, includes nearby markers and "Show on Map" button (hidden when already in map layout)
-- Narrow tier renders preview as fullscreen overlay with swipe-back gesture (right-to-left swipe from left edge closes)
+- Narrow tier renders preview as overlay within `.gl-explorer__body` (below toolbar + stats bar) with swipe-back gesture (right-to-left swipe from left edge closes)
 - "Related Notes" section at bottom of preview: scores notes by tag/cuisine overlap, shows top 5 with click-to-preview
 - Auto-save cycle: `schedulePreviewAutoSave()` → `previewAutoSave()` → `flushPreviewAutoSave()` with `AUTO_SAVE_DELAY_MS` debounce
 - `buildPreviewFileContent(host, file)`: Collects UI state from recipe or restaurant panels, reconstructs frontmatter + body
@@ -1035,7 +1035,7 @@ Responsive breakpoints:
 Explorer layout tiers (via `ResizeObserver`, adapts to actual container width including sidebars):
 - `.gl-explorer--wide` (≥ 800px): Full toolbar, side-panel preview
 - `.gl-explorer--medium` (≥ 500px): Full toolbar, narrower preview panel
-- `.gl-explorer--narrow` (< 500px): Segment-control tabs, overflow menu (⋯), expandable search bar, filter dropdown with backdrop, fullscreen preview overlay with swipe-back, 2-column card grid, touch-friendly tap targets, ghost click suppression
+- `.gl-explorer--narrow` (< 500px): Segment-control tabs, overflow menu (⋯), expandable search bar, filter dropdown with backdrop, preview overlay within body (below toolbar), swipe-back, 2-column card grid, touch-friendly tap targets, ghost click suppression
 
 Explorer scroll model (all tiers use the same nested scroll pattern):
 ```
