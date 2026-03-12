@@ -135,6 +135,7 @@ export function renderMapView(
 
 			const tileLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
 				maxZoom: 19,
+				detectRetina: true,
 				updateWhenZooming: false,
 				keepBuffer: 4,
 			}).addTo(map);
