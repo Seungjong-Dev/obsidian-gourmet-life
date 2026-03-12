@@ -507,12 +507,6 @@ function enableSmoothWheelZoom(map: L.Map, tileLayer: L.TileLayer): void {
 }
 
 function updateTooltipVisibility(map: L.Map, markers: Map<string, L.Marker>): void {
-	// Touch devices: permanent tooltips interfere with touch interactions
-	if (isTouchDevice()) {
-		for (const marker of markers.values()) marker.closeTooltip();
-		return;
-	}
-
 	const zoom = map.getZoom();
 	if (zoom < TOOLTIP_ZOOM_THRESHOLD) {
 		for (const marker of markers.values()) marker.closeTooltip();

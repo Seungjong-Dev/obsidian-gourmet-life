@@ -2692,6 +2692,7 @@
 	min-height: 200px;
 	background: #d1d1d1;
 	touch-action: none;
+	isolation: isolate;
 }
 
 .gl-map-popup__cuisine {
