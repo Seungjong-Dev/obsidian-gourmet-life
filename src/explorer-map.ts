@@ -112,6 +112,8 @@ export function renderMapView(
 		if (!mapEl.isConnected) return;
 
 		try {
+			const touch = isTouchDevice();
+
 			const map = L.map(mapEl, {
 				zoomControl: false,
 				attributionControl: false,
@@ -142,7 +144,6 @@ export function renderMapView(
 
 			const bounds = L.latLngBounds([]);
 			const markers = new Map<string, L.Marker>();
-			const touch = isTouchDevice();
 
 			for (const r of withCoords) {
 				const fm = r.frontmatter as RestaurantFrontmatter;
