@@ -781,7 +781,7 @@ src/
 - Single-click selects note and opens preview; double-click opens full viewer
 - `selectOnMap(path)`: Switches to restaurant tab + map layout, selects marker (flyTo + popup), and opens preview panel — used by "Show on Map" button
 - `onLayoutTierChanged(tier)`: Migrates filter panel (collapsible ↔ dropdown), validates layout, and re-renders preview/content on tier change
-- Sidebar swipe interference: `touchmove` listener on container calls `stopPropagation` to prevent Obsidian sidebar gestures — **excludes** map (`.gl-explorer__map-inner`) and graph (`.gl-explorer__graph-container`) areas so Leaflet's document-level touch handlers (dragging, pinch-zoom) still fire
+- Sidebar swipe interference: `touchmove` listener on container calls `stopPropagation` to prevent Obsidian sidebar gestures — **excludes** map (`.gl-explorer__map-inner`) and graph (`.gl-explorer__graph-container`) areas so custom touch handlers still fire
 - Map selection on narrow tier: skips `updateMapSelection` (marker highlight + popup) when the preview overlay fully covers the map, avoiding invisible DOM work
 - State persistence: saves/restores `tab`, `layout`, `sortBy`, full filter state (`cuisine`, `category`, `difficulty`, `price_range`, `area`, `minRating`, `tags`, `unrated`, `searchIngredients`), and `filterOpen` via `getState()`/`setState()` — restored filter values validated against current data
 
@@ -844,6 +844,7 @@ src/
 - `updateTooltipVisibility(map, markers)`: Shows permanent tooltips at high zoom, suppresses overlapping ones (pixel-distance threshold)
 - OpenStreetMap tiles, scale control, `zoomSnap: 0` for fractional zoom
 - Touch/mobile: larger markers (32×44 vs 18×27), larger popup close button (32×32), enlarged nav buttons (44×44), nav control offset for Obsidian bottom bar (`margin-bottom: calc(52px + safe-area)`), increased `fitBounds` padding (50px vs 30px), map content area fills full height with no scroll/padding override
+- Custom touch handlers (mobile): Leaflet's built-in `L.Draggable`/`L.TouchZoom` use pointer events (`pointermove`/`pointerup`) registered on `document`, which Obsidian Mobile blocks from bubbling. On touch devices, Leaflet's `touchZoom`, `dragging`, and `tap` options are disabled; `setupMapTouchHandlers()` provides custom `touchstart`/`touchmove`/`touchend` handlers with: single-finger drag via `map.panBy()`, two-finger pinch-zoom via `map.setZoomAround()` (zoom at pinch center + pan by center movement), tap detection (distance < 10px, time < 300ms) hitting nearest marker within 40px radius, inertia with exponential deceleration (0.92 factor, rAF loop), and smooth pinch-to-drag transition when lifting one finger. Pattern mirrors `explorer-graph.ts` custom touch handling
 
 **explorer-graph.ts** — Explorer graph view
 - Force-directed graph of recipe–ingredient relationships using SVG + `requestAnimationFrame` simulation
