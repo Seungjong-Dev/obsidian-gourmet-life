@@ -117,9 +117,9 @@ export function renderMapView(
 				attributionControl: false,
 				zoomSnap: 0,
 				scrollWheelZoom: false,
-				touchZoom: true,
-				dragging: true,
-				tap: true,
+				touchZoom: !touch,
+				dragging: !touch,
+				tap: !touch,
 				tapTolerance: 15,
 			});
 			activeMaps.set(container, map);
@@ -204,6 +204,11 @@ export function renderMapView(
 				map.flyTo(selMarker.getLatLng(), Math.max(map.getZoom(), 15));
 				selMarker.openPopup();
 			}
+
+			// Custom touch handlers for mobile (Leaflet's pointer events are blocked by Obsidian Mobile)
+			if (touch) {
+				setupMapTouchHandlers(mapEl, map, markers, onSelect);
+			}
 		} catch (err) {
 			console.error("[GourmetLife] Explorer map render failed:", err);
 			mapEl.empty();
@@ -215,6 +220,211 @@ export function renderMapView(
 	});
 
 	pendingRAFs.set(container, rafId);
+}
+
+// ── Custom Touch Handlers (mobile) ──
+// Leaflet's built-in touch handlers use pointer events which Obsidian Mobile blocks.
+// This mirrors the pattern from explorer-graph.ts (lines 566-727).
+
+const TAP_DISTANCE_THRESHOLD = 10;
+const TAP_TIME_THRESHOLD = 300;
+const INERTIA_DECEL = 0.92;
+const INERTIA_MIN_SPEED = 0.5;
+const MARKER_TAP_RADIUS = 40;
+
+function setupMapTouchHandlers(
+	mapEl: HTMLElement,
+	map: L.Map,
+	markers: Map<string, L.Marker>,
+	onSelect: (path: string) => void
+): void {
+	let lastTouches: Touch[] = [];
+	let isDragging = false;
+	let isPinching = false;
+	let lastPinchDist = 0;
+	let lastPinchCenter: L.Point | null = null;
+
+	// Inertia state
+	let velocityX = 0;
+	let velocityY = 0;
+	let lastMoveTime = 0;
+	let inertiaRAF: number | null = null;
+
+	// Tap detection
+	let touchStartX = 0;
+	let touchStartY = 0;
+	let touchStartTime = 0;
+
+	function getTouchCenter(t1: Touch, t2: Touch): L.Point {
+		return new L.Point((t1.clientX + t2.clientX) / 2, (t1.clientY + t2.clientY) / 2);
+	}
+
+	function getTouchDist(t1: Touch, t2: Touch): number {
+		const dx = t1.clientX - t2.clientX;
+		const dy = t1.clientY - t2.clientY;
+		return Math.sqrt(dx * dx + dy * dy);
+	}
+
+	function cancelInertia(): void {
+		if (inertiaRAF != null) {
+			cancelAnimationFrame(inertiaRAF);
+			inertiaRAF = null;
+		}
+	}
+
+	function startInertia(): void {
+		cancelInertia();
+		if (Math.abs(velocityX) < INERTIA_MIN_SPEED && Math.abs(velocityY) < INERTIA_MIN_SPEED) return;
+
+		function step() {
+			velocityX *= INERTIA_DECEL;
+			velocityY *= INERTIA_DECEL;
+			if (Math.abs(velocityX) < INERTIA_MIN_SPEED && Math.abs(velocityY) < INERTIA_MIN_SPEED) {
+				inertiaRAF = null;
+				return;
+			}
+			map.panBy(new L.Point(-velocityX, -velocityY), { animate: false });
+			inertiaRAF = requestAnimationFrame(step);
+		}
+		inertiaRAF = requestAnimationFrame(step);
+	}
+
+	function findClosestMarker(clientX: number, clientY: number): string | null {
+		const rect = mapEl.getBoundingClientRect();
+		const containerPt = new L.Point(clientX - rect.left, clientY - rect.top);
+		let closestPath: string | null = null;
+		let closestDistSq = MARKER_TAP_RADIUS * MARKER_TAP_RADIUS;
+
+		for (const [path, marker] of markers) {
+			const markerPt = map.latLngToContainerPoint(marker.getLatLng());
+			const dx = containerPt.x - markerPt.x;
+			const dy = containerPt.y - markerPt.y;
+			const distSq = dx * dx + dy * dy;
+			if (distSq < closestDistSq) {
+				closestDistSq = distSq;
+				closestPath = path;
+			}
+		}
+		return closestPath;
+	}
+
+	mapEl.addEventListener("touchstart", (e: TouchEvent) => {
+		e.preventDefault();
+		cancelInertia();
+
+		const touches = Array.from(e.touches);
+		lastTouches = touches;
+
+		if (touches.length === 1) {
+			isDragging = true;
+			isPinching = false;
+			touchStartX = touches[0].clientX;
+			touchStartY = touches[0].clientY;
+			touchStartTime = Date.now();
+			velocityX = 0;
+			velocityY = 0;
+			lastMoveTime = Date.now();
+		} else if (touches.length === 2) {
+			isDragging = false;
+			isPinching = true;
+			lastPinchDist = getTouchDist(touches[0], touches[1]);
+			lastPinchCenter = getTouchCenter(touches[0], touches[1]);
+		}
+	}, { passive: false });
+
+	mapEl.addEventListener("touchmove", (e: TouchEvent) => {
+		e.preventDefault();
+
+		const touches = Array.from(e.touches);
+		const now = Date.now();
+
+		if (touches.length === 1 && isDragging && lastTouches.length >= 1) {
+			const dx = touches[0].clientX - lastTouches[0].clientX;
+			const dy = touches[0].clientY - lastTouches[0].clientY;
+			const dt = Math.max(1, now - lastMoveTime);
+			velocityX = dx / dt * 16; // normalize to ~60fps frame
+			velocityY = dy / dt * 16;
+			lastMoveTime = now;
+			map.panBy(new L.Point(-dx, -dy), { animate: false });
+		} else if (touches.length === 2 && isPinching) {
+			const dist = getTouchDist(touches[0], touches[1]);
+			const center = getTouchCenter(touches[0], touches[1]);
+
+			if (lastPinchDist > 0 && lastPinchCenter) {
+				// Pan by center movement
+				const cdx = center.x - lastPinchCenter.x;
+				const cdy = center.y - lastPinchCenter.y;
+				if (Math.abs(cdx) > 0.5 || Math.abs(cdy) > 0.5) {
+					map.panBy(new L.Point(-cdx, -cdy), { animate: false });
+				}
+
+				// Zoom by pinch distance ratio
+				const scale = dist / lastPinchDist;
+				if (Math.abs(scale - 1) > 0.01) {
+					const rect = mapEl.getBoundingClientRect();
+					const zoomCenter = map.containerPointToLatLng(
+						new L.Point(center.x - rect.left, center.y - rect.top)
+					);
+					const newZoom = Math.max(
+						map.getMinZoom(),
+						Math.min(map.getMaxZoom(), map.getZoom() + Math.log2(scale))
+					);
+					map.setZoomAround(zoomCenter, newZoom, { animate: false });
+				}
+			}
+
+			lastPinchDist = dist;
+			lastPinchCenter = center;
+		}
+
+		lastTouches = touches;
+	}, { passive: false });
+
+	mapEl.addEventListener("touchend", (e: TouchEvent) => {
+		e.preventDefault();
+
+		const remaining = e.touches.length;
+
+		// Tap detection: single finger, short time, small movement
+		if (remaining === 0 && !isPinching) {
+			const elapsed = Date.now() - touchStartTime;
+			const movedX = Math.abs((lastTouches[0]?.clientX ?? 0) - touchStartX);
+			const movedY = Math.abs((lastTouches[0]?.clientY ?? 0) - touchStartY);
+			const dist = Math.sqrt(movedX * movedX + movedY * movedY);
+
+			if (elapsed < TAP_TIME_THRESHOLD && dist < TAP_DISTANCE_THRESHOLD) {
+				// It's a tap — find nearest marker
+				const path = findClosestMarker(touchStartX, touchStartY);
+				if (path) {
+					onSelect(path);
+					const marker = markers.get(path);
+					if (marker) marker.openPopup();
+				}
+			} else if (isDragging) {
+				// End of drag — start inertia
+				startInertia();
+			}
+		}
+
+		// Transition from pinch to single-finger drag
+		if (remaining === 1) {
+			isPinching = false;
+			isDragging = true;
+			lastTouches = Array.from(e.touches);
+			velocityX = 0;
+			velocityY = 0;
+			lastMoveTime = Date.now();
+		} else {
+			isDragging = false;
+			isPinching = false;
+		}
+	}, { passive: false });
+
+	mapEl.addEventListener("touchcancel", () => {
+		isDragging = false;
+		isPinching = false;
+		cancelInertia();
+	});
 }
 
 function enableSmoothWheelZoom(map: L.Map, tileLayer: L.TileLayer): void {
