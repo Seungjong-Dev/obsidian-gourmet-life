@@ -288,7 +288,7 @@ export class ExplorerView extends ItemView implements PreviewHost {
 		this.previewContainer = this.bodyContainer.createDiv({ cls: "gl-explorer__preview" });
 
 		// Narrow Preview Overlay
-		this.previewOverlay = container.createDiv({ cls: "gl-explorer__preview-overlay" });
+		this.previewOverlay = this.bodyContainer.createDiv({ cls: "gl-explorer__preview-overlay" });
 
 		// ResizeObserver
 		this.resizeObserver = new ResizeObserver((entries) => {
