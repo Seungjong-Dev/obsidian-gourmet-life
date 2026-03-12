@@ -311,6 +311,7 @@ function setupMapTouchHandlers(
 
 	mapEl.addEventListener("touchstart", (e: TouchEvent) => {
 		e.preventDefault();
+		e.stopPropagation();
 		cancelInertia();
 
 		const touches = Array.from(e.touches);
@@ -335,6 +336,7 @@ function setupMapTouchHandlers(
 
 	mapEl.addEventListener("touchmove", (e: TouchEvent) => {
 		e.preventDefault();
+		e.stopPropagation();
 
 		const touches = Array.from(e.touches);
 		const now = Date.now();
@@ -383,6 +385,7 @@ function setupMapTouchHandlers(
 
 	mapEl.addEventListener("touchend", (e: TouchEvent) => {
 		e.preventDefault();
+		e.stopPropagation();
 
 		const remaining = e.touches.length;
 
@@ -421,7 +424,8 @@ function setupMapTouchHandlers(
 		}
 	}, { passive: false });
 
-	mapEl.addEventListener("touchcancel", () => {
+	mapEl.addEventListener("touchcancel", (e: TouchEvent) => {
+		e.stopPropagation();
 		isDragging = false;
 		isPinching = false;
 		cancelInertia();
