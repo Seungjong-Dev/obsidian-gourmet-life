@@ -2,7 +2,7 @@ import type { App } from "obsidian";
 import type { RecipeFrontmatter, RecipeViewMode } from "./types";
 import { DIFFICULTY_OPTIONS, RECIPE_CATEGORIES } from "./types";
 import {
-	extractCooklangIngredientsGrouped,
+	extractCooklangIngredientsFlat,
 	extractCooklangTools,
 	extractCooklangTimers,
 	calculateTotalTime,
@@ -330,11 +330,10 @@ function renderSideDataContent(
 		});
 	};
 
-	// Ingredients — extracted from @markers
-	const grouped = extractCooklangIngredientsGrouped(bodyContent);
-	const hasIngredients = Array.from(grouped.values()).some((arr) => arr.length > 0);
+	// Ingredients — extracted from @markers, merged across all sections
+	const flatIngredients = extractCooklangIngredientsFlat(bodyContent);
 
-	if (hasIngredients) {
+	if (flatIngredients.length > 0) {
 		const ingredientsSection = container.createDiv({
 			cls: "gl-recipe__ingredients",
 		});
@@ -352,62 +351,53 @@ function renderSideDataContent(
 		// Accordion body
 		const accordionBody = ingredientsSection.createDiv({ cls: "gl-recipe__ingredients-body" });
 
-		for (const [sectionName, items] of grouped) {
-			if (grouped.size > 1 || sectionName) {
-				const sDiv = accordionBody.createDiv({
-					cls: "gl-recipe__section",
+		const merged = mergeAllIngredients(flatIngredients);
+
+		for (const ing of merged) {
+			const item = accordionBody.createDiv({
+				cls: "gl-recipe__item",
+			});
+
+			// Checkbox (viewer mode only)
+			if (mode === "viewer") {
+				const checkbox = item.createEl("input", {
+					type: "checkbox",
+					cls: "gl-recipe__item-checkbox",
+				}) as HTMLInputElement;
+				checkbox.addEventListener("click", (e) => e.stopPropagation());
+				checkbox.addEventListener("change", () => {
+					if (checkbox.checked) {
+						item.addClass("gl-recipe__item--checked");
+					} else {
+						item.removeClass("gl-recipe__item--checked");
+					}
 				});
-				sDiv.createEl("h4", { text: sectionName || "Main" });
 			}
 
-			const merged = mergeIngredients(items);
-
-			for (const ing of merged) {
-				const item = accordionBody.createDiv({
-					cls: "gl-recipe__item",
+			const nameEl = item.createSpan({
+				text: ing.name,
+			});
+			const qtyText =
+				[ing.quantity, ing.unit].filter(Boolean).join(" ");
+			if (qtyText) {
+				item.createSpan({
+					text: qtyText,
+					cls: "gl-recipe__meta-label",
 				});
-
-				// Checkbox (viewer mode only)
-				if (mode === "viewer") {
-					const checkbox = item.createEl("input", {
-						type: "checkbox",
-						cls: "gl-recipe__item-checkbox",
-					}) as HTMLInputElement;
-					checkbox.addEventListener("click", (e) => e.stopPropagation());
-					checkbox.addEventListener("change", () => {
-						if (checkbox.checked) {
-							item.addClass("gl-recipe__item--checked");
-						} else {
-							item.removeClass("gl-recipe__item--checked");
-						}
-					});
-				}
-
-				const nameEl = item.createSpan({
-					text: ing.name,
-				});
-				const qtyText =
-					[ing.quantity, ing.unit].filter(Boolean).join(" ");
-				if (qtyText) {
-					item.createSpan({
-						text: qtyText,
-						cls: "gl-recipe__meta-label",
-					});
-				}
-
-				// Hover interaction
-				item.addEventListener("mouseenter", () => {
-					item.addClass("gl-recipe__item--highlight");
-					callbacks.onIngredientHover(ing.name);
-				});
-				item.addEventListener("mouseleave", () => {
-					item.removeClass("gl-recipe__item--highlight");
-					callbacks.onIngredientHover(null);
-				});
-
-				// Store for external highlighting
-				nameEl.dataset.ingredient = ing.name.toLowerCase();
 			}
+
+			// Hover interaction
+			item.addEventListener("mouseenter", () => {
+				item.addClass("gl-recipe__item--highlight");
+				callbacks.onIngredientHover(ing.name);
+			});
+			item.addEventListener("mouseleave", () => {
+				item.removeClass("gl-recipe__item--highlight");
+				callbacks.onIngredientHover(null);
+			});
+
+			// Store for external highlighting
+			nameEl.dataset.ingredient = ing.name.toLowerCase();
 		}
 	}
 
@@ -561,13 +551,24 @@ function addDropdownField(
 }
 
 /**
- * Merge duplicate ingredients by name, combining quantities.
+ * Merge ingredients across all sections by name+unit, summing numeric quantities.
+ * - Same name + same unit → quantities summed (if both numeric)
+ * - Same name + different unit → kept as separate items
+ * - No quantity/unit → deduplicated by name alone
  */
-function mergeIngredients(items: CooklangIngredient[]): CooklangIngredient[] {
+function mergeAllIngredients(items: CooklangIngredient[]): CooklangIngredient[] {
 	const map = new Map<string, CooklangIngredient>();
 	for (const ing of items) {
-		const key = ing.name.toLowerCase();
-		if (!map.has(key)) {
+		const key = `${ing.name.toLowerCase()}::${ing.unit.toLowerCase()}`;
+		if (map.has(key)) {
+			const existing = map.get(key)!;
+			const a = parseFloat(existing.quantity);
+			const b = parseFloat(ing.quantity);
+			if (!isNaN(a) && !isNaN(b)) {
+				existing.quantity = String(a + b);
+			}
+			// Non-numeric quantities: keep the first value
+		} else {
 			map.set(key, { ...ing });
 		}
 	}

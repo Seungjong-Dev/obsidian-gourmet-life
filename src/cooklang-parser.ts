@@ -291,6 +291,20 @@ export function extractCooklangIngredientsGrouped(
 }
 
 /**
+ * Extract all ingredients as a flat list (no section grouping).
+ */
+export function extractCooklangIngredientsFlat(
+	body: string
+): CooklangIngredient[] {
+	const grouped = extractCooklangIngredientsGrouped(body);
+	const flat: CooklangIngredient[] = [];
+	for (const items of grouped.values()) {
+		flat.push(...items);
+	}
+	return flat;
+}
+
+/**
  * Extract all tools from a Cooklang body.
  */
 export function extractCooklangTools(body: string): CooklangTool[] {
