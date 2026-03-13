@@ -76,7 +76,13 @@ export function updateGraphSelection(container: HTMLElement, selectedPath: strin
 	state.selectedPath = selectedPath;
 	for (const n of state.nodes) {
 		if (n.group) {
-			n.group.classList.toggle("gl-graph__node--selected", !!(n.path && n.path === selectedPath));
+			const sel = !!(n.path && n.path === selectedPath);
+			n.group.classList.toggle("gl-graph__node--selected", sel);
+			if (n.circle) {
+				const baseR = n.type === "recipe" ? 8 : 5;
+				const scale = mapNodeScale(state.settings.nodeSize);
+				n.circle.setAttribute("r", String(baseR * scale * (sel ? 1.5 : 1)));
+			}
 		}
 	}
 	// Sync highlight with selection
@@ -325,7 +331,8 @@ export function renderGraphView(
 		if (n.path && n.path === selectedPath) g.classList.add("gl-graph__node--selected");
 
 		const baseR = n.type === "recipe" ? 8 : 5;
-		const r = baseR * scale;
+		const selected = n.path != null && n.path === selectedPath;
+		const r = baseR * scale * (selected ? 1.5 : 1);
 		const circle = document.createElementNS(ns, "circle");
 		circle.setAttribute("r", String(r));
 		g.appendChild(circle);
@@ -463,7 +470,8 @@ export function renderGraphView(
 		for (const n of nodes) {
 			if (n.circle) {
 				const baseR = n.type === "recipe" ? 8 : 5;
-				n.circle.setAttribute("r", String(baseR * s));
+				const sel = n.path != null && n.path === selectedPath;
+				n.circle.setAttribute("r", String(baseR * s * (sel ? 1.5 : 1)));
 			}
 		}
 	});
