@@ -948,7 +948,7 @@ src/
 
 **explorer-preview.ts** — Explorer preview panel
 - `PreviewHost` interface: Defines the contract between ExplorerView and preview functions (app, plugin, state, DOM refs, methods)
-- `renderPreview(host)`: Main preview render — reads file, determines container (overlay for narrow, panel for wide/medium), renders header bar, delegates to recipe, restaurant, or ingredient sub-renderer
+- `renderPreview(host)`: Main preview render — reads file, determines container (overlay for narrow, panel for wide/medium), renders header bar (open button routes by `fm.type` not `host.tab`), delegates to recipe, restaurant, or ingredient sub-renderer
 - Recipe preview: reuses `renderSidePanel`/`renderMainPanel` from recipe panel modules
 - Restaurant preview: reuses restaurant equivalents, includes nearby markers and "Show on Map" button (hidden when already in map layout)
 - Ingredient preview: reuses `renderIngredientSidePanel`/`renderIngredientMainPanel` from ingredient panel modules, includes substitute navigation and recipe cross-references
@@ -1002,9 +1002,10 @@ src/
 **explorer-graph.ts** — Explorer graph view
 - Force-directed graph of recipe–ingredient relationships using SVG + `requestAnimationFrame` simulation
 - Recipe tab: Nodes are recipe + ingredient nodes (from Cooklang body parsing), edges are recipe → ingredient links
-- Ingredient tab: Nodes are ingredient notes, edges are substitutes links + recipe co-occurrence (ingredients used together in the same recipe). Node colors by category. Uses `renderIngredientGraphView()` to build synthetic data and delegates to `renderGraphView`
+- Ingredient tab: Bipartite graph of ingredient notes + recipes that use them. `renderIngredientGraphView()` collects relevant recipes from `recipeIngredients` map, builds substitute edges between ingredient nodes, and passes `ingredientPaths` map so ingredient nodes are clickable/selectable. Delegates to `renderGraphView` with `extraEdges` and `ingredientPaths` parameters
+- `renderGraphView` accepts optional `extraEdges` (additional edges, e.g., substitutes between ingredient nodes) and `ingredientPaths` (Map of ingredient name → file path, makes ingredient nodes selectable)
 - Force simulation: charge repulsion, edge spring, center gravity, collision avoidance
-- Interactive: drag nodes (pin/unpin), click recipe node to select, zoom/pan via mouse wheel and drag
+- Interactive: drag nodes (pin/unpin), click any node with a path to select (recipe or ingredient), zoom/pan via mouse wheel and drag
 - Configurable via `GraphSettings` (charge, link distance, gravity) with settings panel
 - Node sizing by degree (number of connections), colored by type (recipe vs ingredient)
 
