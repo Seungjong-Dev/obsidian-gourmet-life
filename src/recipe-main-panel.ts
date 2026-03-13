@@ -10,6 +10,7 @@ import {
 } from "./cooklang-parser";
 import { createImageSuggest, type TextareaSuggest } from "./textarea-suggest";
 import { isGalleryCalloutMarker, transformGalleryCallouts } from "./gallery-utils";
+import { attachIndentHandler } from "./textarea-indent";
 import type { TFile } from "obsidian";
 
 export interface MainPanelCallbacks {
@@ -315,6 +316,12 @@ function renderMainPanelEditor(
 	});
 	if (app) {
 		suggests.push(createImageSuggest(reviewsArea, () => app.vault.getFiles(), recipePath));
+	}
+
+	// Attach indent handlers and store for cleanup
+	for (const ta of [bodyArea, notesArea, reviewsArea]) {
+		const detach = attachIndentHandler(ta);
+		suggests.push({ destroy: detach } as any);
 	}
 
 	// Store all suggests for cleanup on re-render
