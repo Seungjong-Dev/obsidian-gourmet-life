@@ -2570,10 +2570,16 @@
 	fill: var(--text-muted);
 }
 
+.gl-graph__node--unresolved circle {
+	fill-opacity: 0.3;
+	stroke: var(--text-muted);
+	stroke-width: 1;
+	stroke-dasharray: 3 2;
+}
+
 .gl-graph__node--selected circle {
 	stroke: var(--interactive-accent);
 	stroke-width: 3;
-	fill: var(--text-accent);
 }
 
 .gl-graph__node--dim {

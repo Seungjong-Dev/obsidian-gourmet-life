@@ -660,7 +660,9 @@ export class ExplorerView extends ItemView implements PreviewHost {
 					(gs) => {
 						this.plugin.settings.graphSettings = gs;
 						this.plugin.saveSettings();
-					}
+					},
+					undefined,
+					this.plugin.noteIndex.getIngredientNames(),
 				);
 			}
 		} else if (this.layout === "map") {

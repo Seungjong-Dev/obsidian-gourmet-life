@@ -114,6 +114,7 @@ export function renderGraphView(
 	onSettingsChange?: (settings: GraphSettings) => void,
 	extraEdges?: Edge[],
 	ingredientPaths?: Map<string, string>,
+	extraNodes?: Array<{ id: string; label: string; type: "recipe" | "ingredient"; path?: string }>,
 ): void {
 	destroyGraph(container);
 	container.empty();
@@ -203,6 +204,21 @@ export function renderGraphView(
 				edges.push({ source: src, target: tgt });
 				src.degree++;
 				tgt.degree++;
+			}
+		}
+	}
+
+	// Merge extra nodes (e.g., unconnected ingredient notes)
+	if (extraNodes) {
+		for (const en of extraNodes) {
+			if (!nodeMap.has(en.id)) {
+				nodeMap.set(en.id, {
+					...en,
+					x: (Math.random() - 0.5) * 400,
+					y: (Math.random() - 0.5) * 300,
+					vx: 0, vy: 0, fx: null, fy: null,
+					degree: 0,
+				});
 			}
 		}
 	}
@@ -304,7 +320,8 @@ export function renderGraphView(
 
 	for (const n of nodes) {
 		const g = document.createElementNS(ns, "g");
-		g.setAttribute("class", `gl-graph__node gl-graph__node--${n.type}`);
+		const cls = `gl-graph__node gl-graph__node--${n.type}`;
+		g.setAttribute("class", n.type === "ingredient" && !n.path ? `${cls} gl-graph__node--unresolved` : cls);
 		if (n.path && n.path === selectedPath) g.classList.add("gl-graph__node--selected");
 
 		const baseR = n.type === "recipe" ? 8 : 5;
@@ -1141,6 +1158,14 @@ export function renderIngredientGraphView(
 		}
 	}
 
+	// All ingredient notes as extra nodes — connected ones will be skipped via nodeMap.has()
+	const extraNodes = ingredients.map(ing => ({
+		id: `i:${ing.name.toLowerCase()}`,
+		label: ing.name,
+		type: "ingredient" as const,
+		path: ing.path,
+	}));
+
 	renderGraphView(
 		container,
 		relevantRecipes,
@@ -1151,5 +1176,6 @@ export function renderIngredientGraphView(
 		onSettingsChange,
 		substituteEdges,
 		ingredientPathMap,
+		extraNodes,
 	);
 }
