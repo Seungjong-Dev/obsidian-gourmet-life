@@ -212,10 +212,6 @@ function renderMainPanelEditor(
 		cls: "gl-toolbar__btn",
 		text: "> Tip",
 	});
-	const btnGallery = toolbar.createEl("button", {
-		cls: "gl-toolbar__btn",
-		text: "Gallery",
-	});
 
 	// ── Inline form area ──
 	const formArea = bodySection.createDiv({ cls: "gl-toolbar__form-area" });
@@ -272,15 +268,6 @@ function renderMainPanelEditor(
 
 	btnComment.addEventListener("click", () => {
 		insertAtCursor(bodyArea, "> ", true);
-		bodyArea.focus();
-	});
-
-	btnGallery.addEventListener("click", () => {
-		insertAtCursor(bodyArea, "> [!gallery]\n> ![[", true);
-		// Place cursor right after ![[  so image suggest triggers
-		const pos = bodyArea.value.lastIndexOf("![[") + 3;
-		bodyArea.selectionStart = pos;
-		bodyArea.selectionEnd = pos;
 		bodyArea.focus();
 	});
 
