@@ -388,12 +388,6 @@ function renderEditor(
 	const reviewsSection = container.createDiv();
 	reviewsSection.createEl("h2", { text: "Reviews" });
 
-	const today = new Date().toISOString().split("T")[0];
-	const addVisitBtn = reviewsSection.createEl("button", {
-		text: "+ New visit",
-		cls: "gl-recipe__add-btn",
-	});
-
 	const reviewsArea = reviewsSection.createEl("textarea", {
 		cls: "gl-recipe__edit-textarea gl-recipe__edit-textarea--full",
 	}) as HTMLTextAreaElement;
@@ -404,15 +398,6 @@ function renderEditor(
 	if (app) {
 		suggests.push(createImageSuggest(reviewsArea, () => app.vault.getFiles(), notePath));
 	}
-
-	addVisitBtn.addEventListener("click", () => {
-		const prefix = reviewsArea.value.trim() ? "\n" : "";
-		reviewsArea.value += `${prefix}- ${today}\n  - `;
-		reviewsArea.focus();
-		reviewsArea.selectionStart = reviewsArea.value.length;
-		reviewsArea.selectionEnd = reviewsArea.value.length;
-		reviewsArea.dispatchEvent(new Event("input", { bubbles: true }));
-	});
 
 	// Store suggests for cleanup on re-render
 	(container as any).__glSuggests = suggests;

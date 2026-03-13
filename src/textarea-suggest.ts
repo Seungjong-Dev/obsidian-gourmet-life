@@ -1,4 +1,5 @@
 import type { TFile } from "obsidian";
+import { isGalleryCalloutMarker } from "./gallery-utils";
 
 export interface TextareaSuggestConfig<T> {
 	trigger: string;
@@ -107,6 +108,7 @@ export class TextareaSuggest<T> {
 
 	private onKeydown(e: KeyboardEvent): void {
 		if (!this.popup) return;
+		if (e.isComposing) return; // Skip during IME composition (Korean, Japanese, etc.)
 
 		switch (e.key) {
 			case "ArrowDown":
@@ -273,6 +275,66 @@ export class TextareaSuggest<T> {
 	}
 }
 
+// ── Gallery auto-formatting ──
+
+const GALLERY_IMAGE_LINE_RE = /^>\s*!\[\[.+\]\]\s*$/;
+
+export interface GalleryInsertion {
+	replaceFrom: number;
+	text: string;
+}
+
+/**
+ * Analyse the textarea context around the trigger to decide if the image
+ * should be wrapped in a `> [!gallery]` callout block.
+ *
+ * Returns `null` when the trigger is inline (text before `![[` on the same line),
+ * meaning the caller should fall back to plain `![[file]]` insertion.
+ */
+export function buildGalleryInsertion(
+	value: string,
+	triggerStart: number,
+	fileName: string
+): GalleryInsertion | null {
+	// 1. Find start of the current line
+	const lineStart = value.lastIndexOf("\n", triggerStart - 1) + 1;
+
+	// 2. If there's non-whitespace text before the trigger on this line → inline
+	const beforeTrigger = value.substring(lineStart, triggerStart);
+	if (beforeTrigger.trim().length > 0) return null;
+
+	// 3. Scan upward to determine gallery context
+	const lines = value.substring(0, lineStart).split("\n");
+	let needHeader = true;
+
+	for (let i = lines.length - 1; i >= 0; i--) {
+		const line = lines[i];
+		if (GALLERY_IMAGE_LINE_RE.test(line)) {
+			// Gallery image line — keep scanning for the header
+			continue;
+		}
+		if (isGalleryCalloutMarker(line.replace(/^>\s*/, "").trim())) {
+			// Found the gallery header
+			needHeader = false;
+			break;
+		}
+		// Anything else (blank line, text, etc.) → outside gallery block
+		break;
+	}
+
+	const imageLine = `> ![[${fileName}]]`;
+	if (needHeader) {
+		return {
+			replaceFrom: lineStart,
+			text: `> [!gallery]\n${imageLine}`,
+		};
+	}
+	return {
+		replaceFrom: lineStart,
+		text: imageLine,
+	};
+}
+
 // ── Image-specific helpers ──
 
 export const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "bmp", "svg", "webp"];
@@ -314,14 +376,24 @@ export function createImageSuggest(
 			el.createDiv({ text: file.path, cls: "gl-suggest__path" });
 		},
 		onSelect: (file, ta, start, end) => {
-			const before = ta.value.substring(0, start);
-			const after = ta.value.substring(end);
-			const insertion = `![[${file.name}]]`;
-
-			ta.value = before + insertion + after;
-			const cursorPos = start + insertion.length;
-			ta.selectionStart = cursorPos;
-			ta.selectionEnd = cursorPos;
+			const gallery = buildGalleryInsertion(ta.value, start, file.name);
+			if (gallery) {
+				const after = ta.value.substring(end);
+				const insertion = gallery.text + "\n";
+				ta.value = ta.value.substring(0, gallery.replaceFrom) + insertion + after;
+				const cursorPos = gallery.replaceFrom + insertion.length;
+				ta.selectionStart = cursorPos;
+				ta.selectionEnd = cursorPos;
+			} else {
+				// Inline — plain embed
+				const before = ta.value.substring(0, start);
+				const after = ta.value.substring(end);
+				const insertion = `![[${file.name}]]`;
+				ta.value = before + insertion + after;
+				const cursorPos = start + insertion.length;
+				ta.selectionStart = cursorPos;
+				ta.selectionEnd = cursorPos;
+			}
 			ta.dispatchEvent(new Event("input", { bubbles: true }));
 		},
 	});
