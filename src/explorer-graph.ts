@@ -1,4 +1,5 @@
-import type { GourmetNote, GraphSettings } from "./types";
+import type { GourmetNote, GraphSettings, IngredientFrontmatter } from "./types";
+import type { NoteIndex } from "./note-index";
 
 interface Node {
 	id: string;
@@ -1017,4 +1018,140 @@ function clearHighlight(gNodes: SVGGElement, gEdges: SVGGElement): void {
 	for (let i = 0; i < gEdges.children.length; i++) {
 		(gEdges.children[i] as SVGElement).classList.remove("gl-graph__edge--dim");
 	}
+}
+
+// ── Ingredient Graph ──
+// Nodes = ingredients, edges = substitutes links + co-occurrence in same recipe
+
+const CATEGORY_COLORS: Record<string, string> = {
+	vegetable: "#4CAF50",
+	fruit: "#FF9800",
+	meat: "#F44336",
+	seafood: "#2196F3",
+	dairy: "#FFC107",
+	grain: "#795548",
+	spice: "#9C27B0",
+	condiment: "#607D8B",
+	other: "#9E9E9E",
+};
+
+export function renderIngredientGraphView(
+	container: HTMLElement,
+	ingredients: GourmetNote[],
+	noteIndex: NoteIndex,
+	onSelect: (path: string) => void,
+	selectedPath: string | null,
+	initialSettings?: GraphSettings,
+	onSettingsChange?: (settings: GraphSettings) => void
+): void {
+	// Build edges from substitutes and co-occurrence, then delegate to renderGraphView
+	// by constructing a synthetic recipeIngredients-like map
+
+	destroyGraph(container);
+	container.empty();
+
+	if (ingredients.length === 0) {
+		container.createDiv({ cls: "gl-explorer__empty", text: "No ingredients to display" });
+		return;
+	}
+
+	// Build ingredient node map (name lowercase → path)
+	const ingredientPathMap = new Map<string, string>(); // lowercase name → path
+	for (const ing of ingredients) {
+		ingredientPathMap.set(ing.name.toLowerCase(), ing.path);
+		const fm = ing.frontmatter as IngredientFrontmatter;
+		if (fm.aliases) {
+			for (const alias of fm.aliases) {
+				if (alias) ingredientPathMap.set(alias.toLowerCase(), ing.path);
+			}
+		}
+	}
+
+	// Build edge sets
+	const edgePairs = new Set<string>(); // "path1|path2" sorted
+	const addEdge = (p1: string, p2: string) => {
+		if (p1 === p2) return;
+		const key = p1 < p2 ? `${p1}|${p2}` : `${p2}|${p1}`;
+		edgePairs.add(key);
+	};
+
+	// Edge type 1: substitutes
+	for (const ing of ingredients) {
+		const fm = ing.frontmatter as IngredientFrontmatter;
+		if (fm.substitutes) {
+			for (const sub of fm.substitutes) {
+				const subPath = ingredientPathMap.get(sub.toLowerCase());
+				if (subPath) addEdge(ing.path, subPath);
+			}
+		}
+	}
+
+	// Edge type 2: co-occurrence in recipes
+	for (const [, recipeIngs] of noteIndex.recipeIngredients) {
+		// Find which of our ingredient notes are used in this recipe
+		const usedPaths: string[] = [];
+		for (const ingName of recipeIngs) {
+			const path = ingredientPathMap.get(ingName);
+			if (path) usedPaths.push(path);
+		}
+		// Deduplicate paths
+		const unique = [...new Set(usedPaths)];
+		for (let i = 0; i < unique.length; i++) {
+			for (let j = i + 1; j < unique.length; j++) {
+				addEdge(unique[i], unique[j]);
+			}
+		}
+	}
+
+	// Build a synthetic "recipeIngredients" map that renderGraphView can use:
+	// We'll create virtual "recipe" nodes for each pair, but that's excessive.
+	// Instead, we reuse the existing graph infrastructure by creating a custom graph.
+	// Since the existing renderGraphView is designed for recipe-ingredient bipartite graphs,
+	// we'll build a simple force-directed graph directly for ingredient-only nodes.
+
+	// For simplicity, reuse the same renderGraphView but pass ingredient notes AS recipes
+	// with edges connecting them. We need to adapt.
+
+	// Actually, let's just build our own simple graph using the same SVG infrastructure.
+	// The cleanest approach: create synthetic bipartite data and pass to renderGraphView.
+
+	// Better approach: build ingredient-to-ingredient edges directly
+	// We'll construct a recipeIngredients map where each edge pair is a "virtual recipe"
+	// connecting two ingredients.
+
+	const syntheticRecipeIngredients = new Map<string, Set<string>>();
+
+	// Each ingredient is both a "recipe" node and we add edges via shared ingredients
+	for (const edge of edgePairs) {
+		const [p1, p2] = edge.split("|");
+		// Find the ingredient names for these paths
+		const n1 = ingredients.find(i => i.path === p1);
+		const n2 = ingredients.find(i => i.path === p2);
+		if (!n1 || !n2) continue;
+
+		// For each ingredient, add the other as a connected ingredient
+		if (!syntheticRecipeIngredients.has(p1)) syntheticRecipeIngredients.set(p1, new Set());
+		syntheticRecipeIngredients.get(p1)!.add(n2.name.toLowerCase());
+
+		if (!syntheticRecipeIngredients.has(p2)) syntheticRecipeIngredients.set(p2, new Set());
+		syntheticRecipeIngredients.get(p2)!.add(n1.name.toLowerCase());
+	}
+
+	// Use the existing renderGraphView — ingredients become "recipes" (main nodes)
+	// and their connected ingredients show as "ingredient" sub-nodes
+	// This isn't ideal, but reuses all existing graph infrastructure.
+
+	// Actually, the simplest approach: just render all ingredient notes as recipe-type nodes
+	// in renderGraphView, with the syntheticRecipeIngredients providing the links.
+	// The shared ingredient names will create shared sub-nodes, connecting the ingredient notes.
+
+	renderGraphView(
+		container,
+		ingredients,
+		syntheticRecipeIngredients,
+		onSelect,
+		selectedPath,
+		initialSettings,
+		onSettingsChange
+	);
 }

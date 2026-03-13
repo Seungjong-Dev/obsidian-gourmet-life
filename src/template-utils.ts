@@ -3,7 +3,17 @@ export function getRecipeTemplate(): string {
 }
 
 export function getIngredientTemplate(): string {
-	return "";
+	return [
+		"## Storage & Prep",
+		"",
+		"",
+		"## Notes",
+		"",
+		"",
+		"## Purchase Log",
+		"",
+		"",
+	].join("\n");
 }
 
 export function getRestaurantTemplate(): string {

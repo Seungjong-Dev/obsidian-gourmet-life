@@ -2,11 +2,13 @@
 
 export const VIEW_TYPE_RECIPE = "gourmet-life-recipe-view";
 export const VIEW_TYPE_RESTAURANT = "gourmet-life-restaurant-view";
+export const VIEW_TYPE_INGREDIENT = "gourmet-life-ingredient-view";
 export const VIEW_TYPE_EXPLORER = "gourmet-life-explorer-view";
 
 export type RecipeViewMode = "viewer" | "editor";
 export type RestaurantViewMode = "viewer" | "editor";
-export type ExplorerTab = "recipe" | "restaurant";
+export type IngredientViewMode = "viewer" | "editor";
+export type ExplorerTab = "recipe" | "restaurant" | "ingredient";
 export type ExplorerLayout = "card" | "list" | "graph" | "map";
 export type SortOption =
 	| "name-asc"
@@ -15,7 +17,8 @@ export type SortOption =
 	| "cook-time-asc"
 	| "created-desc"
 	| "difficulty-asc"
-	| "price-asc";
+	| "price-asc"
+	| "category";
 
 // ── Note Types ──────────────────────────────────────────────
 
@@ -42,6 +45,8 @@ export interface IngredientFrontmatter {
 	season?: string[];
 	rating?: number;
 	aliases?: string[];
+	image?: string;
+	substitutes?: string[];
 	tags?: string[];
 	created?: string;
 }

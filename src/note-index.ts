@@ -144,6 +144,44 @@ export class NoteIndex {
 		return this.ingredientNames;
 	}
 
+	/** Get all recipes that use a given ingredient (by name, including aliases) */
+	getRecipesUsingIngredient(ingredientName: string): GourmetNote[] {
+		// Collect all names to check: the given name + aliases from the ingredient note
+		const namesToCheck = new Set<string>();
+		namesToCheck.add(ingredientName.toLowerCase());
+
+		// Find the ingredient note and add its aliases
+		const ingredientPath = this.ingredientNames.get(ingredientName.toLowerCase());
+		if (ingredientPath) {
+			const ingredientNote = this.notes.get(ingredientPath);
+			if (ingredientNote) {
+				const fm = ingredientNote.frontmatter as IngredientFrontmatter;
+				namesToCheck.add(ingredientNote.name.toLowerCase());
+				if (fm.aliases) {
+					for (const alias of fm.aliases) {
+						if (alias) namesToCheck.add(alias.toLowerCase());
+					}
+				}
+			}
+		}
+
+		const results: GourmetNote[] = [];
+		const seen = new Set<string>();
+		for (const [recipePath, ingredients] of this.recipeIngredients) {
+			for (const name of namesToCheck) {
+				if (ingredients.has(name) && !seen.has(recipePath)) {
+					const note = this.notes.get(recipePath);
+					if (note) {
+						results.push(note);
+						seen.add(recipePath);
+					}
+					break;
+				}
+			}
+		}
+		return results;
+	}
+
 	/** Collect unique category values from restaurants, sorted */
 	getRestaurantCategoryValues(): string[] {
 		const set = new Set<string>();

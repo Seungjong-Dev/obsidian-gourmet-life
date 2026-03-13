@@ -21,6 +21,14 @@ export const RESTAURANT_SORT_OPTIONS: { value: SortOption; label: string }[] = [
 	{ value: "price-asc", label: "Price" },
 ];
 
+export const INGREDIENT_SORT_OPTIONS: { value: SortOption; label: string }[] = [
+	{ value: "name-asc", label: "Name A-Z" },
+	{ value: "name-desc", label: "Name Z-A" },
+	{ value: "rating-desc", label: "Rating" },
+	{ value: "created-desc", label: "Newest" },
+	{ value: "category", label: "Category" },
+];
+
 // ── Callbacks ──
 
 export interface ToolbarCallbacks {
@@ -74,10 +82,15 @@ export function buildWideToolbar(
 
 	// Tabs
 	const tabs = toolbar.createDiv({ cls: "gl-explorer__tabs" });
-	for (const t of ["recipe", "restaurant"] as ExplorerTab[]) {
+	const tabLabels: Record<ExplorerTab, string> = {
+		recipe: "Recipes",
+		restaurant: "Restaurants",
+		ingredient: "Ingredients",
+	};
+	for (const t of ["recipe", "restaurant", "ingredient"] as ExplorerTab[]) {
 		const btn = tabs.createEl("button", {
 			cls: "gl-explorer__tab",
-			text: t === "recipe" ? "Recipes" : "Restaurants",
+			text: tabLabels[t],
 		});
 		btn.addEventListener("click", () => callbacks.onSwitchTab(t));
 		tabButtons.push(btn);
@@ -188,10 +201,15 @@ export function buildNarrowToolbar(
 
 	// Segment control (pill toggle)
 	const segment = toolbar.createDiv({ cls: "gl-explorer__segment" });
-	for (const t of ["recipe", "restaurant"] as ExplorerTab[]) {
+	const segLabels: Record<ExplorerTab, string> = {
+		recipe: "Recipes",
+		restaurant: "Restaurants",
+		ingredient: "Ingredients",
+	};
+	for (const t of ["recipe", "restaurant", "ingredient"] as ExplorerTab[]) {
 		const btn = segment.createEl("button", {
 			cls: "gl-explorer__segment-btn",
-			text: t === "recipe" ? "Recipes" : "Restaurants",
+			text: segLabels[t],
 		});
 		btn.addEventListener("click", () => callbacks.onSwitchTab(t));
 		tabButtons.push(btn);
@@ -261,7 +279,11 @@ export function showOverflowMenu(
 	const menu = new Menu();
 
 	// Sort submenu
-	const sortOpts = tab === "recipe" ? RECIPE_SORT_OPTIONS : RESTAURANT_SORT_OPTIONS;
+	const sortOpts = tab === "recipe"
+		? RECIPE_SORT_OPTIONS
+		: tab === "ingredient"
+			? INGREDIENT_SORT_OPTIONS
+			: RESTAURANT_SORT_OPTIONS;
 	for (const opt of sortOpts) {
 		menu.addItem((item) => {
 			item.setTitle(`Sort: ${opt.label}`);
@@ -292,7 +314,7 @@ export function showOverflowMenu(
 	const layouts: { value: ExplorerLayout; label: string; icon: string; show: boolean }[] = [
 		{ value: "card", label: "Card view", icon: "layout-grid", show: true },
 		{ value: "list", label: "List view", icon: "list", show: true },
-		{ value: "graph", label: "Graph view", icon: "git-fork", show: tab === "recipe" },
+		{ value: "graph", label: "Graph view", icon: "git-fork", show: tab === "recipe" || tab === "ingredient" },
 		{ value: "map", label: "Map view", icon: "map-pin", show: tab === "restaurant" },
 	];
 	for (const l of layouts) {
@@ -331,7 +353,7 @@ export function updateTabButtons(
 	narrowButtons: HTMLElement[],
 	tab: ExplorerTab
 ): void {
-	const tabs: ExplorerTab[] = ["recipe", "restaurant"];
+	const tabs: ExplorerTab[] = ["recipe", "restaurant", "ingredient"];
 	for (let i = 0; i < wideButtons.length; i++) {
 		wideButtons[i].toggleClass("gl-explorer__tab--active", tabs[i] === tab);
 	}
@@ -350,8 +372,8 @@ export function updateLayoutButtons(
 	refs.layoutGraphBtn.toggleClass("gl-explorer__layout-btn--active", layout === "graph");
 	refs.layoutMapBtn.toggleClass("gl-explorer__layout-btn--active", layout === "map");
 
-	// Show graph only for recipe tab, map only for restaurant tab
-	refs.layoutGraphBtn.style.display = tab === "recipe" ? "" : "none";
+	// Show graph for recipe + ingredient tabs, map only for restaurant tab
+	refs.layoutGraphBtn.style.display = (tab === "recipe" || tab === "ingredient") ? "" : "none";
 	refs.layoutMapBtn.style.display = tab === "restaurant" ? "" : "none";
 }
 
@@ -361,7 +383,11 @@ export function updateSortOptions(
 	currentSortBy: SortOption
 ): void {
 	sortSelect.empty();
-	const opts = tab === "recipe" ? RECIPE_SORT_OPTIONS : RESTAURANT_SORT_OPTIONS;
+	const opts = tab === "recipe"
+		? RECIPE_SORT_OPTIONS
+		: tab === "ingredient"
+			? INGREDIENT_SORT_OPTIONS
+			: RESTAURANT_SORT_OPTIONS;
 	for (const opt of opts) {
 		const el = sortSelect.createEl("option", { text: opt.label, value: opt.value });
 		if (opt.value === currentSortBy) el.selected = true;

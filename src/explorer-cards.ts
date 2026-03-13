@@ -1,5 +1,5 @@
 import type { App, Vault } from "obsidian";
-import type { GourmetNote, ExplorerTab, RecipeFrontmatter, RestaurantFrontmatter } from "./types";
+import type { GourmetNote, ExplorerTab, RecipeFrontmatter, RestaurantFrontmatter, IngredientFrontmatter } from "./types";
 import type { ExplorerFilterState, FilterOption } from "./explorer-filter";
 import type { LayoutTier } from "./device";
 import { renderStarsDom } from "./render-utils";
@@ -19,7 +19,9 @@ export function renderFilterBar(
 	const fields =
 		type === "recipe"
 			? ["cuisine", "category", "difficulty"]
-			: ["cuisine", "category", "price_range", "area"];
+			: type === "ingredient"
+				? ["category", "season"]
+				: ["cuisine", "category", "price_range", "area"];
 
 	for (const field of fields) {
 		const values = options[field];
@@ -187,6 +189,19 @@ export function renderCardGrid(
 			const info = body.createDiv({ cls: "gl-explorer__card-info" });
 			if (fm.rating) { const ratingSpan = info.createSpan({ cls: "gl-explorer__card-rating" }); renderStarsDom(ratingSpan, fm.rating); }
 			if (fm.cook_time) info.createSpan({ text: `${fm.cook_time}min`, cls: "gl-explorer__card-time" });
+		} else if (type === "ingredient") {
+			const fm = note.frontmatter as IngredientFrontmatter;
+			if (fm.category) meta.createSpan({ cls: "gl-explorer__card-chip", text: fm.category });
+			if (fm.season) {
+				for (const s of fm.season) {
+					meta.createSpan({
+						cls: `gl-explorer__card-badge gl-ingredient__season-badge--${s}`,
+						text: s,
+					});
+				}
+			}
+			const info = body.createDiv({ cls: "gl-explorer__card-info" });
+			if (fm.rating) { const ratingSpan = info.createSpan({ cls: "gl-explorer__card-rating" }); renderStarsDom(ratingSpan, fm.rating); }
 		} else {
 			const fm = note.frontmatter as RestaurantFrontmatter;
 			if (fm.cuisine) meta.createSpan({ cls: "gl-explorer__card-chip", text: fm.cuisine });
@@ -274,6 +289,12 @@ export function renderListView(
 			if (fm.category) parts.push(fm.category);
 			if (fm.difficulty) parts.push(fm.difficulty);
 			if (fm.cook_time) parts.push(`${fm.cook_time}min`);
+			meta.textContent = parts.join(" \u00b7 ");
+		} else if (type === "ingredient") {
+			const fm = note.frontmatter as IngredientFrontmatter;
+			const parts: string[] = [];
+			if (fm.category) parts.push(fm.category);
+			if (fm.season) parts.push(fm.season.join(", "));
 			meta.textContent = parts.join(" \u00b7 ");
 		} else {
 			const fm = note.frontmatter as RestaurantFrontmatter;
