@@ -80,18 +80,19 @@ export function buildWideToolbar(
 ): WideToolbarRefs {
 	const tabButtons: HTMLElement[] = [];
 
-	// Tabs
+	// Tabs — icons with tooltips
 	const tabs = toolbar.createDiv({ cls: "gl-explorer__tabs" });
-	const tabLabels: Record<ExplorerTab, string> = {
-		recipe: "Recipes",
-		restaurant: "Restaurants",
-		ingredient: "Ingredients",
+	const tabIcons: Record<ExplorerTab, { icon: string; label: string }> = {
+		recipe: { icon: "chef-hat", label: "Recipes" },
+		restaurant: { icon: "map-pin", label: "Restaurants" },
+		ingredient: { icon: "salad", label: "Ingredients" },
 	};
 	for (const t of ["recipe", "restaurant", "ingredient"] as ExplorerTab[]) {
 		const btn = tabs.createEl("button", {
 			cls: "gl-explorer__tab",
-			text: tabLabels[t],
+			attr: { "aria-label": tabIcons[t].label },
 		});
+		setIcon(btn, tabIcons[t].icon);
 		btn.addEventListener("click", () => callbacks.onSwitchTab(t));
 		tabButtons.push(btn);
 	}
@@ -199,18 +200,19 @@ export function buildNarrowToolbar(
 ): NarrowToolbarRefs {
 	const tabButtons: HTMLElement[] = [];
 
-	// Segment control (pill toggle)
+	// Segment control (pill toggle) — icons only for narrow width
 	const segment = toolbar.createDiv({ cls: "gl-explorer__segment" });
-	const segLabels: Record<ExplorerTab, string> = {
-		recipe: "Recipes",
-		restaurant: "Restaurants",
-		ingredient: "Ingredients",
+	const segIcons: Record<ExplorerTab, { icon: string; label: string }> = {
+		recipe: { icon: "chef-hat", label: "Recipes" },
+		restaurant: { icon: "map-pin", label: "Restaurants" },
+		ingredient: { icon: "salad", label: "Ingredients" },
 	};
 	for (const t of ["recipe", "restaurant", "ingredient"] as ExplorerTab[]) {
 		const btn = segment.createEl("button", {
 			cls: "gl-explorer__segment-btn",
-			text: segLabels[t],
+			attr: { "aria-label": segIcons[t].label },
 		});
+		setIcon(btn, segIcons[t].icon);
 		btn.addEventListener("click", () => callbacks.onSwitchTab(t));
 		tabButtons.push(btn);
 	}
@@ -300,7 +302,7 @@ export function showOverflowMenu(
 		item.setIcon("filter");
 		if (filter.sortBy) { /* placeholder — filterOpen checked by caller */ }
 		item.onClick(() => {
-			if (currentTier === "narrow") {
+			if (currentTier !== "wide") {
 				callbacks.onToggleNarrowFilter();
 			} else {
 				callbacks.onToggleFilter();
