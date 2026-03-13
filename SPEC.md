@@ -9,6 +9,7 @@ The plugin provides:
 - A **Gourmet Explorer** view with card grid / list / graph / map layout, multi-field filtering with counts, tag cloud, sort dropdown, ingredient search, summary stats bar, state persistence, and inline preview panel with related notes
 - A **recipe view** with CSS grid 2-column layout (Side + Main) for viewing and editing recipes, responsive single-column fallback for narrow viewports and mobile
 - A **restaurant view** with the same 2-column layout for viewing and editing restaurants, including Leaflet mini-map integration
+- An **ingredient view** with the same 2-column layout for viewing and editing ingredients, including substitutes navigation and recipe cross-references
 - **Note creation modals** with type-specific forms and markdown templates
 - **Ingredient auto-linking** in recipe notes via EditorSuggest and batch commands
 
@@ -80,6 +81,8 @@ category: vegetable      # vegetable | fruit | meat | seafood | dairy | grain | 
 season: [spring, summer] # spring | summer | fall | winter
 rating: 5                # 1–5 integer
 aliases: [고수, cilantro] # alternative names for auto-link matching
+image: path/to/image.jpg # vault-relative path (single image)
+substitutes: [parsley, basil] # alternative ingredient names
 tags: [herb]
 created: 2026-03-01
 ```
@@ -157,6 +160,29 @@ frontmatter
 - `## Recipe` is inserted automatically when saving from Recipe View's editor
 - The parser strips the `## Recipe` heading before Cooklang parsing (prevents `#` being misinterpreted as a tool marker)
 - Backward-compatible: notes without `## Recipe` are parsed normally (everything before `## Notes` / `## Reviews` is treated as recipe content)
+
+### Ingredient Note Body Structure
+
+Ingredient notes use `##` headings to delineate sections:
+
+```markdown
+---
+frontmatter
+---
+
+## Storage & Prep
+(보관법, 손질법, 고르는 법 등 참조 정보)
+
+## Notes
+(개인 메모, 요리 팁, 페어링 등)
+
+## Purchase Log
+(### 날짜 형식으로 구매 기록)
+```
+
+- `## Storage & Prep`: Reference info — storage tips, prep techniques, how to select
+- `## Notes`: Free-text personal notes, cooking tips, pairings
+- `## Purchase Log`: Purchase history entries, typically using `### date` sub-headings
 
 ---
 
@@ -244,6 +270,7 @@ Commands register in the command palette:
 - `Gourmet Life: New recipe`
 - `Gourmet Life: New ingredient`
 - `Gourmet Life: New restaurant`
+- `Gourmet Life: Open ingredient view` — Opens the active ingredient note in Ingredient View
 - `Gourmet Life: Search recipes` — Fuzzy search across all recipe notes; selecting a result opens it in Recipe View
 - `Gourmet Life: Share recipe as image` — Export the active recipe as a share card image (clipboard or native share)
 - `Gourmet Life: Migrate restaurant fields` — Batch rename `location` → `address` in frontmatter + backfill `area` from address
@@ -259,7 +286,7 @@ On submit:
 2. Generate frontmatter from form fields (skip empty optional fields)
 3. Generate markdown body from template (type-specific sections)
 4. Create file at `{folder}/{name}.md`
-5. Open the new note — recipes open in Recipe View, restaurants open in Restaurant View (via `onFileCreated` callback), ingredients open in the default markdown editor
+5. Open the new note — recipes open in Recipe View, restaurants open in Restaurant View, ingredients open in Ingredient View (all via `onFileCreated` callback)
 
 ### 5.3 Ingredient Auto-Link
 
@@ -562,6 +589,78 @@ Same pattern as Recipe View: `ResizeObserver` toggles `.gl-restaurant--single` a
 
 Registered as `VIEW_TYPE_RESTAURANT` ItemView. Activates when a restaurant note is opened (detected by `type: restaurant` frontmatter in a file within `restaurantsFolder`).
 
+### 5.7 Ingredient View (2-Column Layout)
+
+When an ingredient note is opened via the Gourmet Explorer, a command, or by clicking a substitute chip, the plugin renders a **2-column layout** in a custom ItemView. Follows the same architecture as Recipe/Restaurant Views (viewer/editor dual mode, auto-save, responsive layout). Newly created ingredient notes open directly in editor mode.
+
+```
+┌─── Ingredient View (CSS grid: auto 1fr rows × 30%/70% columns) ──────────┐
+│                                                                             │
+│  ┌─── Title Row (spans full width) ─────────────────────────────────────┐  │
+│  │  Ingredient Name             [Mode Toggle] [Delete] [View Source]    │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─── Side Panel (30%) ──────────┐  ┌─── Main Panel (70%) ─────────────┐  │
+│  │                                │  │                                   │  │
+│  │  [Image]                       │  │  ── Storage & Prep ──────────   │  │
+│  │                                │  │  Markdown content                 │  │
+│  │  ── Info ─────────────────     │  │                                   │  │
+│  │  Category                      │  │  ── Notes ────────────────────   │  │
+│  │  Season (badges)               │  │  Markdown content                 │  │
+│  │  Rating (stars)                │  │                                   │  │
+│  │                                │  │  ── Purchase Log ─────────────   │  │
+│  │  ── Aliases ──────────────     │  │  [Log entry cards]               │  │
+│  │  chip chip chip                │  │                                   │  │
+│  │                                │  │  ── Used in N recipes ────────   │  │
+│  │  ── Substitutes ──────────     │  │  Recipe 1 ★★★★                   │  │
+│  │  [clickable] [clickable]       │  │  Recipe 2 ★★★                    │  │
+│  │                                │  │                                   │  │
+│  │  ── Tags ─────────────────     │  │                                   │  │
+│  │  tag tag                       │  │                                   │  │
+│  └────────────────────────────────┘  └───────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Side Panel** (left, sticky):
+- Image thumbnail (same lightbox as Recipe View)
+- Info grid: category, season (colored badges — spring=green, summer=red, fall=orange, winter=blue), rating (stars with numeric label)
+- Aliases: chip display of alternative names
+- Substitutes: clickable button chips — clicking navigates to that ingredient's Ingredient View (via `onNavigateIngredient` callback)
+- Tags: chip display
+- Editor mode: ImageSuggestModal for image, category dropdown (INGREDIENT_CATEGORIES), season multi-select checkboxes, text inputs for rating/aliases/substitutes/tags
+
+**Main Panel** (right, scrollable):
+- Storage & Prep: Markdown-rendered section content
+- Notes: Markdown-rendered section content
+- Purchase Log: Rendered as individual cards per `### date` sub-heading
+- "Used in N recipes" section: Lists recipes that reference this ingredient (via `NoteIndex.getRecipesUsingIngredient()`), each clickable with rating stars
+- Editor mode: Three textareas (storagePrep, notes, purchaseLog) with `TextareaSuggest` for `![[image]]` and indent keyboard shortcuts
+
+#### Ingredient Parser
+
+`ingredient-parser.ts` provides:
+- `parseIngredientSections(body)`: Splits body by `## Storage & Prep`, `## Notes`, `## Purchase Log` headings using `SECTION_HEADING_RE`
+
+#### Recipe Cross-References
+
+`NoteIndex.getRecipesUsingIngredient(name)` checks both the ingredient name and its aliases against the `recipeIngredients` map (built from Cooklang body parsing). Results are displayed in the main panel with clickable recipe names and star ratings.
+
+#### Navigation from Recipe View
+
+Clicking an ingredient name in a recipe's side panel navigates to the Ingredient View (via `plugin.openIngredientView(file)`) instead of the default markdown editor.
+
+#### Auto-Save
+
+Same debounced auto-save pattern as Recipe/Restaurant Views: 1-second debounce timer, `isSaving` flag to prevent re-render loops.
+
+#### Responsive Behavior
+
+Same pattern as Recipe/Restaurant Views: `ResizeObserver` toggles `.gl-ingredient--single` at 600px. Single-column layout stacks side panel above main panel.
+
+#### View Registration
+
+Registered as `VIEW_TYPE_INGREDIENT` ItemView. Icon: `salad`. Activates when an ingredient note is opened (detected by `type: ingredient` frontmatter in a file within `ingredientsFolder`).
+
 ---
 
 ## 6. Settings
@@ -611,6 +710,10 @@ src/
 ├── restaurant-side-panel.ts # Restaurant side panel (image, map, metadata, visit summary)
 ├── restaurant-main-panel.ts # Restaurant main panel (menu, notes, reviews timeline)
 ├── restaurant-parser.ts     # Restaurant body parser (sections, visits, menu, coordinates)
+├── ingredient-view.ts       # Ingredient 2-column ItemView (viewer + editor)
+├── ingredient-side-panel.ts # Ingredient side panel (image, metadata, aliases, substitutes)
+├── ingredient-main-panel.ts # Ingredient main panel (sections, purchase log, recipe refs)
+├── ingredient-parser.ts     # Ingredient body parser (sections: storage, notes, purchase log)
 ├── device.ts                # Layout tier detection (wide/medium/narrow), touch/mobile helpers, ghost click suppression
 ├── explorer-view.ts         # Gourmet Explorer orchestrator (tabs, layout, filters, state, responsive tiers)
 ├── explorer-toolbar.ts      # Explorer wide/narrow toolbar construction + overflow menu + UI update helpers
@@ -637,17 +740,18 @@ src/
 - `onunload()`: Cleanup (automatic via Obsidian's component system)
 - Vault event registration: `metadataCache.on("changed")`, `vault.on("delete")`, `vault.on("rename")`
 - `openExplorerView(tab?, selectOnMapPath?)`: Opens Explorer view; when `selectOnMapPath` is provided, switches to map layout and selects the marker (flyTo + popup + preview)
-- No `file-open` interceptor — recipe/restaurant notes open in the default markdown editor; viewers are entered only via Explorer or commands
+- `openIngredientView(file, mode?)`: Opens Ingredient View for a given file (reuses existing leaf or creates new)
+- No `file-open` interceptor — recipe/restaurant/ingredient notes open in the default markdown editor; viewers are entered only via Explorer or commands
 
 **types.ts** — Type definitions
 - `GourmetNote`: Union type with discriminated `type` field
 - `RecipeFrontmatter`, `IngredientFrontmatter`, `RestaurantFrontmatter`
 - `GourmetLifeSettings` + `DEFAULT_SETTINGS`
-- `VIEW_TYPE_RECIPE`, `VIEW_TYPE_RESTAURANT`, `VIEW_TYPE_EXPLORER` constants
-- `ExplorerTab`: `'recipe' | 'restaurant'`
+- `VIEW_TYPE_RECIPE`, `VIEW_TYPE_RESTAURANT`, `VIEW_TYPE_INGREDIENT`, `VIEW_TYPE_EXPLORER` constants
+- `ExplorerTab`: `'recipe' | 'restaurant' | 'ingredient'`
 - `ExplorerLayout`: `'card' | 'list' | 'graph' | 'map'`
-- `SortOption`: `'name-asc' | 'name-desc' | 'rating-desc' | 'cook-time-asc' | 'created-desc' | 'difficulty-asc' | 'price-asc'`
-- `RecipeViewMode`, `RestaurantViewMode`: `'viewer' | 'editor'`
+- `SortOption`: `'name-asc' | 'name-desc' | 'rating-desc' | 'cook-time-asc' | 'created-desc' | 'difficulty-asc' | 'price-asc' | 'category'`
+- `RecipeViewMode`, `RestaurantViewMode`, `IngredientViewMode`: `'viewer' | 'editor'`
 - `BaseFileConfig`: Type for `.base` file generation config
 
 **constants.ts** — Centralized magic numbers and strings
@@ -679,7 +783,9 @@ src/
 - `getIngredientNames()`: Returns Map of name/alias → file path (for auto-link)
 - `getCuisineValues()`: Returns sorted unique cuisine strings from all recipes and restaurants (for autocomplete)
 - `getRestaurantCategoryValues()`: Returns sorted unique category strings from restaurants (for autocomplete)
-- Note: Dashboard browsing is handled by Bases; NoteIndex serves auto-link, recipe view, and Explorer ingredient search
+- `getRecipesUsingIngredient(name)`: Finds recipes using a given ingredient (checks name + all aliases from the ingredient note against `recipeIngredients` map, deduplicates results)
+- `getIngredients()`: Returns all ingredient-type notes from the index
+- Note: Dashboard browsing is handled by Bases; NoteIndex serves auto-link, recipe view, ingredient view, and Explorer
 
 **frontmatter-utils.ts** — Frontmatter helpers
 - `isGourmetFrontmatter(fm)`: Type guard — validates `type` field is `"recipe" | "ingredient" | "restaurant"`
@@ -711,6 +817,7 @@ src/
 - Toggles `.gl-recipe--editor` class based on current mode for CSS targeting
 - Delegates to `recipe-side-panel.ts` and `recipe-main-panel.ts`
 - Coordinates Side-Main interactions (hover highlights, qty sync)
+- Ingredient navigation: clicking an ingredient name opens the Ingredient View (via `plugin.openIngredientView(file)`) instead of the default markdown editor
 - Uses shared utilities: `titleFromPath()` for display name, `resolveResourcePath()` for image resolution, `splitFrontmatterBody()` for content parsing
 - `handleDelete()`: Opens `ConfirmDeleteModal` (from confirm-delete-modal.ts), trashes file via `vault.trash()`, detaches leaf
 - `buildRecipeBody()`: Assembles note body with `## Recipe`, `## Notes`, `## Reviews` headings on save
@@ -775,6 +882,32 @@ src/
 - `fetchCoordsFromUrl(url)`: Async rule-based extraction for short URLs (Google `maps.app.goo.gl`), Kakao Place pages, Naver Place pages (redirect follow + HTML scrape) → `Promise<GeoCoords | null>`
 - `geocodeAddress(address)`: Nominatim API geocoding → `GeoCoords`
 
+**ingredient-view.ts** — Ingredient 2-column view
+- Extends `ItemView`, registered as `VIEW_TYPE_INGREDIENT`
+- Same architecture as `restaurant-view.ts`: Viewer/Editor mode toggle, CSS grid layout, `ResizeObserver` at `SINGLE_COLUMN_BREAKPOINT`, debounced auto-save
+- Uses shared utilities: `titleFromPath()`, `resolveResourcePath()`, `splitFrontmatterBody()`
+- `buildIngredientFmData()`: Collects side state and builds frontmatter data (exported for preview auto-save)
+- `buildIngredientBody()`: Assembles body with `## Storage & Prep`, `## Notes`, `## Purchase Log` sections (exported for preview auto-save)
+- `handleDelete()`: Opens `ConfirmDeleteModal`, trashes file, detaches leaf
+- Icon: `salad`
+
+**ingredient-side-panel.ts** — Ingredient side panel
+- `renderIngredientSidePanel()`: Entry point, delegates to viewer/editor sub-renderers
+- `IngredientSideCallbacks`: `onInput`, `onNavigateIngredient?`
+- Viewer: Image with lightbox, info grid (category, season badges, rating stars), alias chips, substitute chips (clickable buttons navigating to other ingredient views), tag chips
+- Editor: ImageSuggestModal for image, category dropdown (INGREDIENT_CATEGORIES), season checkboxes (SEASONS), text inputs for rating/aliases/substitutes/tags
+- `collectIngredientSideState()`: Collects form values for auto-save
+
+**ingredient-main-panel.ts** — Ingredient main panel
+- `renderIngredientTitleRow()`: Title (display/input) + mode toggle + delete button + view source button
+- `renderIngredientMainPanel()`: Delegates to viewer/editor
+- Viewer: Storage & Prep (markdown-rendered), Notes (markdown-rendered), Purchase Log (cards per `### date` heading), "Used in N recipes" list (clickable, with rating stars via `NoteIndex.getRecipesUsingIngredient()`)
+- Editor: Three textareas (storagePrep, notes, purchaseLog) with `TextareaSuggest` for `![[image]]` and indent handlers
+- `collectIngredientMainState()`: Collects textarea values for auto-save
+
+**ingredient-parser.ts** — Ingredient body parser
+- `parseIngredientSections(body)`: Split body by `##` headings into storagePrep/notes/purchaseLog using `SECTION_HEADING_RE`
+
 **device.ts** — Layout tier detection and mobile helpers
 - `LayoutTier`: `"wide" | "medium" | "narrow"`
 - `getLayoutTier(width)`: Returns tier — wide (≥ 800px), medium (≥ 500px), narrow (< 500px)
@@ -787,13 +920,13 @@ src/
 - Extends `ItemView`, registered as `VIEW_TYPE_EXPLORER`
 - Implements `PreviewHost` interface (defined in explorer-preview.ts) for preview delegation
 - **Orchestrator pattern**: delegates toolbar construction to `explorer-toolbar.ts` and preview rendering to `explorer-preview.ts`, keeping the view class focused on state management and coordination
-- Tab switching: recipe / restaurant tabs with independent filter state
+- Tab switching: recipe / restaurant / ingredient tabs with independent filter state
 - Layout toggle: card grid / list / graph / map view
 - **Responsive layout tiers** via `ResizeObserver` (not media queries, so it adapts correctly inside Obsidian sidebars):
   - **Wide** (≥ 800px): Full toolbar with tab buttons, search input, layout buttons, filter toggle, sort dropdown, "Surprise Me" button. Preview panel as right side column
   - **Medium** (≥ 500px): Same toolbar, preview panel opens with reduced width
   - **Narrow** (< 500px): Compact segment-control toolbar with overflow menu (⋯), iOS-style expandable search bar, filter dropdown with backdrop overlay, preview overlay (covers body area below toolbar) with swipe-back gesture, 2-column card grid, ghost click suppression on overlay close
-- Sort dropdown: tab-aware options — recipes: Name A-Z/Z-A, Rating, Cook time, Newest, Difficulty; restaurants: Name A-Z/Z-A, Rating, Newest, Price
+- Sort dropdown: tab-aware options — recipes: Name A-Z/Z-A, Rating, Cook time, Newest, Difficulty; restaurants: Name A-Z/Z-A, Rating, Newest, Price; ingredients: Name A-Z/Z-A, Rating, Newest, Category
 - "Surprise Me" button: picks random note from current filtered set, opens preview
 - Body split: content list (left) + preview side panel (right)
 - Single-click selects note and opens preview; double-click opens full viewer
@@ -801,7 +934,7 @@ src/
 - `onLayoutTierChanged(tier)`: Migrates filter panel (collapsible ↔ dropdown), validates layout, and re-renders preview/content on tier change
 - Sidebar swipe interference: `touchmove` listener on container calls `stopPropagation` to prevent Obsidian sidebar gestures — **excludes** map (`.gl-explorer__map-inner`) and graph (`.gl-explorer__graph-container`) areas so custom touch handlers still fire
 - Map selection on narrow tier: skips `updateMapSelection` (marker highlight + popup) when the preview overlay fully covers the map, avoiding invisible DOM work
-- State persistence: saves/restores `tab`, `layout`, `sortBy`, full filter state (`cuisine`, `category`, `difficulty`, `price_range`, `area`, `minRating`, `tags`, `unrated`, `searchIngredients`), and `filterOpen` via `getState()`/`setState()` — restored filter values validated against current data
+- State persistence: saves/restores `tab`, `layout`, `sortBy`, full filter state (`cuisine`, `category`, `difficulty`, `price_range`, `area`, `season`, `minRating`, `tags`, `unrated`, `searchIngredients`), and `filterOpen` via `getState()`/`setState()` — restored filter values validated against current data
 
 **explorer-toolbar.ts** — Explorer toolbar construction
 - `buildWideToolbar(toolbar, callbacks)`: Creates wide toolbar DOM (tab buttons, filter toggle, search input with ingredient mode, sort dropdown, add/surprise/layout buttons) and returns `WideToolbarRefs` for later UI updates
@@ -809,36 +942,37 @@ src/
 - `buildNarrowSearchBar(bar, callbacks)`: Creates expandable search bar with ingredient mode toggle, returns `NarrowSearchBarRefs`
 - Narrow search bar: `.gl-explorer__narrow-search-inner` wraps input + ingredient mode button (leaf icon, `position: relative` anchors the absolute-positioned icon)
 - `showOverflowMenu(e, tab, layout, filter, tier, callbacks)`: Renders Obsidian `Menu` with sort options, filter toggle, layout options, new note, and surprise me
-- `RECIPE_SORT_OPTIONS` / `RESTAURANT_SORT_OPTIONS`: Tab-specific sort option definitions
+- `RECIPE_SORT_OPTIONS` / `RESTAURANT_SORT_OPTIONS` / `INGREDIENT_SORT_OPTIONS`: Tab-specific sort option definitions
 - `ToolbarCallbacks` interface: Unifies all toolbar action callbacks for clean delegation
 - UI update helpers: `updateTabButtons()`, `updateLayoutButtons()`, `updateSortOptions()`, `updateSearchMode()` — pure functions that sync DOM state to view model
 
 **explorer-preview.ts** — Explorer preview panel
 - `PreviewHost` interface: Defines the contract between ExplorerView and preview functions (app, plugin, state, DOM refs, methods)
-- `renderPreview(host)`: Main preview render — reads file, determines container (overlay for narrow, panel for wide/medium), renders header bar, delegates to recipe or restaurant sub-renderer
+- `renderPreview(host)`: Main preview render — reads file, determines container (overlay for narrow, panel for wide/medium), renders header bar, delegates to recipe, restaurant, or ingredient sub-renderer
 - Recipe preview: reuses `renderSidePanel`/`renderMainPanel` from recipe panel modules
 - Restaurant preview: reuses restaurant equivalents, includes nearby markers and "Show on Map" button (hidden when already in map layout)
+- Ingredient preview: reuses `renderIngredientSidePanel`/`renderIngredientMainPanel` from ingredient panel modules, includes substitute navigation and recipe cross-references
 - Narrow tier renders preview as overlay within `.gl-explorer__body` (below toolbar + stats bar) with swipe-back gesture (right-to-left swipe from left edge closes)
 - "Related Notes" section at bottom of preview: scores notes by tag/cuisine overlap, shows top 5 with click-to-preview
 - Auto-save cycle: `schedulePreviewAutoSave()` → `previewAutoSave()` → `flushPreviewAutoSave()` with `AUTO_SAVE_DELAY_MS` debounce
-- `buildPreviewFileContent(host, file)`: Collects UI state from recipe or restaurant panels, reconstructs frontmatter + body
+- `buildPreviewFileContent(host, file)`: Collects UI state from recipe, restaurant, or ingredient panels, reconstructs frontmatter + body
 - `buildNearbyRestaurants(host, fm, path)`: Proximity search using `NEARBY_RADIUS_DEG` / `MAX_NEARBY_RESTAURANTS` constants
 - `deleteNote(host, file)`: Confirmation modal → trash → refresh
 - Image resolution: `metadataCache.getFirstLinkpathDest()` with filename fallback
 
 **explorer-filter.ts** — Explorer filter logic
-- `ExplorerFilterState`: Filter state interface (cuisine, category, difficulty, price_range, area, minRating, tags, search, sortBy, unrated, searchIngredients)
+- `ExplorerFilterState`: Filter state interface (cuisine, category, difficulty, price_range, area, season, minRating, tags, search, sortBy, unrated, searchIngredients)
 - `FilterOption`: `{value, count}` pair for filter chips with counts
 - `createEmptyFilter()`: Returns blank filter state with `sortBy: "name-asc"`, `unrated: false`, `searchIngredients: false`
-- `applyFilters(notes, filters, ingredientIndex?)`: Filters notes by all active criteria — expanded search scope (name, cuisine, category, tags, address, area, difficulty, and optionally ingredient names from Cooklang body), unrated filter (`rating === undefined || 0`), min rating, tags AND, cuisine/category/difficulty/price_range/area OR within field. Category filter applies to both recipes and restaurants
-- `sortNotes(notes, sortBy)`: Sorts filtered array by chosen criterion (name, rating, cook_time, created, difficulty order, price_range length)
+- `applyFilters(notes, filters, ingredientIndex?)`: Filters notes by all active criteria — expanded search scope (name, cuisine, category, tags, address, area, difficulty, aliases, and optionally ingredient names from Cooklang body), unrated filter (`rating === undefined || 0`), min rating, tags AND, cuisine/category/difficulty/price_range/area/season OR within field. Category filter applies to recipes, restaurants, and ingredients. Season filter uses OR logic (ingredient matches if any of its seasons are selected)
+- `sortNotes(notes, sortBy)`: Sorts filtered array by chosen criterion (name, rating, cook_time, created, difficulty order, price_range length, category)
 - `extractFilterOptions(notes)`: Collects unique values per filterable field with counts as `Record<string, FilterOption[]>`
 - `extractTagCounts(notes)`: Counts tag frequency across notes for tag cloud
 
 **explorer-cards.ts** — Explorer card/list rendering
-- `renderFilterBar()`: Renders chip-based filter rows per field with counts + rating stars + "unrated" toggle chip (mutually exclusive with minRating). Restaurant tab includes cuisine, category, price_range, area filter rows
+- `renderFilterBar()`: Renders chip-based filter rows per field with counts + rating stars + "unrated" toggle chip (mutually exclusive with minRating). Restaurant tab includes cuisine, category, price_range, area filter rows. Ingredient tab includes category dropdown and season multi-select buttons
 - `renderTagCloud()`: Renders weighted tag cloud with size tiers (sm/md/lg) based on frequency
-- `renderCardGrid()`: Card grid with image thumbnail, metadata chips (including area), rating, cook time / address, "new" badge on cards created within `NEW_BADGE_DAYS`. Narrow tier uses 2-column grid layout
+- `renderCardGrid()`: Card grid with image thumbnail, metadata chips (including area), rating, cook time / address, "new" badge on cards created within `NEW_BADGE_DAYS`. Ingredient cards show category chip and season badges (with `gl-ingredient__season-badge--{season}` colored classes). Narrow tier uses 2-column grid layout
 - `renderListView()`: Compact list rows with thumbnail, "new" dot, name, metadata summary, rating. Narrow tier uses compact variant
 - Both card and list accept `resolveImage(imagePath, notePath)` callback for proper vault image resolution
 - Both support `onSelect` / `selectedPath` for preview selection highlighting
@@ -847,6 +981,7 @@ src/
 **explorer-stats.ts** — Explorer summary stats bar
 - `renderStatsBar(container, notes, tab, layoutTier?)`: Renders one-line stats between filter panel and card grid; compact layout on narrow tier
 - Recipe stats: total count, top 3 cuisines, difficulty distribution (colored dots), average rating
+- Ingredient stats: total count, top 3 categories, season distribution (season with counts), average rating
 - Restaurant stats: total count, top 3 areas, price range distribution, average rating
 - Mini timeline: 12-month activity chart (CSS bars, no external library) based on `created` field
 - Updates in real-time as filters change
@@ -866,8 +1001,8 @@ src/
 
 **explorer-graph.ts** — Explorer graph view
 - Force-directed graph of recipe–ingredient relationships using SVG + `requestAnimationFrame` simulation
-- Nodes: recipe nodes (from NoteIndex) and ingredient nodes (from Cooklang body parsing)
-- Edges: recipe → ingredient links
+- Recipe tab: Nodes are recipe + ingredient nodes (from Cooklang body parsing), edges are recipe → ingredient links
+- Ingredient tab: Nodes are ingredient notes, edges are substitutes links + recipe co-occurrence (ingredients used together in the same recipe). Node colors by category. Uses `renderIngredientGraphView()` to build synthetic data and delegates to `renderGraphView`
 - Force simulation: charge repulsion, edge spring, center gravity, collision avoidance
 - Interactive: drag nodes (pin/unpin), click recipe node to select, zoom/pan via mouse wheel and drag
 - Configurable via `GraphSettings` (charge, link distance, gravity) with settings panel
@@ -914,7 +1049,7 @@ src/
 - Extends `Modal`, renders type-specific form fields
 - Accepts optional `NoteIndex` for InputSuggest autocomplete on cuisine (recipe/restaurant) and category (restaurant) fields
 - Validates input, generates frontmatter + body, creates file
-- Accepts optional `onFileCreated` callback; if provided, calls it instead of default `leaf.openFile()` (used by recipe commands to open Recipe View directly, bypassing MetadataCache timing issues)
+- Accepts optional `onFileCreated` callback; if provided, calls it instead of default `leaf.openFile()` (used by recipe/restaurant/ingredient commands to open their respective views directly, bypassing MetadataCache timing issues)
 
 **ingredient-suggest.ts** — EditorSuggest
 - `onTrigger()`: Check if in recipe note, not inside `[[]]`, 2+ chars
@@ -923,7 +1058,7 @@ src/
 
 **template-utils.ts** — Markdown templates
 - `getRecipeTemplate()`: Sections for Ingredients, Instructions, Notes
-- `getIngredientTemplate()`: Sections for Description, Storage, Notes
+- `getIngredientTemplate()`: Sections for Storage & Prep, Notes, Purchase Log
 - `getRestaurantTemplate()`: Sections for Menu Highlights, Notes, Reviews
 
 Note: Statistics (counts, averages, distributions) are handled by Bases summaries and formula properties — no custom statistics module needed in MVP.
@@ -951,6 +1086,8 @@ Vault Files (markdown + frontmatter)
         │
         ├──▶ RestaurantView ──▶ RestaurantSidePanel + RestaurantMainPanel
         │
+        ├──▶ IngredientView ──▶ IngredientSidePanel + IngredientMainPanel
+        │
         └──▶ IngredientSuggest.getSuggestions()
 
   BasesGenerator ──▶ .base files (one-time generation on load/settings change)
@@ -968,6 +1105,7 @@ Vault Files (markdown + frontmatter)
 | `vault.on("rename")` | File rename/move | `NoteIndex.renameFile()` |
 | Recipe note open | Explorer / Command | Activate `RecipeView` in Viewer mode |
 | Restaurant note open | Explorer / Command | Activate `RestaurantView` in Viewer mode |
+| Ingredient note open | Explorer / Command / Substitute click | Activate `IngredientView` in Viewer mode |
 | Edit button click | RecipeView | Switch to Editor mode, re-render Side/Main |
 | Side ingredient hover | RecipeSidePanel | `RecipeMainPanel.highlightSteps()` |
 | Main step focus | RecipeMainPanel | `RecipeSidePanel.highlightIngredients()` |
@@ -1057,6 +1195,32 @@ gl-restaurant__dish-review — Dish review row (chip + stars + comment)
 gl-restaurant__dish-chip   — Dish name chip
 gl-restaurant__general-comment — General visit comment
 gl-restaurant__coord-btns  — Coordinate extraction/geocoding buttons
+gl-ingredient              — Ingredient view root (CSS grid: 30%/70% columns)
+gl-ingredient--single      — 1-column fallback (< 600px)
+gl-ingredient--editor      — Editor mode flag
+gl-ingredient__title-row   — Full-width title row
+gl-ingredient__side        — Side panel
+gl-ingredient__main        — Main panel
+gl-ingredient__image-wrap  — Image container
+gl-ingredient__image       — Image element with lightbox
+gl-ingredient__info-grid   — Metadata info grid
+gl-ingredient__info-row    — Single info row (label + value)
+gl-ingredient__season-badges — Season badge container
+gl-ingredient__season-badge — Season badge base
+gl-ingredient__season-badge--spring — Green badge (spring)
+gl-ingredient__season-badge--summer — Red badge (summer)
+gl-ingredient__season-badge--fall   — Orange badge (fall)
+gl-ingredient__season-badge--winter — Blue badge (winter)
+gl-ingredient__rating      — Star rating display
+gl-ingredient__alias-chips — Alias chip container
+gl-ingredient__alias-chip  — Single alias chip
+gl-ingredient__substitute-chips — Substitute chip container
+gl-ingredient__substitute-chip  — Clickable substitute chip (navigates to ingredient)
+gl-ingredient__tag-chip    — Tag chip
+gl-ingredient__season-checkboxes — Season checkbox group (editor)
+gl-ingredient__purchase-card — Purchase log entry card
+gl-ingredient__recipe-list — "Used in recipes" section
+gl-ingredient__recipe-item — Single recipe link row
 gl-star                    — Star rating base (inline-block)
 gl-star--full              — Full star (★)
 gl-star--half              — Half-star wrapper (position: relative, contains empty + half-fill)
@@ -1133,4 +1297,5 @@ These features are NOT part of MVP but may be added later:
 | **Main panel** | Right column (70%) showing title, steps, references, and action bar |
 | **Ingredient chip** | Lightweight inline tag in step text representing a linked ingredient with quantity (translucent background, thin padding) |
 | **Restaurant view** | 2-column ItemView (Side + Main) for viewing and editing individual restaurants, with Leaflet map integration |
+| **Ingredient view** | 2-column ItemView (Side + Main) for viewing and editing individual ingredients, with substitutes navigation and recipe cross-references |
 | **TextareaSuggest** | Generic inline autocomplete system for textarea elements, used for `![[image]]` embed suggestions; positioned via mirror div technique |
