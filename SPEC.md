@@ -714,7 +714,8 @@ src/
 - `highlightSteps(ingredientName)`: Highlights steps using a given ingredient
 - Attaches `TextareaSuggest` to all three textareas (recipe body, notes, reviews) for `![[image]]` inline autocomplete
 - Inline image rendering: `![[image.ext]]` embeds rendered as thumbnails with click-to-expand lightbox
-- Gallery grouping: Consecutive image-only lines/steps are merged into a single `.gl-recipe__gallery` flex container for horizontal layout (applies to both Cooklang steps and notes/reviews text)
+- Gallery grouping: Consecutive image-only lines/steps are merged into a single `.gl-gallery` horizontal scroll strip (120×120 thumbnails, single row, `overflow-x: auto`). Applies to both Cooklang steps and notes/reviews text
+- Lightbox navigation: Gallery images open in a lightbox with `‹`/`›` prev/next buttons, keyboard arrow key support, `Escape` to close, and an image counter (`1 / N`). Single images open without navigation controls
 
 **recipe-share-card.ts** — Share card export
 - `exportShareCard(app, filePath, fm, bodyContent, title)`: Public entry point — builds card DOM, captures PNG, outputs to clipboard or native share
@@ -744,7 +745,7 @@ src/
 **restaurant-main-panel.ts** — Restaurant main panel
 - `renderRestaurantTitleRow()`: Title (display/input) + mode toggle + delete button + view source button
 - `renderRestaurantMainPanel()`: Delegates to viewer/editor
-- Viewer: Menu Highlights list, Notes paragraphs, Reviews as timeline cards (sorted newest-first) with visit ratings, dish chips with stars, general comments
+- Viewer: Menu Highlights list, Notes paragraphs, Reviews as timeline cards (sorted newest-first) with visit ratings, dish chips with stars, general comments; consecutive image-only comments grouped into `.gl-gallery` horizontal scroll strip with lightbox navigation
 - Editor: Three textareas (menu-highlights, notes, reviews) + "+ New visit" button
 - `collectRestaurantMainState()`: Collects textarea values for auto-save
 
@@ -972,14 +973,17 @@ gl-recipe__step-group  — Step group wrapper (counter-reset scope per section)
 gl-recipe__step        — Single step
 gl-recipe__step--highlight — Highlighted step (interaction)
 gl-recipe__chip        — Lightweight tag-style chip inline in step text (thin padding, no shadow)
-gl-recipe__gallery     — Flex container grouping consecutive inline images
-gl-recipe__inline-image — Image thumbnail in gallery (click to expand)
+gl-gallery             — Shared horizontal scroll strip for consecutive images (120×120, nowrap, overflow-x: auto)
 gl-recipe__refs        — References section
 gl-recipe__editor-meta  — Editor metadata accordion wrapper (card in single-column)
 gl-recipe__editor-meta-header — Accordion header (hidden in 2-column)
 gl-recipe__editor-meta-body   — Accordion body (collapsed in single-column)
-gl-lightbox            — Fullscreen image lightbox overlay (click to dismiss)
+gl-lightbox            — Fullscreen image lightbox overlay (click background to dismiss)
 gl-lightbox__image     — Lightbox displayed image
+gl-lightbox__nav       — Circular prev/next navigation button (gallery mode only)
+gl-lightbox__nav--prev — Left arrow button
+gl-lightbox__nav--next — Right arrow button
+gl-lightbox__counter   — Image counter label ("1 / N", bottom-center)
 gl-suggest             — Textarea autocomplete popup (position: fixed)
 gl-suggest__item       — Popup item row
 gl-suggest__item--active — Keyboard/hover-selected item
