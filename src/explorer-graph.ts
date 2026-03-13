@@ -64,6 +64,7 @@ export function destroyGraph(container: HTMLElement): void {
 		state.resizeObserver = null;
 	}
 	simStates.delete(container);
+	container.removeClass("gl-explorer__graph");
 }
 
 export function hasExplorerGraph(container: HTMLElement): boolean {
