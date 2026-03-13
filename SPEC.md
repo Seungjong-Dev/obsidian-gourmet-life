@@ -920,7 +920,7 @@ src/
 - Extends `ItemView`, registered as `VIEW_TYPE_EXPLORER`
 - Implements `PreviewHost` interface (defined in explorer-preview.ts) for preview delegation
 - **Orchestrator pattern**: delegates toolbar construction to `explorer-toolbar.ts` and preview rendering to `explorer-preview.ts`, keeping the view class focused on state management and coordination
-- Tab switching: recipe / restaurant / ingredient tabs with independent filter state
+- Tab switching: ingredient / recipe / restaurant tabs (ordered by culinary flow) with independent filter state
 - Layout toggle: card grid / list / graph / map view
 - **Responsive layout tiers** via `ResizeObserver` (not media queries, so it adapts correctly inside Obsidian sidebars):
   - **Wide** (≥ 800px): Full toolbar with icon tab buttons (chef-hat / map-pin / salad with aria-label tooltips), search input, layout buttons, filter toggle, sort dropdown, "Surprise Me" button. Preview panel as right side column
