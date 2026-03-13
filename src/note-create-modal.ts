@@ -29,19 +29,22 @@ export class NoteCreateModal extends Modal {
 	private noteIndex?: NoteIndex;
 
 	private onFileCreated?: (file: TFile) => void;
+	private initialName?: string;
 
 	constructor(
 		app: App,
 		noteType: GourmetNoteType,
 		settings: GourmetLifeSettings,
 		onFileCreated?: (file: TFile) => void,
-		noteIndex?: NoteIndex
+		noteIndex?: NoteIndex,
+		initialName?: string,
 	) {
 		super(app);
 		this.noteType = noteType;
 		this.settings = settings;
 		this.onFileCreated = onFileCreated;
 		this.noteIndex = noteIndex;
+		this.initialName = initialName;
 	}
 
 	onOpen(): void {
@@ -58,7 +61,7 @@ export class NoteCreateModal extends Modal {
 		contentEl.createEl("h2", { text: title });
 
 		// Name field (required for all types)
-		this.addTextField(contentEl, "Name", "name", "", true);
+		this.addTextField(contentEl, "Name", "name", "", true, undefined, this.initialName);
 
 		switch (this.noteType) {
 			case "recipe":
@@ -155,7 +158,8 @@ export class NoteCreateModal extends Modal {
 		key: string,
 		placeholder = "",
 		autofocus = false,
-		suggestItems?: () => string[]
+		suggestItems?: () => string[],
+		initialValue?: string,
 	): void {
 		const setting = new Setting(el)
 			.setName(label)
@@ -163,6 +167,10 @@ export class NoteCreateModal extends Modal {
 				text.setPlaceholder(placeholder).onChange((value) => {
 					this.formData[key] = value;
 				});
+				if (initialValue) {
+					text.setValue(initialValue);
+					this.formData[key] = initialValue;
+				}
 				if (autofocus) {
 					setTimeout(() => text.inputEl.focus(), 50);
 				}

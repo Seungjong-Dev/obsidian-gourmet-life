@@ -121,6 +121,7 @@ export function renderGraphView(
 	extraEdges?: Edge[],
 	ingredientPaths?: Map<string, string>,
 	extraNodes?: Array<{ id: string; label: string; type: "recipe" | "ingredient"; path?: string }>,
+	onSelectUnresolved?: (ingredientName: string) => void,
 ): void {
 	destroyGraph(container);
 	container.empty();
@@ -560,6 +561,7 @@ export function renderGraphView(
 						state.highlightedIng = node.id;
 						highlightConnected(node, nodes, edges, gNodes, gEdges);
 					}
+					if (onSelectUnresolved) onSelectUnresolved(node.label);
 				}
 			}
 
@@ -763,6 +765,7 @@ export function renderGraphView(
 							state.highlightedIng = node.id;
 							highlightConnected(node, nodes, edges, gNodes, gEdges);
 						}
+						if (onSelectUnresolved) onSelectUnresolved(node.label);
 					}
 				}
 
@@ -1094,7 +1097,8 @@ export function renderIngredientGraphView(
 	onSelect: (path: string) => void,
 	selectedPath: string | null,
 	initialSettings?: GraphSettings,
-	onSettingsChange?: (settings: GraphSettings) => void
+	onSettingsChange?: (settings: GraphSettings) => void,
+	onSelectUnresolved?: (ingredientName: string) => void,
 ): void {
 	destroyGraph(container);
 	container.empty();
@@ -1185,5 +1189,6 @@ export function renderIngredientGraphView(
 		substituteEdges,
 		ingredientPathMap,
 		extraNodes,
+		onSelectUnresolved,
 	);
 }
