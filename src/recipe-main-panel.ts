@@ -621,15 +621,16 @@ function renderTextWithEmbeds(
 
 	const flushGallery = () => {
 		if (pendingImages.length === 0) return;
-		const gallery = container.createDiv({ cls: "gl-recipe__gallery" });
-		for (const { src, alt } of pendingImages) {
-			const img = gallery.createEl("img", {
-				cls: "gl-recipe__inline-image",
-			});
-			img.src = src;
-			img.alt = alt;
+		const gallery = container.createDiv({ cls: "gl-gallery" });
+		const srcs = pendingImages.map((p) => p.src);
+		const alts = pendingImages.map((p) => p.alt);
+		for (let i = 0; i < pendingImages.length; i++) {
+			const img = gallery.createEl("img");
+			img.src = pendingImages[i].src;
+			img.alt = pendingImages[i].alt;
+			const idx = i;
 			img.addEventListener("click", () =>
-				showImageLightbox(img.src, img.alt)
+				showImageLightbox(img.src, img.alt, { srcs, alts, index: idx })
 			);
 		}
 		pendingImages = [];
@@ -661,12 +662,76 @@ function renderTextWithEmbeds(
 	}
 }
 
-export function showImageLightbox(src: string, alt: string): void {
+export interface GalleryInfo {
+	srcs: string[];
+	alts: string[];
+	index: number;
+}
+
+export function showImageLightbox(
+	src: string,
+	alt: string,
+	gallery?: GalleryInfo
+): void {
 	const overlay = document.body.createDiv({ cls: "gl-lightbox" });
 	const img = overlay.createEl("img", { cls: "gl-lightbox__image" });
 	img.src = src;
 	img.alt = alt;
-	overlay.addEventListener("click", () => overlay.remove());
+
+	// Prevent clicks on image/nav from closing overlay
+	img.addEventListener("click", (e) => e.stopPropagation());
+
+	if (gallery && gallery.srcs.length > 1) {
+		let currentIndex = gallery.index;
+
+		const prevBtn = overlay.createEl("button", {
+			cls: "gl-lightbox__nav gl-lightbox__nav--prev",
+			text: "\u2039",
+		});
+		const nextBtn = overlay.createEl("button", {
+			cls: "gl-lightbox__nav gl-lightbox__nav--next",
+			text: "\u203A",
+		});
+		const counter = overlay.createDiv({ cls: "gl-lightbox__counter" });
+
+		const update = () => {
+			img.src = gallery.srcs[currentIndex];
+			img.alt = gallery.alts[currentIndex];
+			counter.textContent = `${currentIndex + 1} / ${gallery.srcs.length}`;
+		};
+		update();
+
+		prevBtn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			currentIndex = (currentIndex - 1 + gallery.srcs.length) % gallery.srcs.length;
+			update();
+		});
+		nextBtn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			currentIndex = (currentIndex + 1) % gallery.srcs.length;
+			update();
+		});
+
+		const onKeydown = (e: KeyboardEvent) => {
+			if (e.key === "ArrowLeft") {
+				currentIndex = (currentIndex - 1 + gallery.srcs.length) % gallery.srcs.length;
+				update();
+			} else if (e.key === "ArrowRight") {
+				currentIndex = (currentIndex + 1) % gallery.srcs.length;
+				update();
+			} else if (e.key === "Escape") {
+				overlay.remove();
+				document.removeEventListener("keydown", onKeydown);
+			}
+		};
+		document.addEventListener("keydown", onKeydown);
+		overlay.addEventListener("click", () => {
+			overlay.remove();
+			document.removeEventListener("keydown", onKeydown);
+		});
+	} else {
+		overlay.addEventListener("click", () => overlay.remove());
+	}
 }
 
 // ── Segment Rendering ──
