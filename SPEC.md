@@ -511,7 +511,7 @@ When a restaurant note is opened via the Gourmet Explorer or a command, the plug
 - Menu Highlights: parsed `- name — description` list
 - Notes: free-text paragraphs
 - Reviews: timeline of visit cards sorted newest-first, each showing date, per-dish ratings with star display, and general comments
-- Editor mode: three textareas (menu highlights, notes, reviews) + "+ New visit" button that inserts today's date
+- Editor mode: three textareas (menu highlights, notes, reviews)
 
 #### Leaflet Map Integration
 
@@ -746,7 +746,7 @@ src/
 - `renderRestaurantTitleRow()`: Title (display/input) + mode toggle + delete button + view source button
 - `renderRestaurantMainPanel()`: Delegates to viewer/editor
 - Viewer: Menu Highlights list, Notes paragraphs, Reviews as timeline cards (sorted newest-first) with visit ratings, dish chips with stars, general comments; consecutive image-only comments grouped into `.gl-gallery` horizontal scroll strip with lightbox navigation
-- Editor: Three textareas (menu-highlights, notes, reviews) + "+ New visit" button
+- Editor: Three textareas (menu-highlights, notes, reviews)
 - `collectRestaurantMainState()`: Collects textarea values for auto-save
 
 **restaurant-parser.ts** — Restaurant body parser
@@ -868,10 +868,11 @@ src/
 - Used by restaurant editor (auto-suggest area on address input), note creation modal, and migrate command
 
 **textarea-suggest.ts** — Generic textarea inline autocomplete
-- `TextareaSuggest<T>` class: Trigger detection, cursor position calculation (mirror div technique), popup rendering, keyboard navigation (Arrow/Enter/Tab/Escape), blur-to-close
+- `TextareaSuggest<T>` class: Trigger detection, cursor position calculation (mirror div technique), popup rendering, keyboard navigation (Arrow/Enter/Tab/Escape), blur-to-close, IME composition guard (`e.isComposing` check to prevent Korean/Japanese/CJK input duplication)
 - `TextareaSuggestConfig<T>`: Configurable trigger string, closing string, item source, rendering, and selection callback — reusable for future triggers beyond `![[`
+- `buildGalleryInsertion(value, triggerStart, fileName)`: Analyses textarea context — if `![[` is on a standalone line (no preceding text), auto-wraps as `> [!gallery]\n> ![[file]]`; if a `> [!gallery]` header already exists above (with contiguous `> ![[...]]` lines), appends `> ![[file]]` without duplicating the header; returns `null` for inline usage (text before trigger on same line) so caller falls back to plain `![[file]]`
 - `sortImageFiles(files, recipePath?)`: Sorts images with recipe-folder files first, then by most-recently-modified (descending)
-- `createImageSuggest(textarea, getFiles, recipePath?)`: Pre-configured `TextareaSuggest<TFile>` for `![[` image embed autocomplete
+- `createImageSuggest(textarea, getFiles, recipePath?)`: Pre-configured `TextareaSuggest<TFile>` for `![[` image embed autocomplete — uses `buildGalleryInsertion` for auto gallery formatting on standalone lines
 
 **image-suggest-modal.ts** — Image selection modal
 - Extends `FuzzySuggestModal<TFile>` for metadata image field (side panel)
