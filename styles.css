@@ -1869,14 +1869,20 @@
 }
 
 .gl-explorer__tab {
-	padding: 6px 16px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 6px 12px;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
 	background: transparent;
 	color: var(--text-muted);
 	cursor: pointer;
-	font-weight: 500;
-	font-size: 0.9em;
+}
+
+.gl-explorer__tab .svg-icon {
+	width: 16px;
+	height: 16px;
 }
 
 .gl-explorer__tab--active {
@@ -2879,11 +2885,13 @@
 	display: none;
 }
 
-.gl-explorer--narrow .gl-explorer__toolbar--wide {
+.gl-explorer--narrow .gl-explorer__toolbar--wide,
+.gl-explorer--medium .gl-explorer__toolbar--wide {
 	display: none;
 }
 
-.gl-explorer--narrow .gl-explorer__toolbar--narrow {
+.gl-explorer--narrow .gl-explorer__toolbar--narrow,
+.gl-explorer--medium .gl-explorer__toolbar--narrow {
 	display: flex;
 }
 
@@ -2891,30 +2899,30 @@
 
 .gl-explorer__segment {
 	display: flex;
-	background: var(--background-modifier-border);
-	border-radius: 8px;
-	padding: 2px;
-	flex: 1;
-	min-width: 0;
+	gap: 4px;
 }
 
 .gl-explorer__segment-btn {
-	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	padding: 6px 12px;
-	border: none;
+	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
 	background: transparent;
 	color: var(--text-muted);
-	font-weight: 500;
-	font-size: 0.88em;
 	cursor: pointer;
-	transition: background 0.15s, color 0.15s;
+}
+
+.gl-explorer__segment-btn .svg-icon {
+	width: 16px;
+	height: 16px;
 }
 
 .gl-explorer__segment-btn--active {
-	background: var(--background-primary);
-	color: var(--text-normal);
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
 }
 
 /* ── Narrow Search Bar (expandable) ── */
@@ -2923,7 +2931,8 @@
 	display: none;
 }
 
-.gl-explorer--narrow .gl-explorer__narrow-search {
+.gl-explorer--narrow .gl-explorer__narrow-search,
+.gl-explorer--medium .gl-explorer__narrow-search {
 	display: block;
 	max-height: 0;
 	overflow: hidden;
@@ -2931,7 +2940,8 @@
 	padding: 0 12px;
 }
 
-.gl-explorer--narrow .gl-explorer__narrow-search--open {
+.gl-explorer--narrow .gl-explorer__narrow-search--open,
+.gl-explorer--medium .gl-explorer__narrow-search--open {
 	max-height: 60px;
 	padding: 8px 12px;
 	border-bottom: 1px solid var(--background-modifier-border);
@@ -2959,7 +2969,8 @@
 	display: none;
 }
 
-.gl-explorer--narrow .gl-explorer__filter-backdrop {
+.gl-explorer--narrow .gl-explorer__filter-backdrop,
+.gl-explorer--medium .gl-explorer__filter-backdrop {
 	display: none;
 	position: absolute;
 	inset: 0;
@@ -2967,11 +2978,13 @@
 	z-index: 8;
 }
 
-.gl-explorer--narrow .gl-explorer__filter-backdrop--open {
+.gl-explorer--narrow .gl-explorer__filter-backdrop--open,
+.gl-explorer--medium .gl-explorer__filter-backdrop--open {
 	display: block;
 }
 
-.gl-explorer--narrow .gl-explorer__filter-dropdown {
+.gl-explorer--narrow .gl-explorer__filter-dropdown,
+.gl-explorer--medium .gl-explorer__filter-dropdown {
 	display: none;
 	position: absolute;
 	left: 0;
@@ -2986,12 +2999,14 @@
 	padding: 8px 0;
 }
 
-.gl-explorer--narrow .gl-explorer__filter-dropdown--open {
+.gl-explorer--narrow .gl-explorer__filter-dropdown--open,
+.gl-explorer--medium .gl-explorer__filter-dropdown--open {
 	display: block;
 }
 
 /* Position filter dropdown relative to body */
-.gl-explorer--narrow .gl-explorer__body {
+.gl-explorer--narrow .gl-explorer__body,
+.gl-explorer--medium .gl-explorer__body {
 	position: relative;
 	min-height: 200px;
 }
@@ -3077,7 +3092,8 @@
 
 /* ── Narrow Filter Panel — hide collapsible, use dropdown instead ── */
 
-.gl-explorer--narrow .gl-explorer__filter-panel {
+.gl-explorer--narrow .gl-explorer__filter-panel,
+.gl-explorer--medium .gl-explorer__filter-panel {
 	display: none;
 }
 
@@ -3128,7 +3144,8 @@
 }
 
 /* ── Narrow scroll model (nested scroll, same as wide) ── */
-.gl-explorer--narrow .gl-explorer__narrow-header {
+.gl-explorer--narrow .gl-explorer__narrow-header,
+.gl-explorer--medium .gl-explorer__narrow-header {
 	flex-shrink: 0;
 	z-index: 7;
 	background: var(--background-primary);

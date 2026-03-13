@@ -474,12 +474,12 @@ export class ExplorerView extends ItemView implements PreviewHost {
 	private onLayoutTierChanged(tier: LayoutTier): void {
 		this.applyTierClasses(tier);
 
-		if (tier === "narrow" && this.filterOpen) {
+		if (tier !== "wide" && this.filterOpen) {
 			this.filterPanel.removeClass("gl-explorer__filter-panel--open");
 			this.renderNarrowFilterContent();
 			this.filterDropdown.addClass("gl-explorer__filter-dropdown--open");
 			this.filterBackdrop.addClass("gl-explorer__filter-backdrop--open");
-		} else if (tier !== "narrow" && this.filterOpen) {
+		} else if (tier === "wide" && this.filterOpen) {
 			this.filterDropdown.removeClass("gl-explorer__filter-dropdown--open");
 			this.filterBackdrop.removeClass("gl-explorer__filter-backdrop--open");
 			this.filterPanel.addClass("gl-explorer__filter-panel--open");
@@ -522,7 +522,7 @@ export class ExplorerView extends ItemView implements PreviewHost {
 	}
 
 	private updateFilterPanel(): void {
-		if (this.currentTier === "narrow") {
+		if (this.currentTier !== "wide") {
 			this.filterPanel.removeClass("gl-explorer__filter-panel--open");
 			if (this.filterOpen) {
 				this.renderNarrowFilterContent();
