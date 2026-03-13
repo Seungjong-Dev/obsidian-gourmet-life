@@ -204,7 +204,8 @@ export class RecipeView extends ItemView {
 				},
 			},
 			this.app,
-			this.filePath
+			this.filePath,
+			this.plugin.noteIndex
 		);
 
 		// Main panel

@@ -11,6 +11,8 @@ import {
 import { showImageLightbox } from "./recipe-main-panel";
 import { ImageSuggestModal } from "./image-suggest-modal";
 import { renderStarsDom } from "./render-utils";
+import { InputSuggest } from "./input-suggest";
+import type { NoteIndex } from "./note-index";
 
 export interface SidePanelCallbacks {
 	onIngredientHover: (name: string | null) => void;
@@ -41,14 +43,15 @@ export function renderSidePanel(
 	mode: RecipeViewMode,
 	callbacks: SidePanelCallbacks,
 	app?: App,
-	recipePath?: string
+	recipePath?: string,
+	noteIndex?: NoteIndex
 ): void {
 	container.empty();
 
 	if (mode === "viewer") {
 		renderSidePanelViewer(container, fm, bodyContent, resourcePath, callbacks);
 	} else {
-		renderSidePanelEditor(container, fm, bodyContent, resourcePath, callbacks, app, recipePath);
+		renderSidePanelEditor(container, fm, bodyContent, resourcePath, callbacks, app, recipePath, noteIndex);
 	}
 }
 
@@ -157,7 +160,8 @@ function renderSidePanelEditor(
 	resourcePath: (path: string) => string,
 	callbacks: SidePanelCallbacks,
 	app?: App,
-	recipePath?: string
+	recipePath?: string,
+	noteIndex?: NoteIndex
 ): void {
 	// Editor metadata card — accordion wrapper for Image + Metadata
 	const editorMeta = container.createDiv({ cls: "gl-recipe__editor-meta" });
@@ -233,6 +237,12 @@ function renderSidePanelEditor(
 	// Metadata — input fields
 	const cuisineValue = Array.isArray(fm.cuisine) ? fm.cuisine.join(", ") : (fm.cuisine || "");
 	addEditField(metaBody, "Cuisine", "cuisine", cuisineValue, callbacks.onInput);
+	if (noteIndex) {
+		const cuisineInput = metaBody.querySelector('[data-field="cuisine"]') as HTMLInputElement | null;
+		if (cuisineInput) {
+			new InputSuggest(cuisineInput, () => noteIndex.getCuisineValues());
+		}
+	}
 	addDropdownField(
 		metaBody,
 		"Category",
