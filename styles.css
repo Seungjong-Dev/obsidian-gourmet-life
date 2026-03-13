@@ -2571,15 +2571,11 @@
 }
 
 .gl-graph__node--unresolved circle {
-	fill-opacity: 0.3;
-	stroke: var(--text-muted);
-	stroke-width: 1;
-	stroke-dasharray: 3 2;
+	fill: var(--background-modifier-border);
 }
 
 .gl-graph__node--selected circle {
-	stroke: var(--interactive-accent);
-	stroke-width: 3;
+	stroke: none;
 }
 
 .gl-graph__node--dim {
