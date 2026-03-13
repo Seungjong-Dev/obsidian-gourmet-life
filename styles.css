@@ -603,6 +603,11 @@
 	line-height: 1.5;
 }
 
+/* Prevent flash of unstyled callout before gallery post-processing */
+.gl-markdown .callout[data-callout="gallery"] {
+	display: none;
+}
+
 /* Shared image gallery strip */
 
 .gl-gallery {
@@ -622,6 +627,12 @@
 .gl-gallery::-webkit-scrollbar-thumb {
 	background: var(--background-modifier-border);
 	border-radius: 3px;
+}
+
+/* Collapse MarkdownRenderer wrapper elements so only img participates in flex */
+.gl-gallery p,
+.gl-gallery span {
+	display: contents;
 }
 
 .gl-gallery img {
