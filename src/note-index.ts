@@ -144,6 +144,29 @@ export class NoteIndex {
 		return this.ingredientNames;
 	}
 
+	/** Collect unique category values from restaurants, sorted */
+	getRestaurantCategoryValues(): string[] {
+		const set = new Set<string>();
+		for (const note of this.getRestaurants()) {
+			const cat = (note.frontmatter as any).category;
+			if (cat) set.add(cat);
+		}
+		return [...set].sort((a, b) => a.localeCompare(b));
+	}
+
+	/** Collect unique cuisine values from all recipes and restaurants, sorted */
+	getCuisineValues(): string[] {
+		const set = new Set<string>();
+		for (const note of this.notes.values()) {
+			const cuisine = (note.frontmatter as any).cuisine;
+			if (cuisine) {
+				const arr = Array.isArray(cuisine) ? cuisine : [cuisine];
+				for (const c of arr) if (c) set.add(c);
+			}
+		}
+		return [...set].sort((a, b) => a.localeCompare(b));
+	}
+
 	// ── Private ──
 
 	private getByType(type: GourmetNoteType): GourmetNote[] {

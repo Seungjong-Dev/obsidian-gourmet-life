@@ -94,11 +94,13 @@ export function applyFilters(
 			if (!filters.cuisine.some((c) => cuisines.includes(c))) return false;
 		}
 
+		if (filters.category.length > 0) {
+			const cat = (fm as any).category;
+			if (!cat || !filters.category.includes(cat)) return false;
+		}
+
 		if (fm.type === "recipe") {
 			const rfm = fm as RecipeFrontmatter;
-			if (filters.category.length > 0) {
-				if (!rfm.category || !filters.category.includes(rfm.category)) return false;
-			}
 			if (filters.difficulty.length > 0) {
 				if (!rfm.difficulty || !filters.difficulty.includes(rfm.difficulty)) return false;
 			}
@@ -176,6 +178,7 @@ export function extractFilterOptions(
 		}
 		if (fm.type === "restaurant") {
 			const rfm = fm as RestaurantFrontmatter;
+			if (rfm.category) counts.category.set(rfm.category, (counts.category.get(rfm.category) ?? 0) + 1);
 			if (rfm.price_range) counts.price_range.set(rfm.price_range, (counts.price_range.get(rfm.price_range) ?? 0) + 1);
 			if (rfm.area) counts.area.set(rfm.area, (counts.area.get(rfm.area) ?? 0) + 1);
 		}

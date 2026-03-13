@@ -166,7 +166,8 @@ export function renderMapView(
 
 				// Popup content
 				const lines: string[] = [`<strong>${escapeHtml(r.name)}</strong>`];
-				if (fm.cuisine) lines.push(`<span class="gl-map-popup__cuisine">${escapeHtml(fm.cuisine)}</span>`);
+				const cuisineParts = [fm.cuisine, fm.category].filter(Boolean);
+				if (cuisineParts.length > 0) lines.push(`<span class="gl-map-popup__cuisine">${escapeHtml(cuisineParts.join(" · "))}</span>`);
 				if (fm.price_range) lines.push(`<span class="gl-map-popup__price">${escapeHtml(fm.price_range)}</span>`);
 				if (fm.rating != null) lines.push(`<span class="gl-map-popup__rating">${renderStarsHtml(fm.rating)}</span>`);
 				marker.bindPopup(lines.join("<br>"));

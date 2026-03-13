@@ -198,7 +198,7 @@ function renderRecipePreview(
 		onIngredientHover: () => {},
 		onInput: () => schedulePreviewAutoSave(host),
 	};
-	renderSidePanel(sideEl, fm, bodyContent, resourcePath, mode, sideCb);
+	renderSidePanel(sideEl, fm, bodyContent, resourcePath, mode, sideCb, host.app, file.path, host.plugin.noteIndex);
 
 	const mainCb: MainPanelCallbacks = {
 		onStepHover: () => {},
@@ -270,7 +270,7 @@ function renderRestaurantPreview(
 			}
 		},
 	};
-	renderRestaurantSidePanel(sideEl, fm, bodyContent, resourcePath, mode, sideCb);
+	renderRestaurantSidePanel(sideEl, fm, bodyContent, resourcePath, mode, sideCb, host.app, file.path, host.plugin.noteIndex);
 
 	const mainCb: RestaurantMainCallbacks = {
 		onViewSource: () => {},

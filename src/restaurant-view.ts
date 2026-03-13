@@ -197,7 +197,8 @@ export class RestaurantView extends ItemView {
 						},
 					},
 					this.app,
-					this.filePath
+					this.filePath,
+					this.plugin.noteIndex
 				);
 			} catch (err) {
 				console.error("[GourmetLife] Side panel render failed in view:", err);
@@ -332,6 +333,7 @@ export function buildRestaurantFmData(
 ): Record<string, unknown> {
 	const fmData: Record<string, unknown> = { type: "restaurant" };
 	if (sideState.cuisine) fmData.cuisine = sideState.cuisine;
+	if (sideState.category) fmData.category = sideState.category;
 	if (sideState.address) fmData.address = sideState.address;
 	if (sideState.area) fmData.area = sideState.area;
 	if (sideState.price_range) fmData.price_range = sideState.price_range;

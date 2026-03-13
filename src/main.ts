@@ -45,7 +45,8 @@ export default class GourmetLifePlugin extends Plugin {
 					this.app,
 					"recipe",
 					this.settings,
-					(file) => this.openRecipeView(file)
+					(file) => this.openRecipeView(file),
+					this.noteIndex
 				).open(),
 		});
 
@@ -68,7 +69,8 @@ export default class GourmetLifePlugin extends Plugin {
 					this.app,
 					"restaurant",
 					this.settings,
-					(file) => this.openRestaurantView(file, "editor")
+					(file) => this.openRestaurantView(file, "editor"),
+					this.noteIndex
 				).open(),
 		});
 
@@ -202,7 +204,8 @@ export default class GourmetLifePlugin extends Plugin {
 				this.app,
 				"recipe",
 				this.settings,
-				(file) => this.openRecipeView(file)
+				(file) => this.openRecipeView(file),
+				this.noteIndex
 			).open();
 		});
 

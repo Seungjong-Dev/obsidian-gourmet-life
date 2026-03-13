@@ -14,6 +14,8 @@ import {
 	getRestaurantTemplate,
 } from "./template-utils";
 import { suggestAreaFromLocation } from "./area-suggest";
+import { InputSuggest } from "./input-suggest";
+import type { NoteIndex } from "./note-index";
 
 interface FormData {
 	[key: string]: string | string[] | number | undefined;
@@ -24,6 +26,7 @@ export class NoteCreateModal extends Modal {
 	private settings: GourmetLifeSettings;
 	private formData: FormData = {};
 	private selectedSeasons: Set<string> = new Set();
+	private noteIndex?: NoteIndex;
 
 	private onFileCreated?: (file: TFile) => void;
 
@@ -31,12 +34,14 @@ export class NoteCreateModal extends Modal {
 		app: App,
 		noteType: GourmetNoteType,
 		settings: GourmetLifeSettings,
-		onFileCreated?: (file: TFile) => void
+		onFileCreated?: (file: TFile) => void,
+		noteIndex?: NoteIndex
 	) {
 		super(app);
 		this.noteType = noteType;
 		this.settings = settings;
 		this.onFileCreated = onFileCreated;
+		this.noteIndex = noteIndex;
 	}
 
 	onOpen(): void {
@@ -81,7 +86,8 @@ export class NoteCreateModal extends Modal {
 	}
 
 	private buildRecipeForm(el: HTMLElement): void {
-		this.addTextField(el, "Cuisine (comma-separated)", "cuisine");
+		this.addTextField(el, "Cuisine (comma-separated)", "cuisine", "", false,
+			this.noteIndex ? () => this.noteIndex!.getCuisineValues() : undefined);
 		this.addDropdown(el, "Category", "category", [
 			"",
 			...RECIPE_CATEGORIES,
@@ -106,7 +112,10 @@ export class NoteCreateModal extends Modal {
 	}
 
 	private buildRestaurantForm(el: HTMLElement): void {
-		this.addTextField(el, "Cuisine", "cuisine");
+		this.addTextField(el, "Cuisine", "cuisine", "", false,
+			this.noteIndex ? () => this.noteIndex!.getCuisineValues() : undefined);
+		this.addTextField(el, "Category", "category", "", false,
+			this.noteIndex ? () => this.noteIndex!.getRestaurantCategoryValues() : undefined);
 		this.addTextField(el, "Address", "address");
 		this.addTextField(el, "Area", "area");
 		this.addDropdown(el, "Price range", "price_range", [
@@ -145,7 +154,8 @@ export class NoteCreateModal extends Modal {
 		label: string,
 		key: string,
 		placeholder = "",
-		autofocus = false
+		autofocus = false,
+		suggestItems?: () => string[]
 	): void {
 		const setting = new Setting(el)
 			.setName(label)
@@ -155,6 +165,9 @@ export class NoteCreateModal extends Modal {
 				});
 				if (autofocus) {
 					setTimeout(() => text.inputEl.focus(), 50);
+				}
+				if (suggestItems) {
+					new InputSuggest(text.inputEl, suggestItems);
 				}
 			});
 		setting.settingEl.addClass("gl-modal__field");
@@ -303,6 +316,8 @@ export class NoteCreateModal extends Modal {
 			case "restaurant": {
 				if (this.formData["cuisine"])
 					data.cuisine = this.formData["cuisine"];
+				if (this.formData["category"])
+					data.category = this.formData["category"];
 				if (this.formData["address"])
 					data.address = this.formData["address"];
 				if (this.formData["area"])

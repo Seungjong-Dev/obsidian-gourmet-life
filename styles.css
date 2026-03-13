@@ -1024,7 +1024,7 @@
 
 .gl-suggest {
 	position: fixed;
-	z-index: var(--layer-popover, 300);
+	z-index: var(--layer-notice, 1100);
 	min-width: 220px;
 	max-width: 400px;
 	max-height: 320px;

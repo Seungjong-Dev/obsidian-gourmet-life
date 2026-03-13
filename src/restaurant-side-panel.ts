@@ -1,6 +1,8 @@
 import { Notice, setIcon, type App } from "obsidian";
 import type { RestaurantFrontmatter, RestaurantViewMode } from "./types";
 import { PRICE_RANGES } from "./types";
+import { InputSuggest } from "./input-suggest";
+import type { NoteIndex } from "./note-index";
 import {
 	parseRestaurantVisits,
 	parseRestaurantSections,
@@ -34,6 +36,7 @@ export interface RestaurantSideCallbacks {
 export interface RestaurantSideState {
 	image: string;
 	cuisine: string;
+	category: string;
 	address: string;
 	area: string;
 	price_range: string;
@@ -72,7 +75,8 @@ export function renderRestaurantSidePanel(
 	mode: RestaurantViewMode,
 	callbacks: RestaurantSideCallbacks,
 	app?: App,
-	notePath?: string
+	notePath?: string,
+	noteIndex?: NoteIndex
 ): void {
 	destroyLeafletMap(container);
 	container.empty();
@@ -81,7 +85,7 @@ export function renderRestaurantSidePanel(
 		if (mode === "viewer") {
 			renderViewer(container, fm, bodyContent, resourcePath, callbacks);
 		} else {
-			renderEditor(container, fm, bodyContent, resourcePath, callbacks, app, notePath);
+			renderEditor(container, fm, bodyContent, resourcePath, callbacks, app, notePath, noteIndex);
 		}
 		// Force layout recalculation — works around Chromium bug where
 		// children added after empty() inside a grid cell get 0×0 layout.
@@ -160,6 +164,10 @@ function renderViewer(
 
 	if (fm.cuisine) {
 		addInfoRow(infoGrid, "Cuisine", fm.cuisine);
+	}
+
+	if (fm.category) {
+		addInfoRow(infoGrid, "Category", fm.category);
 	}
 
 	if (fm.price_range) {
@@ -246,7 +254,8 @@ function renderEditor(
 	resourcePath: (path: string) => string,
 	callbacks: RestaurantSideCallbacks,
 	app?: App,
-	notePath?: string
+	notePath?: string,
+	noteIndex?: NoteIndex
 ): void {
 	// Image editor
 	const imageSection = container.createDiv({ cls: "gl-restaurant__image-edit" });
@@ -293,6 +302,17 @@ function renderEditor(
 	// Metadata fields
 	const metaSection = container.createDiv({ cls: "gl-restaurant__meta-edit" });
 	addEditField(metaSection, "Cuisine", "cuisine", fm.cuisine || "", callbacks.onInput);
+	addEditField(metaSection, "Category", "category", fm.category || "", callbacks.onInput);
+	if (noteIndex) {
+		const cuisineInput = metaSection.querySelector('[data-field="cuisine"]') as HTMLInputElement | null;
+		if (cuisineInput) {
+			new InputSuggest(cuisineInput, () => noteIndex.getCuisineValues());
+		}
+		const categoryInput = metaSection.querySelector('[data-field="category"]') as HTMLInputElement | null;
+		if (categoryInput) {
+			new InputSuggest(categoryInput, () => noteIndex.getRestaurantCategoryValues());
+		}
+	}
 	addEditField(metaSection, "Address", "address", fm.address || "", callbacks.onInput);
 	addEditField(metaSection, "Area", "area", fm.area || "", callbacks.onInput);
 
@@ -427,6 +447,7 @@ export function collectRestaurantSideState(container: HTMLElement): RestaurantSi
 	return {
 		image,
 		cuisine: getField("cuisine"),
+		category: getField("category"),
 		address: getField("address"),
 		area: getField("area"),
 		price_range: getField("price_range"),

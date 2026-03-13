@@ -712,7 +712,7 @@ export class ExplorerView extends ItemView implements PreviewHost {
 					this.renderPreview();
 				}
 			}, 500);
-		}).open();
+		}, this.plugin.noteIndex).open();
 	}
 
 	private surpriseMe(): void {
