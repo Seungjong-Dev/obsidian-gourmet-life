@@ -923,9 +923,9 @@ src/
 - Tab switching: recipe / restaurant / ingredient tabs with independent filter state
 - Layout toggle: card grid / list / graph / map view
 - **Responsive layout tiers** via `ResizeObserver` (not media queries, so it adapts correctly inside Obsidian sidebars):
-  - **Wide** (≥ 800px): Full toolbar with tab buttons, search input, layout buttons, filter toggle, sort dropdown, "Surprise Me" button. Preview panel as right side column
-  - **Medium** (≥ 500px): Same toolbar, preview panel opens with reduced width
-  - **Narrow** (< 500px): Compact segment-control toolbar with overflow menu (⋯), iOS-style expandable search bar, filter dropdown with backdrop overlay, preview overlay (covers body area below toolbar) with swipe-back gesture, 2-column card grid, ghost click suppression on overlay close
+  - **Wide** (≥ 800px): Full toolbar with icon tab buttons (chef-hat / map-pin / salad with aria-label tooltips), search input, layout buttons, filter toggle, sort dropdown, "Surprise Me" button. Preview panel as right side column
+  - **Medium** (≥ 500px): Compact toolbar (same as narrow — icon segment tabs, search/overflow icons), filter dropdown with backdrop overlay, preview panel with reduced width
+  - **Narrow** (< 500px): Compact toolbar with icon segment tabs, overflow menu (⋯), iOS-style expandable search bar, filter dropdown with backdrop overlay, preview overlay (covers body area below toolbar) with swipe-back gesture, 2-column card grid, ghost click suppression on overlay close
 - Sort dropdown: tab-aware options — recipes: Name A-Z/Z-A, Rating, Cook time, Newest, Difficulty; restaurants: Name A-Z/Z-A, Rating, Newest, Price; ingredients: Name A-Z/Z-A, Rating, Newest, Category
 - "Surprise Me" button: picks random note from current filtered set, opens preview
 - Body split: content list (left) + preview side panel (right)
@@ -937,8 +937,8 @@ src/
 - State persistence: saves/restores `tab`, `layout`, `sortBy`, full filter state (`cuisine`, `category`, `difficulty`, `price_range`, `area`, `season`, `minRating`, `tags`, `unrated`, `searchIngredients`), and `filterOpen` via `getState()`/`setState()` — restored filter values validated against current data
 
 **explorer-toolbar.ts** — Explorer toolbar construction
-- `buildWideToolbar(toolbar, callbacks)`: Creates wide toolbar DOM (tab buttons, filter toggle, search input with ingredient mode, sort dropdown, add/surprise/layout buttons) and returns `WideToolbarRefs` for later UI updates
-- `buildNarrowToolbar(toolbar, callbacks)`: Creates narrow segment-control toolbar with search/overflow icons, returns `NarrowToolbarRefs`
+- `buildWideToolbar(toolbar, callbacks)`: Creates wide toolbar DOM (icon tab buttons with aria-label tooltips, filter toggle, search input with ingredient mode, sort dropdown, add/surprise/layout buttons) and returns `WideToolbarRefs` for later UI updates
+- `buildNarrowToolbar(toolbar, callbacks)`: Creates compact toolbar with icon segment buttons (chef-hat / map-pin / salad), search and overflow icons, returns `NarrowToolbarRefs`. Used by both medium and narrow tiers
 - `buildNarrowSearchBar(bar, callbacks)`: Creates expandable search bar with ingredient mode toggle, returns `NarrowSearchBarRefs`
 - Narrow search bar: `.gl-explorer__narrow-search-inner` wraps input + ingredient mode button (leaf icon, `position: relative` anchors the absolute-positioned icon)
 - `showOverflowMenu(e, tab, layout, filter, tier, callbacks)`: Renders Obsidian `Menu` with sort options, filter toggle, layout options, new note, and surprise me
@@ -1238,16 +1238,16 @@ Responsive breakpoints:
 - `.is-mobile`: `env(safe-area-inset-bottom)` on root, `padding-bottom: 48px` on single-column
 
 Explorer layout tiers (via `ResizeObserver`, adapts to actual container width including sidebars):
-- `.gl-explorer--wide` (≥ 800px): Full toolbar, side-panel preview
-- `.gl-explorer--medium` (≥ 500px): Full toolbar, narrower preview panel
-- `.gl-explorer--narrow` (< 500px): Segment-control tabs, overflow menu (⋯), expandable search bar, filter dropdown with backdrop, preview overlay within body (below toolbar), swipe-back, 2-column card grid, touch-friendly tap targets, ghost click suppression
+- `.gl-explorer--wide` (≥ 800px): Full toolbar with icon tabs, side-panel preview
+- `.gl-explorer--medium` (≥ 500px): Compact toolbar (same as narrow — icon segment tabs, overflow menu), filter dropdown with backdrop, narrower preview panel
+- `.gl-explorer--narrow` (< 500px): Compact toolbar with icon segment tabs, overflow menu (⋯), expandable search bar, filter dropdown with backdrop, preview overlay within body (below toolbar), swipe-back, 2-column card grid, touch-friendly tap targets, ghost click suppression
 
 Explorer scroll model (all tiers use the same nested scroll pattern):
 ```
 .gl-explorer (flex column, height: 100%, overflow: hidden)
 ├── header area (flex-shrink: 0, stays outside scroll)
-│   ├── wide/medium: toolbar
-│   └── narrow: narrowHeader (toolbar + search bar + stats bar)
+│   ├── wide: toolbar
+│   └── medium/narrow: narrowHeader (toolbar + search bar + stats bar)
 └── body (flex: 1, overflow-y: auto ← scroll container)
     └── content (cards/list/map)
 ```
