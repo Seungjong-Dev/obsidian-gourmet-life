@@ -371,6 +371,19 @@ When a recipe note is opened via the Gourmet Explorer or a command, the plugin r
 | Side ingredient qty change | Immediately reflected in Main ingredient chips |
 | Side `+ Add ingredient` | Ingredient becomes available for chip insertion in Main |
 
+#### Editor Textarea Keyboard Shortcuts
+
+All editor textareas (recipe body, notes, reviews) support indent and auto-prefix via `attachIndentHandler()` from `textarea-indent.ts`. Handlers skip when `e.defaultPrevented` (suggest popup open) or `e.isComposing` (IME composition in progress).
+
+| Key | Behavior |
+|-----|----------|
+| **Tab** | Insert 2 spaces at cursor. With selection: indent all selected lines by 2 spaces |
+| **Shift+Tab** | Remove up to 2 leading spaces from current/selected lines (dedent) |
+| **Enter** | New line preserving current line's indent + list prefix (`- `, `> `, `* `, `1. `) |
+| **Enter** (empty prefix) | If line has only prefix with no content (e.g. `- `), clear the prefix and insert blank line (list escape) |
+
+Cleanup: detach functions are stored in the `__glSuggests` array alongside `TextareaSuggest` instances, cleaned up on re-render.
+
 #### Responsive Behavior
 
 The root `.gl-recipe` container uses a `ResizeObserver` to toggle `.gl-recipe--single` at 600px width. Mode-specific CSS uses `.gl-recipe--editor` (toggled in `render()`).
@@ -511,7 +524,7 @@ When a restaurant note is opened via the Gourmet Explorer or a command, the plug
 - Menu Highlights: parsed `- name — description` list
 - Notes: free-text paragraphs
 - Reviews: timeline of visit cards sorted newest-first, each showing date, per-dish ratings with star display, and general comments
-- Editor mode: three textareas (menu highlights, notes, reviews)
+- Editor mode: three textareas (menu highlights, notes, reviews) with same indent/auto-prefix keyboard shortcuts as Recipe View (see [Editor Textarea Keyboard Shortcuts](#editor-textarea-keyboard-shortcuts))
 
 #### Leaflet Map Integration
 
@@ -866,6 +879,14 @@ src/
 **area-suggest.ts** — Area extraction from address
 - `suggestAreaFromLocation(address)`: Best-effort coarse area extraction — Korean 구 name, Japanese 市/区 name, comma-separated western address (second-to-last segment), or fallback to full string
 - Used by restaurant editor (auto-suggest area on address input), note creation modal, and migrate command
+
+**textarea-indent.ts** — Textarea Tab/Enter indent handler
+- `attachIndentHandler(textarea)`: Attaches keydown listener for Tab (indent/dedent) and Enter (auto-prefix continuation). Returns cleanup function
+- Tab: 2-space insert or multi-line indent; Shift+Tab: dedent up to 2 spaces
+- Enter: detects leading indent + list/blockquote prefix (`- `, `> `, `* `, `1. `) and continues on new line; empty prefix clears it (list escape)
+- Guards: `e.defaultPrevented` (coexists with TextareaSuggest popup), `e.isComposing` (IME safe)
+- Dispatches `input` event after modification to trigger auto-save
+- Used by: recipe-main-panel.ts (3 textareas), restaurant-main-panel.ts (3 textareas)
 
 **textarea-suggest.ts** — Generic textarea inline autocomplete
 - `TextareaSuggest<T>` class: Trigger detection, cursor position calculation (mirror div technique), popup rendering, keyboard navigation (Arrow/Enter/Tab/Escape), blur-to-close, IME composition guard (`e.isComposing` check to prevent Korean/Japanese/CJK input duplication)
