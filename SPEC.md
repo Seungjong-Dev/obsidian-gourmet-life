@@ -591,7 +591,7 @@ Registered as `VIEW_TYPE_RESTAURANT` ItemView. Activates when a restaurant note 
 
 ### 5.7 Ingredient View (2-Column Layout)
 
-When an ingredient note is opened via the Gourmet Explorer, a command, or by clicking a substitute chip, the plugin renders a **2-column layout** in a custom ItemView. Follows the same architecture as Recipe/Restaurant Views (viewer/editor dual mode, auto-save, responsive layout). Newly created ingredient notes open directly in editor mode.
+When an ingredient note is opened via the Gourmet Explorer, a command, or by clicking a substitute chip, the plugin renders a **2-column layout** in a custom ItemView. Follows the same architecture as Recipe/Restaurant Views (viewer/editor dual mode, auto-save, responsive layout, `--gl-warm-accent` theme variables with dark mode variant). Newly created ingredient notes open directly in editor mode.
 
 ```
 ┌─── Ingredient View (CSS grid: auto 1fr rows × 30%/70% columns) ──────────┐
@@ -621,8 +621,8 @@ When an ingredient note is opened via the Gourmet Explorer, a command, or by cli
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Side Panel** (left, sticky):
-- Image thumbnail (same lightbox as Recipe View)
+**Side Panel** (left, background-secondary, 20px padding):
+- Image thumbnail with 4:3 aspect ratio, 12px border-radius, box-shadow, gradient overlay, hover scale (same style as Recipe View)
 - Info grid: category, season (colored badges — spring=green, summer=red, fall=orange, winter=blue), rating (stars with numeric label)
 - Aliases: chip display of alternative names
 - Substitutes: clickable button chips — clicking navigates to that ingredient's Ingredient View (via `onNavigateIngredient` callback)
@@ -655,7 +655,7 @@ Same debounced auto-save pattern as Recipe/Restaurant Views: 1-second debounce t
 
 #### Responsive Behavior
 
-Same pattern as Recipe/Restaurant Views: `ResizeObserver` toggles `.gl-ingredient--single` at 600px. Single-column layout stacks side panel above main panel.
+Same pattern as Recipe/Restaurant Views: `ResizeObserver` toggles `.gl-ingredient--single` at 600px. Single-column switches from CSS grid to flex column layout with sticky title row (z-index 5). Side panel loses background and border-right; image wrap goes full-bleed (negative margin, no border-radius).
 
 #### View Registration
 
@@ -1006,7 +1006,7 @@ src/
 - `renderGraphView` accepts optional `extraEdges` (additional edges, e.g., substitutes between ingredient nodes), `ingredientPaths` (Map of ingredient name → file path, makes ingredient nodes selectable), and `onSelectUnresolved` callback
 - Force simulation: charge repulsion, edge spring, center gravity, collision avoidance
 - Interactive: drag nodes (pin/unpin), click any node with a path to select (recipe or ingredient), zoom/pan via mouse wheel and drag
-- Unresolved ingredient nodes (no note file): clicking opens a CTA preview panel showing ingredient name, "이 재료는 아직 노트가 없습니다" message, a create button that opens `NoteCreateModal` with name pre-filled, and a list of recipes using that ingredient. Creating a note triggers graph re-render and the node becomes resolved
+- Unresolved ingredient nodes (no note file): clicking opens a CTA preview panel showing ingredient name, "This ingredient doesn't have a note yet." message, a "Create ingredient note" button that opens `NoteCreateModal` with name pre-filled, and a "Used in recipes" list. Preview uses `--gl-warm-accent` theme variables, message has secondary background with accent left border, section headers use uppercase/letter-spacing style matching ingredient view. Creating a note triggers graph re-render and the node becomes resolved
 - Configurable via `GraphSettings` (charge, link distance, gravity) with settings panel
 - Node sizing by degree (number of connections), colored by type (recipe vs ingredient)
 
@@ -1198,14 +1198,14 @@ gl-restaurant__dish-review — Dish review row (chip + stars + comment)
 gl-restaurant__dish-chip   — Dish name chip
 gl-restaurant__general-comment — General visit comment
 gl-restaurant__coord-btns  — Coordinate extraction/geocoding buttons
-gl-ingredient              — Ingredient view root (CSS grid: 30%/70% columns)
-gl-ingredient--single      — 1-column fallback (< 600px)
+gl-ingredient              — Ingredient view root (CSS grid: minmax(220px,30%)/1fr; --gl-warm-accent theme vars)
+gl-ingredient--single      — 1-column flex fallback (< 600px), sticky title, full-bleed image
 gl-ingredient--editor      — Editor mode flag
-gl-ingredient__title-row   — Full-width title row
-gl-ingredient__side        — Side panel
-gl-ingredient__main        — Main panel
-gl-ingredient__image-wrap  — Image container
-gl-ingredient__image       — Image element with lightbox
+gl-ingredient__title-row   — Full-width title row (baseline-aligned, sticky in single-column)
+gl-ingredient__side        — Side panel (background-secondary, 20px padding)
+gl-ingredient__main        — Main panel (h2: uppercase, accent left border)
+gl-ingredient__image-wrap  — Image container (12px radius, gradient overlay ::after)
+gl-ingredient__image       — Image element (4:3 aspect, box-shadow, hover scale)
 gl-ingredient__info-grid   — Metadata info grid
 gl-ingredient__info-row    — Single info row (label + value)
 gl-ingredient__season-badges — Season badge container
