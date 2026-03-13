@@ -603,18 +603,31 @@
 	line-height: 1.5;
 }
 
-/* Gallery */
+/* Shared image gallery strip */
 
-.gl-recipe__gallery {
+.gl-gallery {
 	display: flex;
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
+	overflow-x: auto;
 	gap: 8px;
 	margin: 8px 0;
+	padding-bottom: 4px;
+	scrollbar-width: thin;
 }
 
-.gl-recipe__inline-image {
-	max-width: 180px;
-	max-height: 180px;
+.gl-gallery::-webkit-scrollbar {
+	height: 6px;
+}
+
+.gl-gallery::-webkit-scrollbar-thumb {
+	background: var(--background-modifier-border);
+	border-radius: 3px;
+}
+
+.gl-gallery img {
+	width: 120px;
+	height: 120px;
+	flex-shrink: 0;
 	object-fit: cover;
 	border-radius: 6px;
 	cursor: zoom-in;
@@ -622,7 +635,7 @@
 	transition: transform 0.2s ease;
 }
 
-.gl-recipe__inline-image:hover {
+.gl-gallery img:hover {
 	transform: scale(1.03);
 }
 
@@ -645,6 +658,46 @@
 	object-fit: contain;
 	border-radius: 8px;
 	box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+}
+
+.gl-lightbox__nav {
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%);
+	background: rgba(0, 0, 0, 0.5);
+	color: white;
+	border: none;
+	border-radius: 50%;
+	width: 44px;
+	height: 44px;
+	font-size: 20px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: background 0.2s ease;
+	z-index: 1;
+}
+
+.gl-lightbox__nav:hover {
+	background: rgba(0, 0, 0, 0.7);
+}
+
+.gl-lightbox__nav--prev {
+	left: 16px;
+}
+
+.gl-lightbox__nav--next {
+	right: 16px;
+}
+
+.gl-lightbox__counter {
+	position: absolute;
+	bottom: 20px;
+	left: 50%;
+	transform: translateX(-50%);
+	color: rgba(255, 255, 255, 0.7);
+	font-size: 14px;
 }
 
 .gl-recipe__edit-textarea--full {
@@ -1743,28 +1796,7 @@
 	padding: 2px 0;
 }
 
-/* Restaurant image gallery */
-
-.gl-restaurant__gallery {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px;
-	margin: 8px 0;
-}
-
-.gl-restaurant__gallery img {
-	max-width: 180px;
-	max-height: 180px;
-	object-fit: cover;
-	border-radius: 6px;
-	cursor: zoom-in;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-	transition: transform 0.2s ease;
-}
-
-.gl-restaurant__gallery img:hover {
-	transform: scale(1.03);
-}
+/* Restaurant image gallery — uses shared .gl-gallery */
 
 /* Coord buttons */
 

@@ -11,7 +11,7 @@ import {
 } from "./restaurant-parser";
 import { createImageSuggest, type TextareaSuggest } from "./textarea-suggest";
 import { renderStarsDom } from "./render-utils";
-import { showImageLightbox } from "./recipe-main-panel";
+import { showImageLightbox, type GalleryInfo } from "./recipe-main-panel";
 
 export interface RestaurantMainCallbacks {
 	onViewSource: () => void;
@@ -217,7 +217,7 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app
 			const galleryMd = pendingImageComments.join("\n");
 			pendingImageComments = [];
 			if (app && notePath && component) {
-				const gallery = card.createDiv({ cls: "gl-restaurant__gallery" });
+				const gallery = card.createDiv({ cls: "gl-gallery" });
 				MarkdownRenderer.render(app, galleryMd, gallery, notePath, component).then(() => {
 					attachLightboxHandlers(gallery);
 				});
@@ -266,11 +266,23 @@ function isImageOnlyComment(text: string): boolean {
 
 /** Attach lightbox click handlers to all img elements in a container */
 function attachLightboxHandlers(container: HTMLElement): void {
-	for (const img of Array.from(container.querySelectorAll("img"))) {
+	const imgs = Array.from(container.querySelectorAll("img"));
+	const srcs = imgs.map((i) => i.src);
+	const alts = imgs.map((i) => i.alt);
+	const gallery: GalleryInfo | undefined =
+		imgs.length > 1 ? { srcs, alts, index: 0 } : undefined;
+
+	for (let i = 0; i < imgs.length; i++) {
+		const img = imgs[i];
 		img.style.cursor = "zoom-in";
+		const idx = i;
 		img.addEventListener("click", (e) => {
 			e.stopPropagation();
-			showImageLightbox(img.src, img.alt);
+			showImageLightbox(
+				img.src,
+				img.alt,
+				gallery ? { ...gallery, index: idx } : undefined
+			);
 		});
 	}
 }
