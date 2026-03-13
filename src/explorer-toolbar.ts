@@ -87,7 +87,7 @@ export function buildWideToolbar(
 		restaurant: { icon: "map-pin", label: "Restaurants" },
 		ingredient: { icon: "salad", label: "Ingredients" },
 	};
-	for (const t of ["recipe", "restaurant", "ingredient"] as ExplorerTab[]) {
+	for (const t of ["ingredient", "recipe", "restaurant"] as ExplorerTab[]) {
 		const btn = tabs.createEl("button", {
 			cls: "gl-explorer__tab",
 			attr: { "aria-label": tabIcons[t].label },
@@ -207,7 +207,7 @@ export function buildNarrowToolbar(
 		restaurant: { icon: "map-pin", label: "Restaurants" },
 		ingredient: { icon: "salad", label: "Ingredients" },
 	};
-	for (const t of ["recipe", "restaurant", "ingredient"] as ExplorerTab[]) {
+	for (const t of ["ingredient", "recipe", "restaurant"] as ExplorerTab[]) {
 		const btn = segment.createEl("button", {
 			cls: "gl-explorer__segment-btn",
 			attr: { "aria-label": segIcons[t].label },
@@ -355,7 +355,7 @@ export function updateTabButtons(
 	narrowButtons: HTMLElement[],
 	tab: ExplorerTab
 ): void {
-	const tabs: ExplorerTab[] = ["recipe", "restaurant", "ingredient"];
+	const tabs: ExplorerTab[] = ["ingredient", "recipe", "restaurant"];
 	for (let i = 0; i < wideButtons.length; i++) {
 		wideButtons[i].toggleClass("gl-explorer__tab--active", tabs[i] === tab);
 	}
