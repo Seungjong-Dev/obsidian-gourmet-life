@@ -758,12 +758,12 @@ export class ExplorerView extends ItemView implements PreviewHost {
 		header.createSpan({ cls: "gl-explorer__preview-title", text: name });
 
 		// Message
-		wrap.createDiv({ cls: "gl-explorer__unresolved-msg", text: "이 재료는 아직 노트가 없습니다." });
+		wrap.createDiv({ cls: "gl-explorer__unresolved-msg", text: "This ingredient doesn't have a note yet." });
 
 		// Create button
 		const createBtn = wrap.createEl("button", { cls: "gl-explorer__unresolved-create-btn" });
 		setIcon(createBtn, "plus");
-		createBtn.appendText(" 재료 노트 만들기");
+		createBtn.appendText(" Create ingredient note");
 		createBtn.addEventListener("click", () => {
 			new NoteCreateModal(this.app, "ingredient", this.plugin.settings, (file) => {
 				this.unresolvedIngredient = null;
@@ -802,7 +802,7 @@ export class ExplorerView extends ItemView implements PreviewHost {
 
 		if (recipes.length > 0) {
 			const recipesSection = wrap.createDiv({ cls: "gl-explorer__unresolved-recipes" });
-			recipesSection.createEl("h4", { text: "사용하는 레시피" });
+			recipesSection.createEl("h4", { text: "Used in recipes" });
 			const list = recipesSection.createEl("ul");
 			for (const r of recipes) {
 				const li = list.createEl("li");

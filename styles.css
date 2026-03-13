@@ -3490,44 +3490,61 @@
 /* ── Unresolved Ingredient Preview ── */
 
 .gl-explorer__unresolved-preview {
-	padding: 16px;
+	--gl-warm-accent: #d97706;
+	--gl-warm-accent-soft: #fef3c7;
+	padding: 20px;
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: 16px;
+}
+
+.theme-dark .gl-explorer__unresolved-preview {
+	--gl-warm-accent: #f59e0b;
+	--gl-warm-accent-soft: rgba(245, 158, 11, 0.08);
 }
 
 .gl-explorer__unresolved-msg {
 	color: var(--text-muted);
 	font-size: 0.9em;
+	background: var(--background-secondary);
+	padding: 12px 16px;
+	border-radius: 8px;
+	border-left: 3px solid var(--gl-warm-accent);
 }
 
 .gl-explorer__unresolved-create-btn {
 	display: inline-flex;
 	align-items: center;
-	gap: 4px;
-	padding: 8px 16px;
-	border-radius: var(--radius-s);
-	background: var(--interactive-accent);
-	color: var(--text-on-accent);
-	font-weight: 500;
+	gap: 6px;
+	padding: 10px 20px;
+	border-radius: 8px;
+	background: var(--gl-warm-accent);
+	color: #fff;
+	font-weight: 600;
 	cursor: pointer;
 	border: none;
 	align-self: flex-start;
+	transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .gl-explorer__unresolved-create-btn:hover {
 	opacity: 0.9;
+	transform: translateY(-1px);
 }
 
 .gl-explorer__unresolved-recipes {
-	margin-top: 8px;
+	margin-top: 4px;
 }
 
 .gl-explorer__unresolved-recipes h4 {
-	margin: 0 0 6px;
+	margin: 0 0 8px;
 	font-size: 0.85em;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
 	color: var(--text-muted);
 	font-weight: 600;
+	border-left: 3px solid var(--interactive-accent);
+	padding-left: 10px;
 }
 
 .gl-explorer__unresolved-recipes ul {
