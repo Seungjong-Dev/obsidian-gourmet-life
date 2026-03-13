@@ -1003,9 +1003,10 @@ src/
 - Force-directed graph of recipe–ingredient relationships using SVG + `requestAnimationFrame` simulation
 - Recipe tab: Nodes are recipe + ingredient nodes (from Cooklang body parsing), edges are recipe → ingredient links
 - Ingredient tab: Bipartite graph of ingredient notes + recipes that use them. `renderIngredientGraphView()` collects relevant recipes from `recipeIngredients` map, builds substitute edges between ingredient nodes, and passes `ingredientPaths` map so ingredient nodes are clickable/selectable. Delegates to `renderGraphView` with `extraEdges` and `ingredientPaths` parameters
-- `renderGraphView` accepts optional `extraEdges` (additional edges, e.g., substitutes between ingredient nodes) and `ingredientPaths` (Map of ingredient name → file path, makes ingredient nodes selectable)
+- `renderGraphView` accepts optional `extraEdges` (additional edges, e.g., substitutes between ingredient nodes), `ingredientPaths` (Map of ingredient name → file path, makes ingredient nodes selectable), and `onSelectUnresolved` callback
 - Force simulation: charge repulsion, edge spring, center gravity, collision avoidance
 - Interactive: drag nodes (pin/unpin), click any node with a path to select (recipe or ingredient), zoom/pan via mouse wheel and drag
+- Unresolved ingredient nodes (no note file): clicking opens a CTA preview panel showing ingredient name, "이 재료는 아직 노트가 없습니다" message, a create button that opens `NoteCreateModal` with name pre-filled, and a list of recipes using that ingredient. Creating a note triggers graph re-render and the node becomes resolved
 - Configurable via `GraphSettings` (charge, link distance, gravity) with settings panel
 - Node sizing by degree (number of connections), colored by type (recipe vs ingredient)
 
@@ -1049,6 +1050,7 @@ src/
 **note-create-modal.ts** — Creation modal
 - Extends `Modal`, renders type-specific form fields
 - Accepts optional `NoteIndex` for InputSuggest autocomplete on cuisine (recipe/restaurant) and category (restaurant) fields
+- Accepts optional `initialName` to pre-fill the Name field (used by unresolved ingredient CTA in graph view)
 - Validates input, generates frontmatter + body, creates file
 - Accepts optional `onFileCreated` callback; if provided, calls it instead of default `leaf.openFile()` (used by recipe/restaurant/ingredient commands to open their respective views directly, bypassing MetadataCache timing issues)
 
