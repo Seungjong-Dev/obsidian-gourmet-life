@@ -328,7 +328,7 @@ function followRedirects(startUrl: string, maxHops = 5): Promise<string> {
 		const next = () => {
 			if (hops >= maxHops) { resolve(current); return; }
 			const mod = current.startsWith("https") ? nodeHttps : nodeHttp;
-			const req = mod.get(current, (res: any) => {
+			const req = mod.get(current, { headers: { "User-Agent": navigator.userAgent } }, (res: any) => {
 				res.resume();
 				const loc: string = res.headers.location || "";
 				if (loc && res.statusCode >= 300 && res.statusCode < 400) {
@@ -405,7 +405,7 @@ const ASYNC_MAP_RULES: AsyncMapUrlRule[] = [
 				const mobileUrl = `https://m.place.naver.com/restaurant/${placeId}/home`;
 				const resp = await requestUrl({
 					url: mobileUrl,
-					headers: { "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)" },
+					headers: { "User-Agent": navigator.userAgent },
 				});
 				return parseXYFromHtml(resp.text);
 			} catch {
