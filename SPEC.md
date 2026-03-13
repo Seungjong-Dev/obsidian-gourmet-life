@@ -1009,6 +1009,7 @@ src/
 - Unresolved ingredient nodes (no note file): clicking opens a CTA preview panel showing ingredient name, "This ingredient doesn't have a note yet." message, a "Create ingredient note" button that opens `NoteCreateModal` with name pre-filled, and a "Used in recipes" list. Preview uses `--gl-warm-accent` theme variables, message has secondary background with accent left border, section headers use uppercase/letter-spacing style matching ingredient view. Creating a note triggers graph re-render and the node becomes resolved
 - Configurable via `GraphSettings` (charge, link distance, gravity) with settings panel
 - Node sizing by degree (number of connections), colored by type (recipe vs ingredient)
+- `destroyGraph(container)`: Cleans up simulation (rAF, listeners, ResizeObserver) and removes `gl-explorer__graph` class from container — restoring normal scroll behavior for card/list views
 
 **render-utils.ts** — Shared star-rating rendering
 - `renderStarsDom(container, rating, max?)`: Renders star rating into a DOM container using `createSpan()` — full (★), half (two-layer: ☆ background + ★ clipped at 50%), empty (☆)
