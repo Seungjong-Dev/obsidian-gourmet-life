@@ -10,6 +10,7 @@ import {
 	type RestaurantMenuItem,
 } from "./restaurant-parser";
 import { createImageSuggest, type TextareaSuggest } from "./textarea-suggest";
+import { attachIndentHandler } from "./textarea-indent";
 import { renderStarsDom } from "./render-utils";
 import { showImageLightbox, type GalleryInfo } from "./recipe-main-panel";
 import { isGalleryCalloutMarker, transformGalleryCallouts, isImageOnlyLine } from "./gallery-utils";
@@ -397,6 +398,12 @@ function renderEditor(
 	reviewsArea.addEventListener("input", () => callbacks.onReviewsInput());
 	if (app) {
 		suggests.push(createImageSuggest(reviewsArea, () => app.vault.getFiles(), notePath));
+	}
+
+	// Attach indent handlers and store for cleanup
+	for (const ta of [menuArea, notesArea, reviewsArea]) {
+		const detach = attachIndentHandler(ta);
+		suggests.push({ destroy: detach } as any);
 	}
 
 	// Store suggests for cleanup on re-render
