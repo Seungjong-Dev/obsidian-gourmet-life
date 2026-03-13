@@ -87,7 +87,8 @@ created: 2026-03-01
 **Restaurant**
 ```yaml
 type: restaurant
-cuisine: Italian
+cuisine: Italian              # cuisine type (free text, autocomplete from existing values)
+category: cafe                # establishment type — cafe | bakery | bar | pub | etc. (free text, autocomplete)
 address: 서울 강남구 역삼로 123  # full address (maps/geocoding)
 area: 강남                     # coarse region name (filter chips)
 price_range: $$                # $ | $$ | $$$ | $$$$
@@ -187,7 +188,7 @@ On plugin load (and when folder settings change), the plugin creates/updates the
 |------|--------|--------------|-------------------|
 | `{recipesFolder}/Recipes.base` | `type == "recipe"` | Cards (cover: `image`, fit: cover) | file.name, cuisine, category, difficulty, rating, cook_time |
 | `{ingredientsFolder}/Ingredients.base` | `type == "ingredient"` | Table | category, season, rating, aliases |
-| `{restaurantsFolder}/Restaurants.base` | `type == "restaurant"` | Cards (cover: `image`, fit: cover) | file.name, cuisine, price_range, rating, address, area |
+| `{restaurantsFolder}/Restaurants.base` | `type == "restaurant"` | Cards (cover: `image`, fit: cover) | file.name, cuisine, category, price_range, rating, address, area |
 
 #### `.base` File Format (example: Recipes)
 
@@ -249,9 +250,9 @@ Commands register in the command palette:
 
 Each opens a **modal** with type-specific form fields:
 
-**Recipe modal**: Name, Cuisine (comma-separated), Category (dropdown), Difficulty (dropdown), Servings, Prep time, Cook time, Source
+**Recipe modal**: Name, Cuisine (comma-separated, autocomplete), Category (dropdown), Difficulty (dropdown), Servings, Prep time, Cook time, Source
 **Ingredient modal**: Name, Category (dropdown), Season (multi-select), Aliases (comma-separated)
-**Restaurant modal**: Name, Cuisine, Address, Area (auto-suggested from address), Price range (dropdown), URL
+**Restaurant modal**: Name, Cuisine (autocomplete), Category (autocomplete), Address, Area (auto-suggested from address), Price range (dropdown), URL
 
 On submit:
 1. Validate name is non-empty
@@ -500,7 +501,7 @@ When a restaurant note is opened via the Gourmet Explorer or a command, the plug
 │  │  [Leaflet Mini-Map]            │  │                                   │  │
 │  │                                │  │  ── Notes ──────────────────     │  │
 │  │  ── Info ─────────────────     │  │  Free-text content                │  │
-│  │  Location · Cuisine            │  │                                   │  │
+│  │  Location · Cuisine · Category │  │                                   │  │
 │  │  Price Range                   │  │  ── Reviews ────────────────     │  │
 │  │  Rating                        │  │  [Visit Card: 2026-03-05]        │  │
 │  │  URL                           │  │    Dish ★★★★ — Comment           │  │
@@ -516,9 +517,9 @@ When a restaurant note is opened via the Gourmet Explorer or a command, the plug
 **Side Panel** (left, sticky):
 - Image thumbnail (same lightbox as Recipe View)
 - Leaflet mini-map (if `lat`/`lng` available) — interactive in editor, read-only in viewer with nearby restaurant markers and "Show on Map" overlay
-- Info grid: address, area, cuisine, price range ($ visualization), rating (stars), URL (external link), tags
+- Info grid: address, area, cuisine, category, price range ($ visualization), rating (stars), URL (external link), tags
 - Visit summary: total visits, average rating across all visits
-- Editor mode: metadata input fields, coordinate extraction from URL (sync regex + async fetch for short URLs and place pages) or geocoding by address (Nominatim API). Coordinates are auto-extracted on editor open when URL exists but lat/lng are empty
+- Editor mode: metadata input fields with autocomplete for cuisine and category (InputSuggest combobox), coordinate extraction from URL (sync regex + async fetch for short URLs and place pages) or geocoding by address (Nominatim API). Coordinates are auto-extracted on editor open when URL exists but lat/lng are empty
 
 **Main Panel** (right, scrollable):
 - Menu Highlights: parsed `- name — description` list
@@ -621,6 +622,7 @@ src/
 ├── explorer-graph.ts        # Explorer force-directed graph view (recipe–ingredient links)
 ├── render-utils.ts          # Shared star-rating rendering (DOM + HTML, half-star support)
 ├── area-suggest.ts          # Best-effort area extraction from address string
+├── input-suggest.ts         # Combobox autocomplete for <input> fields (cuisine, category)
 ├── textarea-suggest.ts      # Generic textarea inline autocomplete (image embed, etc.)
 ├── image-suggest-modal.ts   # FuzzySuggestModal for image selection (metadata)
 ├── note-create-modal.ts     # Note creation modal
@@ -675,6 +677,8 @@ src/
 - `renameFile(oldPath, newPath)`: Update key on rename
 - Query methods: `getByPath()`, `searchByName()`
 - `getIngredientNames()`: Returns Map of name/alias → file path (for auto-link)
+- `getCuisineValues()`: Returns sorted unique cuisine strings from all recipes and restaurants (for autocomplete)
+- `getRestaurantCategoryValues()`: Returns sorted unique category strings from restaurants (for autocomplete)
 - Note: Dashboard browsing is handled by Bases; NoteIndex serves auto-link, recipe view, and Explorer ingredient search
 
 **frontmatter-utils.ts** — Frontmatter helpers
@@ -713,7 +717,7 @@ src/
 
 **recipe-side-panel.ts** — Side panel rendering
 - `renderSideViewer(container, note)`: Read-only mode (metadata, ingredients, tools, time, cooking log, related, actions)
-- `renderSideEditor(container, note)`: Edit mode (image edit, metadata inputs, ingredient inline edit, auto-updated tools/time)
+- `renderSideEditor(container, note)`: Edit mode (image edit, metadata inputs with InputSuggest for cuisine, ingredient inline edit, auto-updated tools/time)
 - `onIngredientHover(name)`: Emits event for Main to highlight matching steps
 - `highlightIngredients(names)`: Highlights ingredients used in focused step
 
@@ -750,9 +754,9 @@ src/
 - `renderRestaurantSidePanel()`: Entry point, delegates to viewer/editor sub-renderers
 - `NearbyRestaurant` interface: `{ name, lat, lng, path }` for nearby marker data
 - `RestaurantSideCallbacks`: `onInput`, `onShowOnMap?`, `nearbyRestaurants?`, `onNearbyClick?`
-- Viewer: Image with lightbox, Leaflet map (or fallback) with "Show on Map" overlay button and nearby gray markers, info grid (address, area, cuisine, price range, rating, URL, tags), visit summary
-- Editor: Image editor, metadata form fields, coordinate section with "Extract from URL" (sync + async) and "Search by address" buttons, auto-extract on open when URL exists but no coords, interactive Leaflet map
-- `collectRestaurantSideState()`: Collects form values for auto-save
+- Viewer: Image with lightbox, Leaflet map (or fallback) with "Show on Map" overlay button and nearby gray markers, info grid (address, area, cuisine, category, price range, rating, URL, tags), visit summary
+- Editor: Image editor, metadata form fields with InputSuggest combobox for cuisine and category, coordinate section with "Extract from URL" (sync + async) and "Search by address" buttons, auto-extract on open when URL exists but no coords, interactive Leaflet map
+- `collectRestaurantSideState()`: Collects form values (including category) for auto-save
 - `renderLeafletMap()`: Creates Leaflet map instance with OpenStreetMap tiles, supports optional nearby markers (small gray SVG icons with tooltips and click handlers)
 
 **restaurant-main-panel.ts** — Restaurant main panel
@@ -826,13 +830,13 @@ src/
 - `ExplorerFilterState`: Filter state interface (cuisine, category, difficulty, price_range, area, minRating, tags, search, sortBy, unrated, searchIngredients)
 - `FilterOption`: `{value, count}` pair for filter chips with counts
 - `createEmptyFilter()`: Returns blank filter state with `sortBy: "name-asc"`, `unrated: false`, `searchIngredients: false`
-- `applyFilters(notes, filters, ingredientIndex?)`: Filters notes by all active criteria — expanded search scope (name, cuisine, category, tags, address, area, difficulty, and optionally ingredient names from Cooklang body), unrated filter (`rating === undefined || 0`), min rating, tags AND, cuisine/category/difficulty/price_range/area OR within field
+- `applyFilters(notes, filters, ingredientIndex?)`: Filters notes by all active criteria — expanded search scope (name, cuisine, category, tags, address, area, difficulty, and optionally ingredient names from Cooklang body), unrated filter (`rating === undefined || 0`), min rating, tags AND, cuisine/category/difficulty/price_range/area OR within field. Category filter applies to both recipes and restaurants
 - `sortNotes(notes, sortBy)`: Sorts filtered array by chosen criterion (name, rating, cook_time, created, difficulty order, price_range length)
 - `extractFilterOptions(notes)`: Collects unique values per filterable field with counts as `Record<string, FilterOption[]>`
 - `extractTagCounts(notes)`: Counts tag frequency across notes for tag cloud
 
 **explorer-cards.ts** — Explorer card/list rendering
-- `renderFilterBar()`: Renders chip-based filter rows per field with counts + rating stars + "unrated" toggle chip (mutually exclusive with minRating)
+- `renderFilterBar()`: Renders chip-based filter rows per field with counts + rating stars + "unrated" toggle chip (mutually exclusive with minRating). Restaurant tab includes cuisine, category, price_range, area filter rows
 - `renderTagCloud()`: Renders weighted tag cloud with size tiers (sm/md/lg) based on frequency
 - `renderCardGrid()`: Card grid with image thumbnail, metadata chips (including area), rating, cook time / address, "new" badge on cards created within `NEW_BADGE_DAYS`. Narrow tier uses 2-column grid layout
 - `renderListView()`: Compact list rows with thumbnail, "new" dot, name, metadata summary, rating. Narrow tier uses compact variant
@@ -849,7 +853,7 @@ src/
 
 **explorer-map.ts** — Explorer map view
 - `renderMapView(container, restaurants, onSelect, selectedPath)`: Leaflet map with restaurant markers (red pins, accent color when selected)
-- Markers with tooltips (permanent at zoom ≥ 13, overlap-aware), popups (name, cuisine, price, rating stars), click-to-select
+- Markers with tooltips (permanent at zoom ≥ 13, overlap-aware), popups (name, cuisine · category, price, rating stars), click-to-select
 - `enableSmoothWheelZoom(map, tileLayer)`: Custom smooth zoom — lerp-based `requestAnimationFrame` animation, `zoomanim` CSS transform during interpolation, `setView` on settle; suppresses tile layer `_resetAll` during final `setView` to prevent white flash
 - `zoomAroundCenter(zoom)`: Computes new center keeping mouse pointer fixed (matches Leaflet's `setZoomAround` logic: `viewHalf.add(centerOffset)`)
 - `updateMapSelection(container, selectedPath)`: Updates marker colors and flies to selected marker with popup
@@ -888,6 +892,13 @@ src/
 - Dispatches `input` event after modification to trigger auto-save
 - Used by: recipe-main-panel.ts (3 textareas), restaurant-main-panel.ts (3 textareas)
 
+**input-suggest.ts** — Combobox autocomplete for `<input>` fields
+- `InputSuggest` class: Lightweight combobox that shows a dropdown of previously used values, filtered by current input text. Allows free-text entry — selecting a suggestion replaces the input value
+- Attaches to standard `<input>` elements (not textareas), shows popup on focus and input events
+- Keyboard navigation: Arrow ↑↓ (cycle items), Enter/Tab (select), Escape (close). IME-safe (`e.isComposing` guard)
+- Popup positioned below the input using `getBoundingClientRect()`, appended to `document.body` with `z-index: var(--layer-notice, 1100)` to render above Obsidian modals
+- Used by: recipe side panel (cuisine), restaurant side panel (cuisine, category), note creation modals (cuisine, category)
+
 **textarea-suggest.ts** — Generic textarea inline autocomplete
 - `TextareaSuggest<T>` class: Trigger detection, cursor position calculation (mirror div technique), popup rendering, keyboard navigation (Arrow/Enter/Tab/Escape), blur-to-close, IME composition guard (`e.isComposing` check to prevent Korean/Japanese/CJK input duplication)
 - `TextareaSuggestConfig<T>`: Configurable trigger string, closing string, item source, rendering, and selection callback — reusable for future triggers beyond `![[`
@@ -901,6 +912,7 @@ src/
 
 **note-create-modal.ts** — Creation modal
 - Extends `Modal`, renders type-specific form fields
+- Accepts optional `NoteIndex` for InputSuggest autocomplete on cuisine (recipe/restaurant) and category (restaurant) fields
 - Validates input, generates frontmatter + body, creates file
 - Accepts optional `onFileCreated` callback; if provided, calls it instead of default `leaf.openFile()` (used by recipe commands to open Recipe View directly, bypassing MetadataCache timing issues)
 
