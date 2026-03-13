@@ -12,6 +12,7 @@ import {
 import { createImageSuggest, type TextareaSuggest } from "./textarea-suggest";
 import { renderStarsDom } from "./render-utils";
 import { showImageLightbox, type GalleryInfo } from "./recipe-main-panel";
+import { isGalleryCalloutMarker, transformGalleryCallouts, isImageOnlyLine } from "./gallery-utils";
 
 export interface RestaurantMainCallbacks {
 	onViewSource: () => void;
@@ -143,7 +144,9 @@ function renderViewer(
 		notesSection.createEl("h2", { text: "Notes" });
 		if (app && notePath && component) {
 			const md = notesSection.createDiv({ cls: "gl-markdown" });
-			MarkdownRenderer.render(app, sections.notes, md, notePath, component);
+			MarkdownRenderer.render(app, sections.notes, md, notePath, component).then(() => {
+				transformGalleryCallouts(md);
+			});
 		} else {
 			for (const line of sections.notes.split("\n")) {
 				if (line.trim()) {
@@ -209,7 +212,8 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app
 			}
 		}
 
-		// General comments — group consecutive image-only comments into galleries
+		// General comments — preprocess for gallery callout blocks, then group images
+		const processedComments = preprocessGalleryComments(visit.generalComments);
 		let pendingImageComments: string[] = [];
 
 		const flushImageGallery = () => {
@@ -226,19 +230,31 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app
 			}
 		};
 
-		for (const comment of visit.generalComments) {
-			if (isImageOnlyComment(comment)) {
-				pendingImageComments.push(comment);
+		for (const item of processedComments) {
+			if (typeof item !== "string") {
+				// Gallery group — render as .gl-gallery
+				flushImageGallery();
+				if (app && notePath && component) {
+					const gallery = card.createDiv({ cls: "gl-gallery" });
+					const galleryMd = item.galleryImages.join("\n");
+					MarkdownRenderer.render(app, galleryMd, gallery, notePath, component).then(() => {
+						attachLightboxHandlers(gallery);
+					});
+				} else {
+					card.createDiv({ text: item.galleryImages.join(" "), cls: "gl-restaurant__general-comment" });
+				}
+			} else if (isImageOnlyComment(item)) {
+				pendingImageComments.push(item);
 			} else {
 				flushImageGallery();
 				if (app && notePath && component) {
 					const commentEl = card.createDiv({ cls: "gl-restaurant__general-comment gl-markdown" });
-					MarkdownRenderer.render(app, comment, commentEl, notePath, component).then(() => {
+					MarkdownRenderer.render(app, item, commentEl, notePath, component).then(() => {
 						attachLightboxHandlers(commentEl);
 					});
 				} else {
 					card.createDiv({
-						text: comment,
+						text: item,
 						cls: "gl-restaurant__general-comment",
 					});
 				}
@@ -246,6 +262,49 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app
 		}
 		flushImageGallery();
 	}
+}
+
+// ── Gallery Comment Preprocessing ──
+
+/**
+ * Preprocess generalComments to detect `> [!gallery]` markers and group
+ * following `> ![[img]]` lines into gallery groups.
+ */
+function preprocessGalleryComments(
+	comments: string[]
+): (string | { galleryImages: string[] })[] {
+	const result: (string | { galleryImages: string[] })[] = [];
+	let galleryImages: string[] | null = null;
+
+	const flushGallery = () => {
+		if (galleryImages && galleryImages.length > 0) {
+			result.push({ galleryImages });
+		}
+		galleryImages = null;
+	};
+
+	for (const comment of comments) {
+		// Strip `> ` prefix if present for marker detection
+		const stripped = comment.replace(/^>\s*/, "");
+
+		if (isGalleryCalloutMarker(stripped)) {
+			flushGallery();
+			galleryImages = [];
+			continue;
+		}
+
+		if (galleryImages !== null && isImageOnlyLine(comment)) {
+			// Strip `> ` prefix for the image embed line
+			galleryImages.push(stripped);
+			continue;
+		}
+
+		// Non-image line breaks out of gallery mode
+		flushGallery();
+		result.push(comment);
+	}
+	flushGallery();
+	return result;
 }
 
 // ── Image Helpers ──

@@ -9,6 +9,7 @@ import {
 	type CooklangStep,
 } from "./cooklang-parser";
 import { createImageSuggest, type TextareaSuggest } from "./textarea-suggest";
+import { isGalleryCalloutMarker, transformGalleryCallouts } from "./gallery-utils";
 import type { TFile } from "obsidian";
 
 export interface MainPanelCallbacks {
@@ -211,6 +212,10 @@ function renderMainPanelEditor(
 		cls: "gl-toolbar__btn",
 		text: "> Tip",
 	});
+	const btnGallery = toolbar.createEl("button", {
+		cls: "gl-toolbar__btn",
+		text: "Gallery",
+	});
 
 	// ── Inline form area ──
 	const formArea = bodySection.createDiv({ cls: "gl-toolbar__form-area" });
@@ -267,6 +272,15 @@ function renderMainPanelEditor(
 
 	btnComment.addEventListener("click", () => {
 		insertAtCursor(bodyArea, "> ", true);
+		bodyArea.focus();
+	});
+
+	btnGallery.addEventListener("click", () => {
+		insertAtCursor(bodyArea, "> [!gallery]\n> ![[", true);
+		// Place cursor right after ![[  so image suggest triggers
+		const pos = bodyArea.value.lastIndexOf("![[") + 3;
+		bodyArea.selectionStart = pos;
+		bodyArea.selectionEnd = pos;
 		bodyArea.focus();
 	});
 
@@ -338,6 +352,8 @@ function renderPreviewContent(
 	let currentSection = "";
 	let stepIndex = 0;
 	let pendingImageSteps: CooklangStep[] = [];
+	let pendingGalleryImages: string[] = [];
+	let inGalleryMode = false;
 	let stepGroup: HTMLElement | null = null;
 
 	const ensureStepGroup = (): HTMLElement => {
@@ -357,9 +373,27 @@ function renderPreviewContent(
 		pendingImageSteps = [];
 	};
 
+	const flushGalleryImages = () => {
+		if (pendingGalleryImages.length === 0) return;
+		const combined = pendingGalleryImages.join(" ");
+		renderTextWithEmbeds(ensureStepGroup(), combined, resourcePath);
+		pendingGalleryImages = [];
+		inGalleryMode = false;
+	};
+
+	const isImageOnlyComment = (step: CooklangStep): boolean => {
+		if (!step.isComment) return false;
+		if (!step.segments.every((s) => s.type === "text")) return false;
+		const text = step.segments
+			.map((s) => (s as { type: "text"; value: string }).value)
+			.join("");
+		return isImageOnlyLine(text);
+	};
+
 	for (const step of parsed.steps) {
 		if (step.section !== currentSection) {
 			flushImageSteps();
+			flushGalleryImages();
 			currentSection = step.section;
 			if (currentSection) {
 				container.createEl("h3", {
@@ -368,6 +402,29 @@ function renderPreviewContent(
 				});
 			}
 			stepGroup = container.createDiv({ cls: "gl-recipe__step-group" });
+		}
+
+		// Gallery callout mode: accumulate image-only comment steps
+		if (inGalleryMode) {
+			if (isImageOnlyComment(step)) {
+				const text = step.segments
+					.map((s) => (s as { type: "text"; value: string }).value)
+					.join("");
+				pendingGalleryImages.push(text);
+				continue;
+			}
+			flushGalleryImages();
+		}
+
+		// Detect [!gallery] marker in comment steps
+		if (step.isComment && step.segments.length === 1 && step.segments[0].type === "text") {
+			const text = (step.segments[0] as { type: "text"; value: string }).value;
+			if (isGalleryCalloutMarker(text)) {
+				flushImageSteps();
+				inGalleryMode = true;
+				pendingGalleryImages = [];
+				continue;
+			}
 		}
 
 		if (isImageOnlyStep(step)) {
@@ -409,6 +466,7 @@ function renderPreviewContent(
 		stepIndex++;
 	}
 	flushImageSteps();
+	flushGalleryImages();
 }
 
 /**
@@ -452,7 +510,9 @@ function renderTextContent(
 ): void {
 	if (app && sourcePath && component) {
 		const md = container.createDiv({ cls: "gl-markdown" });
-		MarkdownRenderer.render(app, text, md, sourcePath, component);
+		MarkdownRenderer.render(app, text, md, sourcePath, component).then(() => {
+			transformGalleryCallouts(md);
+		});
 		return;
 	}
 
@@ -552,7 +612,9 @@ function renderReviewCards(
 		if (content) {
 			if (app && sourcePath && component) {
 				body.classList.add("gl-markdown");
-				MarkdownRenderer.render(app, content, body, sourcePath, component);
+				MarkdownRenderer.render(app, content, body, sourcePath, component).then(() => {
+					transformGalleryCallouts(body);
+				});
 			} else {
 				renderTextWithEmbeds(body, content, resourcePath);
 			}
