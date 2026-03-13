@@ -1,5 +1,6 @@
 import { MarkdownRenderer, setIcon, type App, type Component, type TFile } from "obsidian";
 import type { RestaurantViewMode } from "./types";
+import { EMBED_RE, IMAGE_EXTS } from "./constants";
 import {
 	parseRestaurantSections,
 	parseRestaurantVisits,
@@ -10,6 +11,7 @@ import {
 } from "./restaurant-parser";
 import { createImageSuggest, type TextareaSuggest } from "./textarea-suggest";
 import { renderStarsDom } from "./render-utils";
+import { showImageLightbox } from "./recipe-main-panel";
 
 export interface RestaurantMainCallbacks {
 	onViewSource: () => void;
@@ -207,18 +209,69 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app
 			}
 		}
 
-		// General comments
-		for (const comment of visit.generalComments) {
+		// General comments — group consecutive image-only comments into galleries
+		let pendingImageComments: string[] = [];
+
+		const flushImageGallery = () => {
+			if (pendingImageComments.length === 0) return;
+			const galleryMd = pendingImageComments.join("\n");
+			pendingImageComments = [];
 			if (app && notePath && component) {
-				const commentEl = card.createDiv({ cls: "gl-restaurant__general-comment gl-markdown" });
-				MarkdownRenderer.render(app, comment, commentEl, notePath, component);
-			} else {
-				card.createDiv({
-					text: comment,
-					cls: "gl-restaurant__general-comment",
+				const gallery = card.createDiv({ cls: "gl-restaurant__gallery" });
+				MarkdownRenderer.render(app, galleryMd, gallery, notePath, component).then(() => {
+					attachLightboxHandlers(gallery);
 				});
+			} else {
+				card.createDiv({ text: galleryMd, cls: "gl-restaurant__general-comment" });
+			}
+		};
+
+		for (const comment of visit.generalComments) {
+			if (isImageOnlyComment(comment)) {
+				pendingImageComments.push(comment);
+			} else {
+				flushImageGallery();
+				if (app && notePath && component) {
+					const commentEl = card.createDiv({ cls: "gl-restaurant__general-comment gl-markdown" });
+					MarkdownRenderer.render(app, comment, commentEl, notePath, component).then(() => {
+						attachLightboxHandlers(commentEl);
+					});
+				} else {
+					card.createDiv({
+						text: comment,
+						cls: "gl-restaurant__general-comment",
+					});
+				}
 			}
 		}
+		flushImageGallery();
+	}
+}
+
+// ── Image Helpers ──
+
+/** Returns true if the comment text contains only image embeds (and whitespace) */
+function isImageOnlyComment(text: string): boolean {
+	const re = new RegExp(EMBED_RE.source, EMBED_RE.flags);
+	const stripped = text.replace(re, "").trim();
+	if (stripped !== "") return false;
+	let hasImage = false;
+	for (const match of text.matchAll(new RegExp(EMBED_RE.source, EMBED_RE.flags))) {
+		const ext = match[1].split(".").pop()?.toLowerCase() ?? "";
+		if (!IMAGE_EXTS.includes(ext)) return false;
+		hasImage = true;
+	}
+	return hasImage;
+}
+
+/** Attach lightbox click handlers to all img elements in a container */
+function attachLightboxHandlers(container: HTMLElement): void {
+	for (const img of Array.from(container.querySelectorAll("img"))) {
+		img.style.cursor = "zoom-in";
+		img.addEventListener("click", (e) => {
+			e.stopPropagation();
+			showImageLightbox(img.src, img.alt);
+		});
 	}
 }
 
