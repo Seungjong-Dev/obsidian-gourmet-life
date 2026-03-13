@@ -1,4 +1,4 @@
-import { ItemView, TFile, WorkspaceLeaf } from "obsidian";
+import { ItemView, setIcon, TFile, WorkspaceLeaf } from "obsidian";
 import {
 	VIEW_TYPE_EXPLORER,
 	type ExplorerTab,
@@ -80,6 +80,9 @@ export class ExplorerView extends ItemView implements PreviewHost {
 
 	// Narrow search state
 	private narrowSearchOpen = false;
+
+	// Unresolved ingredient state (for graph CTA preview)
+	private unresolvedIngredient: string | null = null;
 
 	// DOM refs — wide toolbar
 	private wideRefs: WideToolbarRefs = null!;
@@ -597,6 +600,7 @@ export class ExplorerView extends ItemView implements PreviewHost {
 		};
 
 		const onSelect = (path: string) => {
+			this.unresolvedIngredient = null;
 			if (this.selectedPath === path) {
 				this.closePreview();
 			} else {
@@ -635,6 +639,12 @@ export class ExplorerView extends ItemView implements PreviewHost {
 		// Disable body scroll when map is active (prevents touch event theft)
 		this.bodyContainer.toggleClass("gl-explorer__body--map", this.layout === "map");
 
+		const onSelectUnresolved = (name: string) => {
+			this.selectedPath = null;
+			this.unresolvedIngredient = name;
+			this.renderUnresolvedPreview(name);
+		};
+
 		if (this.layout === "graph") {
 			if (this.tab === "ingredient") {
 				renderIngredientGraphView(
@@ -647,7 +657,8 @@ export class ExplorerView extends ItemView implements PreviewHost {
 					(gs) => {
 						this.plugin.settings.graphSettings = gs;
 						this.plugin.saveSettings();
-					}
+					},
+					onSelectUnresolved,
 				);
 			} else {
 				renderGraphView(
@@ -663,6 +674,8 @@ export class ExplorerView extends ItemView implements PreviewHost {
 					},
 					undefined,
 					this.plugin.noteIndex.getIngredientNames(),
+					undefined,
+					onSelectUnresolved,
 				);
 			}
 		} else if (this.layout === "map") {
@@ -680,6 +693,7 @@ export class ExplorerView extends ItemView implements PreviewHost {
 		flushPreviewAutoSave(this);
 		this.previewMode = "viewer";
 		this.selectedPath = null;
+		this.unresolvedIngredient = null;
 		if (this.previewContainer) {
 			const sideEl = this.previewContainer.querySelector(".gl-restaurant__side");
 			if (sideEl) destroyLeafletMap(sideEl as HTMLElement);
@@ -710,6 +724,102 @@ export class ExplorerView extends ItemView implements PreviewHost {
 
 	async renderPreview(): Promise<void> {
 		return renderPreviewImpl(this);
+	}
+
+	// ── Unresolved Ingredient Preview ──
+
+	private renderUnresolvedPreview(name: string): void {
+		const isNarrow = this.currentTier === "narrow";
+		const targetContainer = isNarrow ? this.previewOverlay : this.previewContainer;
+
+		// Clean both containers
+		this.previewContainer.empty();
+		this.previewOverlay.empty();
+
+		if (isNarrow) {
+			this.previewContainer.removeClass("gl-explorer__preview--open");
+			this.previewOverlay.addClass("gl-explorer__preview-overlay--open");
+		} else {
+			this.previewOverlay.removeClass("gl-explorer__preview-overlay--open");
+			targetContainer.addClass("gl-explorer__preview--open");
+			targetContainer.toggleClass("gl-explorer__preview--medium", this.currentTier === "medium");
+		}
+
+		const wrap = targetContainer.createDiv({ cls: "gl-explorer__unresolved-preview" });
+
+		// Header with back button on narrow
+		const header = wrap.createDiv({ cls: "gl-explorer__preview-header" });
+		if (isNarrow) {
+			const backBtn = header.createEl("button", { cls: "gl-explorer__preview-btn gl-explorer__preview-back-btn" });
+			setIcon(backBtn, "arrow-left");
+			backBtn.title = "Back";
+			backBtn.addEventListener("click", () => this.closePreviewAndSync());
+		}
+		header.createSpan({ cls: "gl-explorer__preview-title", text: name });
+
+		// Message
+		wrap.createDiv({ cls: "gl-explorer__unresolved-msg", text: "이 재료는 아직 노트가 없습니다." });
+
+		// Create button
+		const createBtn = wrap.createEl("button", { cls: "gl-explorer__unresolved-create-btn" });
+		setIcon(createBtn, "plus");
+		createBtn.appendText(" 재료 노트 만들기");
+		createBtn.addEventListener("click", () => {
+			new NoteCreateModal(this.app, "ingredient", this.plugin.settings, (file) => {
+				this.unresolvedIngredient = null;
+				this.selectedPath = file.path;
+				this.previewMode = "editor";
+
+				const ref = this.app.metadataCache.on("changed", (changedFile) => {
+					if (changedFile.path === file.path) {
+						this.app.metadataCache.offref(ref);
+						this.renderContent();
+						this.renderPreview();
+					}
+				});
+				setTimeout(() => {
+					this.app.metadataCache.offref(ref);
+					if (this.selectedPath === file.path) {
+						this.renderContent();
+						this.renderPreview();
+					}
+				}, 500);
+			}, this.plugin.noteIndex, name).open();
+		});
+
+		// Related recipes list
+		const recipes: { path: string; name: string }[] = [];
+		const lowerName = name.toLowerCase();
+		for (const [recipePath, ingredients] of this.plugin.noteIndex.recipeIngredients) {
+			for (const ing of ingredients) {
+				if (ing.toLowerCase() === lowerName) {
+					const note = this.plugin.noteIndex.getByPath(recipePath);
+					if (note) recipes.push({ path: note.path, name: note.name });
+					break;
+				}
+			}
+		}
+
+		if (recipes.length > 0) {
+			const recipesSection = wrap.createDiv({ cls: "gl-explorer__unresolved-recipes" });
+			recipesSection.createEl("h4", { text: "사용하는 레시피" });
+			const list = recipesSection.createEl("ul");
+			for (const r of recipes) {
+				const li = list.createEl("li");
+				const link = li.createEl("a", { text: r.name, cls: "gl-explorer__unresolved-recipe-link" });
+				link.addEventListener("click", (e) => {
+					e.preventDefault();
+					this.unresolvedIngredient = null;
+					flushPreviewAutoSave(this);
+					this.previewMode = "viewer";
+					this.selectedPath = r.path;
+					this.renderPreview();
+					if (hasExplorerGraph(this.contentContainer)) {
+						updateGraphSelection(this.contentContainer, this.selectedPath);
+					}
+				});
+			}
+		}
 	}
 
 	// ── Note Actions ──

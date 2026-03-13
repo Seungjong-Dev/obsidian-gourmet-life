@@ -3429,4 +3429,66 @@
 	font-size: 0.85em;
 }
 
+/* ── Unresolved Ingredient Preview ── */
+
+.gl-explorer__unresolved-preview {
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.gl-explorer__unresolved-msg {
+	color: var(--text-muted);
+	font-size: 0.9em;
+}
+
+.gl-explorer__unresolved-create-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 8px 16px;
+	border-radius: var(--radius-s);
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	font-weight: 500;
+	cursor: pointer;
+	border: none;
+	align-self: flex-start;
+}
+
+.gl-explorer__unresolved-create-btn:hover {
+	opacity: 0.9;
+}
+
+.gl-explorer__unresolved-recipes {
+	margin-top: 8px;
+}
+
+.gl-explorer__unresolved-recipes h4 {
+	margin: 0 0 6px;
+	font-size: 0.85em;
+	color: var(--text-muted);
+	font-weight: 600;
+}
+
+.gl-explorer__unresolved-recipes ul {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.gl-explorer__unresolved-recipe-link {
+	color: var(--text-accent);
+	cursor: pointer;
+	font-size: 0.9em;
+}
+
+.gl-explorer__unresolved-recipe-link:hover {
+	text-decoration: underline;
+}
+
 
