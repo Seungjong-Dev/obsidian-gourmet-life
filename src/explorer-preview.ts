@@ -124,9 +124,12 @@ export async function renderPreview(host: PreviewHost): Promise<void> {
 	openBtn.title = "Open in viewer";
 	setIcon(openBtn, "external-link");
 	openBtn.addEventListener("click", () => {
-		if (host.tab === "recipe") {
+		const cache = host.app.metadataCache.getFileCache(file);
+		const noteFm = readGourmetFrontmatter(cache);
+		const noteType = noteFm?.type ?? host.tab;
+		if (noteType === "recipe") {
 			host.plugin.openRecipeView(file);
-		} else if (host.tab === "ingredient") {
+		} else if (noteType === "ingredient") {
 			host.plugin.openIngredientView(file);
 		} else {
 			host.plugin.openRestaurantView(file);
