@@ -1,6 +1,6 @@
 import { MarkdownRenderer, setIcon, type App, type Component } from "obsidian";
 import type { RecipeViewMode } from "./types";
-import { SECTION_HEADING_RE, RECIPE_END_SECTIONS } from "./constants";
+import { SECTION_HEADING_RE, RECIPE_END_SECTIONS, EMBED_RE, IMAGE_EXTS } from "./constants";
 import {
 	parseCooklangBody,
 	parseNotesSection,
@@ -604,8 +604,7 @@ export function collectMainState(container: HTMLElement): MainState {
 
 // ── Embed Rendering ──
 
-const EMBED_RE = /!\[\[([^\]]+)\]\]/g;
-const IMAGE_EXTS = ["png", "jpg", "jpeg", "gif", "bmp", "svg", "webp"];
+// EMBED_RE and IMAGE_EXTS imported from constants.ts
 
 function renderTextWithEmbeds(
 	container: HTMLElement,

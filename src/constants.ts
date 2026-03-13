@@ -35,3 +35,11 @@ export const SECTION_HEADING_RE = /^##\s+(.+)/;
 
 /** Standard section names that end the recipe content zone */
 export const RECIPE_END_SECTIONS = ["notes", "reviews"] as const;
+
+// ── Embed parsing ──
+
+/** Regex for matching Obsidian image/file embeds: ![[filename]] */
+export const EMBED_RE = /!\[\[([^\]]+)\]\]/g;
+
+/** Supported image file extensions */
+export const IMAGE_EXTS = ["png", "jpg", "jpeg", "gif", "bmp", "svg", "webp"];
