@@ -1,4 +1,4 @@
-import type { GourmetNote, RecipeFrontmatter, RestaurantFrontmatter, SortOption } from "./types";
+import type { GourmetNote, RecipeFrontmatter, RestaurantFrontmatter, IngredientFrontmatter, SortOption } from "./types";
 
 export interface ExplorerFilterState {
 	cuisine: string[];
@@ -6,6 +6,7 @@ export interface ExplorerFilterState {
 	difficulty: string[];
 	price_range: string[];
 	area: string[];
+	season: string[];
 	minRating: number;
 	tags: string[];
 	search: string;
@@ -21,6 +22,7 @@ export function createEmptyFilter(): ExplorerFilterState {
 		difficulty: [],
 		price_range: [],
 		area: [],
+		season: [],
 		minRating: 0,
 		tags: [],
 		search: "",
@@ -64,7 +66,10 @@ export function applyFilters(
 				}
 			}
 
-			if (!nameMatch && !cuisineMatch && !categoryMatch && !tagsMatch && !addressMatch && !areaMatch && !difficultyMatch && !ingredientMatch) {
+			// Ingredient-specific search: aliases
+			const aliasesMatch = fm.type === "ingredient" && ((fm as IngredientFrontmatter).aliases ?? []).some((a: string) => a.toLowerCase().includes(q));
+
+			if (!nameMatch && !cuisineMatch && !categoryMatch && !tagsMatch && !addressMatch && !areaMatch && !difficultyMatch && !ingredientMatch && !aliasesMatch) {
 				return false;
 			}
 		}
@@ -89,9 +94,9 @@ export function applyFilters(
 
 		// Cuisine filter (OR within field)
 		if (filters.cuisine.length > 0) {
-			const val = fm.cuisine;
+			const val = (fm as any).cuisine;
 			const cuisines = Array.isArray(val) ? val : val ? [val] : [];
-			if (!filters.cuisine.some((c) => cuisines.includes(c))) return false;
+			if (!filters.cuisine.some((c: string) => cuisines.includes(c))) return false;
 		}
 
 		if (filters.category.length > 0) {
@@ -113,6 +118,14 @@ export function applyFilters(
 			}
 			if (filters.area.length > 0) {
 				if (!rfm.area || !filters.area.includes(rfm.area)) return false;
+			}
+		}
+
+		if (fm.type === "ingredient") {
+			const ifm = fm as IngredientFrontmatter;
+			// Season filter (OR — any matching season)
+			if (filters.season.length > 0) {
+				if (!ifm.season || !filters.season.some((s) => ifm.season!.includes(s))) return false;
 			}
 		}
 
@@ -144,6 +157,8 @@ export function sortNotes(notes: GourmetNote[], sortBy: SortOption): GourmetNote
 				const priceLen = (s: string | undefined) => s ? s.length : 99;
 				return priceLen(fmA.price_range) - priceLen(fmB.price_range);
 			}
+			case "category":
+				return (fmA.category ?? "").localeCompare(fmB.category ?? "");
 			default:
 				return 0;
 		}
@@ -160,6 +175,7 @@ export function extractFilterOptions(
 		difficulty: new Map(),
 		price_range: new Map(),
 		area: new Map(),
+		season: new Map(),
 	};
 
 	for (const note of notes) {
@@ -181,6 +197,15 @@ export function extractFilterOptions(
 			if (rfm.category) counts.category.set(rfm.category, (counts.category.get(rfm.category) ?? 0) + 1);
 			if (rfm.price_range) counts.price_range.set(rfm.price_range, (counts.price_range.get(rfm.price_range) ?? 0) + 1);
 			if (rfm.area) counts.area.set(rfm.area, (counts.area.get(rfm.area) ?? 0) + 1);
+		}
+		if (fm.type === "ingredient") {
+			const ifm = fm as IngredientFrontmatter;
+			if (ifm.category) counts.category.set(ifm.category, (counts.category.get(ifm.category) ?? 0) + 1);
+			if (ifm.season) {
+				for (const s of ifm.season) {
+					counts.season.set(s, (counts.season.get(s) ?? 0) + 1);
+				}
+			}
 		}
 	}
 

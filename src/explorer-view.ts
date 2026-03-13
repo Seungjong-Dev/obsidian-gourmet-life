@@ -23,7 +23,7 @@ import {
 } from "./explorer-cards";
 import { renderStatsBar } from "./explorer-stats";
 import { destroyLeafletMap } from "./restaurant-side-panel";
-import { renderGraphView, destroyGraph, hasExplorerGraph, updateGraphSelection } from "./explorer-graph";
+import { renderGraphView, renderIngredientGraphView, destroyGraph, hasExplorerGraph, updateGraphSelection } from "./explorer-graph";
 import { renderMapView, destroyExplorerMap, hasExplorerMap, updateMapSelection } from "./explorer-map";
 import { getLayoutTier, isTouchDevice, suppressGhostClick, type LayoutTier } from "./device";
 import { SEARCH_DEBOUNCE_MS } from "./constants";
@@ -137,6 +137,7 @@ export class ExplorerView extends ItemView implements PreviewHost {
 				difficulty: this.filter.difficulty,
 				price_range: this.filter.price_range,
 				area: this.filter.area,
+				season: this.filter.season,
 				minRating: this.filter.minRating,
 				tags: this.filter.tags,
 				unrated: this.filter.unrated,
@@ -150,7 +151,7 @@ export class ExplorerView extends ItemView implements PreviewHost {
 		if (state.tab) this.tab = state.tab;
 		if (state.layout) this.layout = state.layout;
 
-		if (this.layout === "graph" && this.tab !== "recipe") this.layout = "card";
+		if (this.layout === "graph" && this.tab !== "recipe" && this.tab !== "ingredient") this.layout = "card";
 		if (this.layout === "map" && this.tab !== "restaurant") this.layout = "card";
 
 		this.filter = createEmptyFilter();
@@ -207,7 +208,7 @@ export class ExplorerView extends ItemView implements PreviewHost {
 	setTab(tab: ExplorerTab): void {
 		this.tab = tab;
 		this.filter = createEmptyFilter();
-		if (this.layout === "graph" && tab !== "recipe") this.layout = "card";
+		if (this.layout === "graph" && tab !== "recipe" && tab !== "ingredient") this.layout = "card";
 		if (this.layout === "map" && tab !== "restaurant") this.layout = "card";
 		this.closePreview();
 		this.refresh();
@@ -347,7 +348,7 @@ export class ExplorerView extends ItemView implements PreviewHost {
 		this.filter = createEmptyFilter();
 		this.wideRefs.searchInput.value = "";
 		this.narrowSearchRefs.searchInput.value = "";
-		if (this.layout === "graph" && t !== "recipe") this.layout = "card";
+		if (this.layout === "graph" && t !== "recipe" && t !== "ingredient") this.layout = "card";
 		if (this.layout === "map" && t !== "restaurant") this.layout = "card";
 		this.closePreview();
 		this.refresh();
@@ -481,7 +482,7 @@ export class ExplorerView extends ItemView implements PreviewHost {
 			this.filterPanel.addClass("gl-explorer__filter-panel--open");
 		}
 
-		if (tier !== "narrow" && this.layout === "graph" && this.tab !== "recipe") {
+		if (tier !== "narrow" && this.layout === "graph" && this.tab !== "recipe" && this.tab !== "ingredient") {
 			this.layout = "card";
 		}
 
@@ -537,9 +538,11 @@ export class ExplorerView extends ItemView implements PreviewHost {
 	}
 
 	getNotes(): GourmetNote[] {
-		return this.tab === "recipe"
-			? this.plugin.noteIndex.getRecipes()
-			: this.plugin.noteIndex.getRestaurants();
+		switch (this.tab) {
+			case "recipe": return this.plugin.noteIndex.getRecipes();
+			case "restaurant": return this.plugin.noteIndex.getRestaurants();
+			case "ingredient": return this.plugin.noteIndex.getIngredients();
+		}
 	}
 
 	// ── Filters ──
@@ -586,6 +589,8 @@ export class ExplorerView extends ItemView implements PreviewHost {
 			if (!(file instanceof TFile)) return;
 			if (this.tab === "recipe") {
 				this.plugin.openRecipeView(file);
+			} else if (this.tab === "ingredient") {
+				this.plugin.openIngredientView(file);
 			} else {
 				this.plugin.openRestaurantView(file);
 			}
@@ -631,18 +636,33 @@ export class ExplorerView extends ItemView implements PreviewHost {
 		this.bodyContainer.toggleClass("gl-explorer__body--map", this.layout === "map");
 
 		if (this.layout === "graph") {
-			renderGraphView(
-				this.contentContainer,
-				sorted,
-				this.plugin.noteIndex.recipeIngredients,
-				onSelect,
-				this.selectedPath,
-				this.plugin.settings.graphSettings,
-				(gs) => {
-					this.plugin.settings.graphSettings = gs;
-					this.plugin.saveSettings();
-				}
-			);
+			if (this.tab === "ingredient") {
+				renderIngredientGraphView(
+					this.contentContainer,
+					sorted,
+					this.plugin.noteIndex,
+					onSelect,
+					this.selectedPath,
+					this.plugin.settings.graphSettings,
+					(gs) => {
+						this.plugin.settings.graphSettings = gs;
+						this.plugin.saveSettings();
+					}
+				);
+			} else {
+				renderGraphView(
+					this.contentContainer,
+					sorted,
+					this.plugin.noteIndex.recipeIngredients,
+					onSelect,
+					this.selectedPath,
+					this.plugin.settings.graphSettings,
+					(gs) => {
+						this.plugin.settings.graphSettings = gs;
+						this.plugin.saveSettings();
+					}
+				);
+			}
 		} else if (this.layout === "map") {
 			renderMapView(this.contentContainer, sorted, onSelect, this.selectedPath);
 		} else if (this.layout === "card") {
@@ -693,7 +713,7 @@ export class ExplorerView extends ItemView implements PreviewHost {
 	// ── Note Actions ──
 
 	private createNote(): void {
-		const noteType = this.tab === "recipe" ? "recipe" : "restaurant";
+		const noteType = this.tab === "recipe" ? "recipe" : this.tab === "ingredient" ? "ingredient" : "restaurant";
 		new NoteCreateModal(this.app, noteType, this.plugin.settings, (file) => {
 			this.selectedPath = file.path;
 			this.previewMode = "editor";

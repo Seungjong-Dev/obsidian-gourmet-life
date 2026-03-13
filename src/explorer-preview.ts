@@ -6,6 +6,7 @@ import type {
 	RecipeFrontmatter,
 	RecipeViewMode,
 	RestaurantFrontmatter,
+	IngredientFrontmatter,
 } from "./types";
 import { readGourmetFrontmatter, buildFrontmatterString } from "./frontmatter-utils";
 import { renderSidePanel, collectSideState, refreshSideData, type SidePanelCallbacks } from "./recipe-side-panel";
@@ -14,6 +15,9 @@ import { renderRestaurantSidePanel, collectRestaurantSideState, destroyLeafletMa
 import { renderRestaurantMainPanel, collectRestaurantMainState, type RestaurantMainCallbacks } from "./restaurant-main-panel";
 import { buildRecipeBody, buildRecipeFmData } from "./recipe-view";
 import { buildRestaurantBody, buildRestaurantFmData } from "./restaurant-view";
+import { buildIngredientBody, buildIngredientFmData } from "./ingredient-view";
+import { renderIngredientSidePanel, collectIngredientSideState } from "./ingredient-side-panel";
+import { renderIngredientMainPanel, collectIngredientMainState } from "./ingredient-main-panel";
 import { hasExplorerMap, updateMapSelection } from "./explorer-map";
 import { hasExplorerGraph, updateGraphSelection } from "./explorer-graph";
 import { suppressGhostClick, type LayoutTier } from "./device";
@@ -122,6 +126,8 @@ export async function renderPreview(host: PreviewHost): Promise<void> {
 	openBtn.addEventListener("click", () => {
 		if (host.tab === "recipe") {
 			host.plugin.openRecipeView(file);
+		} else if (host.tab === "ingredient") {
+			host.plugin.openIngredientView(file);
 		} else {
 			host.plugin.openRestaurantView(file);
 		}
@@ -171,6 +177,8 @@ export async function renderPreview(host: PreviewHost): Promise<void> {
 		renderRecipePreview(host, previewBody, fm, bodyContent, resourcePath, mode, file);
 	} else if (fm.type === "restaurant") {
 		renderRestaurantPreview(host, previewBody, fm, bodyContent, resourcePath, mode, file);
+	} else if (fm.type === "ingredient") {
+		renderIngredientPreview(host, previewBody, fm as IngredientFrontmatter, bodyContent, resourcePath, mode, file);
 	}
 
 	// Related notes section
@@ -285,6 +293,57 @@ function renderRestaurantPreview(
 		onReviewsInput: () => schedulePreviewAutoSave(host),
 	};
 	renderRestaurantMainPanel(mainEl, bodyContent, mode, mainCb, host.app, file.path, host as any);
+}
+
+// ── Ingredient Preview ──
+
+function renderIngredientPreview(
+	host: PreviewHost,
+	previewBody: HTMLElement,
+	fm: IngredientFrontmatter,
+	bodyContent: string,
+	resourcePath: (path: string) => string,
+	mode: RecipeViewMode,
+	file: TFile
+): void {
+	previewBody.addClass("gl-ingredient", "gl-ingredient--single");
+	previewBody.toggleClass("gl-ingredient--editor", mode === "editor");
+
+	const sideEl = previewBody.createDiv({ cls: "gl-ingredient__side" });
+	const mainEl = previewBody.createDiv({ cls: "gl-ingredient__main" });
+
+	renderIngredientSidePanel(sideEl, fm, resourcePath, mode, {
+		onInput: () => schedulePreviewAutoSave(host),
+		onNavigateIngredient: (name: string) => {
+			const ingredientNames = host.plugin.noteIndex.getIngredientNames();
+			const path = ingredientNames.get(name.toLowerCase());
+			if (path) {
+				flushPreviewAutoSave(host);
+				host.previewMode = "viewer";
+				host.selectedPath = path;
+				host.renderPreview();
+				host.renderContent();
+			}
+		},
+	}, host.app, file.path, host.plugin.noteIndex);
+
+	const mainCb = {
+		onViewSource: () => {},
+		onToggleMode: () => {
+			flushPreviewAutoSave(host);
+			host.previewMode = host.previewMode === "viewer" ? "editor" : "viewer";
+			host.renderPreview();
+		},
+		onTitleChange: () => {},
+		onStoragePrepInput: () => schedulePreviewAutoSave(host),
+		onNotesInput: () => schedulePreviewAutoSave(host),
+		onPurchaseLogInput: () => schedulePreviewAutoSave(host),
+		onRecipeClick: (path: string) => {
+			const f = host.app.vault.getAbstractFileByPath(path);
+			if (f instanceof TFile) host.plugin.openRecipeView(f);
+		},
+	};
+	renderIngredientMainPanel(mainEl, bodyContent, mode, mainCb, host.app, file.path, host as any, host.plugin.noteIndex, file.basename);
 }
 
 // ── Swipe Back (narrow preview) ──
@@ -427,9 +486,9 @@ export async function flushPreviewAutoSave(host: PreviewHost): Promise<void> {
 }
 
 function buildPreviewFileContent(host: PreviewHost, file: TFile): string | null {
-	let previewBody = host.previewContainer.querySelector(".gl-recipe, .gl-restaurant") as HTMLElement | null;
+	let previewBody = host.previewContainer.querySelector(".gl-recipe, .gl-restaurant, .gl-ingredient") as HTMLElement | null;
 	if (!previewBody) {
-		previewBody = host.previewOverlay.querySelector(".gl-recipe, .gl-restaurant") as HTMLElement | null;
+		previewBody = host.previewOverlay.querySelector(".gl-recipe, .gl-restaurant, .gl-ingredient") as HTMLElement | null;
 	}
 	if (!previewBody) return null;
 
@@ -446,6 +505,17 @@ function buildPreviewFileContent(host: PreviewHost, file: TFile): string | null 
 		const fmData = buildRecipeFmData(sideState, origFm);
 		const frontmatter = buildFrontmatterString(fmData);
 		const body = buildRecipeBody(mainState.body, mainState.notes, mainState.reviews);
+		return `${frontmatter}\n${body}`;
+	} else if (previewBody.classList.contains("gl-ingredient")) {
+		const sideEl = previewBody.querySelector(".gl-ingredient__side") as HTMLElement;
+		const mainEl = previewBody.querySelector(".gl-ingredient__main") as HTMLElement;
+		if (!sideEl || !mainEl) return null;
+
+		const sideState = collectIngredientSideState(sideEl);
+		const mainState = collectIngredientMainState(mainEl);
+		const fmData = buildIngredientFmData(sideState, origFm);
+		const frontmatter = buildFrontmatterString(fmData);
+		const body = buildIngredientBody(mainState.storagePrep, mainState.notes, mainState.purchaseLog);
 		return `${frontmatter}\n${body}`;
 	} else {
 		const sideEl = previewBody.querySelector(".gl-restaurant__side") as HTMLElement;

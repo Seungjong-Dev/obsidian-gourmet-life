@@ -373,8 +373,7 @@ export class RecipeView extends ItemView {
 		const file = this.app.vault.getAbstractFileByPath(path);
 		if (!file || !(file instanceof TFile)) return;
 
-		const leaf = this.app.workspace.getLeaf(false);
-		leaf.openFile(file);
+		this.plugin.openIngredientView(file);
 	}
 }
 

@@ -3,10 +3,12 @@ import {
 	DEFAULT_SETTINGS,
 	VIEW_TYPE_RECIPE,
 	VIEW_TYPE_RESTAURANT,
+	VIEW_TYPE_INGREDIENT,
 	VIEW_TYPE_EXPLORER,
 	type GourmetLifeSettings,
 	type RecipeViewMode,
 	type RestaurantViewMode,
+	type IngredientViewMode,
 	type ExplorerTab,
 	type RestaurantFrontmatter,
 } from "./types";
@@ -20,6 +22,7 @@ import {
 import { readGourmetFrontmatter } from "./frontmatter-utils";
 import { RecipeView } from "./recipe-view";
 import { RestaurantView } from "./restaurant-view";
+import { IngredientView } from "./ingredient-view";
 import { ExplorerView } from "./explorer-view";
 import { RecipeSearchModal } from "./recipe-search-modal";
 import { exportShareCard } from "./recipe-share-card";
@@ -57,7 +60,9 @@ export default class GourmetLifePlugin extends Plugin {
 				new NoteCreateModal(
 					this.app,
 					"ingredient",
-					this.settings
+					this.settings,
+					(file) => this.openIngredientView(file),
+					this.noteIndex
 				).open(),
 		});
 
@@ -125,6 +130,17 @@ export default class GourmetLifePlugin extends Plugin {
 				const file = this.app.workspace.getActiveFile();
 				if (!file || !file.path.startsWith(this.settings.restaurantsFolder + "/")) return false;
 				if (!checking) this.openRestaurantView(file);
+				return true;
+			},
+		});
+
+		this.addCommand({
+			id: "open-ingredient-view",
+			name: "Open ingredient view",
+			checkCallback: (checking) => {
+				const file = this.app.workspace.getActiveFile();
+				if (!file || !file.path.startsWith(this.settings.ingredientsFolder + "/")) return false;
+				if (!checking) this.openIngredientView(file);
 				return true;
 			},
 		});
@@ -227,6 +243,12 @@ export default class GourmetLifePlugin extends Plugin {
 
 		this.registerView(VIEW_TYPE_RESTAURANT, (leaf) => {
 			return new RestaurantView(leaf, this);
+		});
+
+		// ── Ingredient View ──
+
+		this.registerView(VIEW_TYPE_INGREDIENT, (leaf) => {
+			return new IngredientView(leaf, this);
 		});
 
 		// ── Explorer View ──
@@ -332,6 +354,35 @@ export default class GourmetLifePlugin extends Plugin {
 		const leaf = originLeaf ?? this.app.workspace.getLeaf(false);
 		await leaf.setViewState({
 			type: VIEW_TYPE_RESTAURANT,
+			active: true,
+			state: { file: file.path, mode },
+		});
+	}
+
+	async openIngredientView(file: TFile, mode: IngredientViewMode = "viewer", originLeaf?: WorkspaceLeaf): Promise<void> {
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_INGREDIENT);
+
+		const exact = leaves.find((l) => {
+			return (l.view as IngredientView).getState().file === file.path;
+		});
+		if (exact) {
+			this.app.workspace.setActiveLeaf(exact, { focus: true });
+			if (mode !== "viewer") await (exact.view as IngredientView).setFile(file.path, mode);
+			if (originLeaf && originLeaf !== exact) originLeaf.detach();
+			return;
+		}
+
+		if (leaves.length > 0) {
+			const leaf = leaves[0];
+			this.app.workspace.setActiveLeaf(leaf, { focus: true });
+			await (leaf.view as IngredientView).setFile(file.path, mode);
+			if (originLeaf && originLeaf !== leaf) originLeaf.detach();
+			return;
+		}
+
+		const leaf = originLeaf ?? this.app.workspace.getLeaf(false);
+		await leaf.setViewState({
+			type: VIEW_TYPE_INGREDIENT,
 			active: true,
 			state: { file: file.path, mode },
 		});

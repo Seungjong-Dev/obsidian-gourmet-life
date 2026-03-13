@@ -1,4 +1,4 @@
-import type { GourmetNote, ExplorerTab, RecipeFrontmatter, RestaurantFrontmatter } from "./types";
+import type { GourmetNote, ExplorerTab, RecipeFrontmatter, RestaurantFrontmatter, IngredientFrontmatter } from "./types";
 import type { LayoutTier } from "./device";
 
 export function renderStatsBar(
@@ -15,9 +15,10 @@ export function renderStatsBar(
 	const isNarrow = layoutTier === "narrow";
 
 	// Total count
+	const tabLabel = tab === "recipe" ? "recipes" : tab === "ingredient" ? "ingredients" : "restaurants";
 	container.createSpan({
 		cls: "gl-explorer__stats-item",
-		text: `${notes.length} ${tab === "recipe" ? "recipes" : "restaurants"}`,
+		text: `${notes.length} ${tabLabel}`,
 	});
 
 	// Average rating (shared)
@@ -38,6 +39,8 @@ export function renderStatsBar(
 
 	if (tab === "recipe") {
 		renderRecipeStats(container, notes);
+	} else if (tab === "ingredient") {
+		renderIngredientStats(container, notes);
 	} else {
 		renderRestaurantStats(container, notes);
 	}
@@ -78,6 +81,39 @@ function renderRecipeStats(container: HTMLElement, notes: GourmetNote[]): void {
 		const dot = diffEl.createSpan({ cls: `gl-explorer__stats-dot gl-explorer__stats-dot--${level}` });
 		dot.title = `${level}: ${count}`;
 		diffEl.createSpan({ text: `${count} ` });
+	}
+}
+
+function renderIngredientStats(container: HTMLElement, notes: GourmetNote[]): void {
+	// Top categories
+	const catCount = new Map<string, number>();
+	for (const n of notes) {
+		const cat = (n.frontmatter as IngredientFrontmatter).category;
+		if (cat) catCount.set(cat, (catCount.get(cat) ?? 0) + 1);
+	}
+	const topCats = [...catCount.entries()]
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, 3)
+		.map(([c]) => c);
+	if (topCats.length > 0) {
+		container.createSpan({
+			cls: "gl-explorer__stats-item",
+			text: topCats.join(", "),
+		});
+		container.createSpan({ cls: "gl-explorer__stats-sep", text: "|" });
+	}
+
+	// Season distribution
+	const seasonCount = new Map<string, number>();
+	for (const n of notes) {
+		const seasons = (n.frontmatter as IngredientFrontmatter).season;
+		if (seasons) {
+			for (const s of seasons) seasonCount.set(s, (seasonCount.get(s) ?? 0) + 1);
+		}
+	}
+	if (seasonCount.size > 0) {
+		const seasonEl = container.createSpan({ cls: "gl-explorer__stats-item" });
+		seasonEl.textContent = [...seasonCount.entries()].map(([s, c]) => `${s}(${c})`).join(" ");
 	}
 }
 
