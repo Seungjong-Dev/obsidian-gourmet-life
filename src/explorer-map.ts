@@ -29,6 +29,7 @@ export function destroyExplorerMap(container: HTMLElement): void {
 		activeMaps.delete(container);
 	}
 	activeMarkers.delete(container);
+	container.removeClass("gl-explorer__map-container");
 }
 
 export function hasExplorerMap(container: HTMLElement): boolean {
