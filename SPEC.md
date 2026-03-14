@@ -360,7 +360,7 @@ When a recipe note is opened via the Gourmet Explorer or a command, the plugin r
 **Side Panel** (left, sticky):
 - Image thumbnail
 - Metadata: cuisine, servings, difficulty, prep/cook time
-- Ingredient list grouped by section, with inline editing (Editor mode)
+- Ingredient list as a single flat list (no section headers), with same-name+unit quantities summed across sections; inline editing (Editor mode)
 - Tools list (auto-extracted from steps)
 - Total time (auto-extracted from steps)
 - Ingredients, Tools, Total Time sections share a unified card style (`background-primary`, `border-radius: 10px`, `padding: 12px`) with full-width `h3` section-title underline headings
@@ -805,6 +805,7 @@ src/
 - `parseCooklangLine(line)`: Scanner-based segment parser for `@ingredient{qty%unit}`, `#tool{}`, `~{time%unit}` markers
 - `getRecipeContentZone(body)`: Extract recipe content (before `## Notes` / `## Reviews` per `RECIPE_END_SECTIONS`), skipping `## Recipe` heading; uses `SECTION_HEADING_RE` from constants
 - `extractCooklangIngredientsGrouped(body)`: Ingredients grouped by section
+- `extractCooklangIngredientsFlat(body)`: All ingredients as a flat list (no section grouping), used by side panel for merged display
 - `parseNotesSection(body)` / `parseReviewsSection(body)`: Extract section content
 - `calculateTotalTime(timers)`: Sum timers to total minutes
 - Section headers via `== name ==` or `### name`; visible comments via `> text`; hidden comments via `-- text`
@@ -993,7 +994,7 @@ src/
 - `zoomAroundCenter(zoom)`: Computes new center keeping mouse pointer fixed (matches Leaflet's `setZoomAround` logic: `viewHalf.add(centerOffset)`)
 - `updateMapSelection(container, selectedPath)`: Updates marker colors and flies to selected marker with popup
 - Initial render with `selectedPath` also triggers flyTo + popup (supports `selectOnMap` navigation from restaurant view)
-- `destroyExplorerMap(container)` / `hasExplorerMap(container)`: Lifecycle management via `WeakMap`
+- `destroyExplorerMap(container)` / `hasExplorerMap(container)`: Lifecycle management via `WeakMap`; `destroyExplorerMap` removes `gl-explorer__map-container` class from container — restoring normal scroll behavior for card/list views
 - `updateTooltipVisibility(map, markers)`: Shows permanent tooltips at high zoom, suppresses overlapping ones (pixel-distance threshold)
 - OpenStreetMap tiles, scale control, `zoomSnap: 0` for fractional zoom
 - Touch/mobile: larger markers (32×44 vs 18×27), larger popup close button (32×32), enlarged nav buttons (44×44), nav control offset for Obsidian bottom bar (`margin-bottom: calc(52px + safe-area)`), increased `fitBounds` padding (50px vs 30px), map content area fills full height with no scroll/padding override
