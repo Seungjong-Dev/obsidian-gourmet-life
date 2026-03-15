@@ -360,7 +360,7 @@ When a recipe note is opened via the Gourmet Explorer or a command, the plugin r
 **Side Panel** (left, sticky):
 - Image thumbnail
 - Metadata: cuisine, servings, difficulty, prep/cook time
-- Ingredient list as a single flat list (no section headers), with same-name+unit quantities summed across sections; inline editing (Editor mode)
+- Ingredient list as a single flat list (no section headers), with same-name+unit quantities summed across sections; bare entries (no quantity/unit) are absorbed into quantified entries of the same name so duplicates are eliminated; inline editing (Editor mode)
 - Tools list (auto-extracted from steps)
 - Total time (auto-extracted from steps)
 - Ingredients, Tools, Total Time sections share a unified card style (`background-primary`, `border-radius: 10px`, `padding: 12px`) with full-width `h3` section-title underline headings
@@ -826,6 +826,7 @@ src/
 **recipe-side-panel.ts** — Side panel rendering
 - `renderSideViewer(container, note)`: Read-only mode (metadata, ingredients, tools, time, cooking log, related, actions)
 - `renderSideEditor(container, note)`: Edit mode (image edit, metadata inputs with InputSuggest for cuisine, ingredient inline edit, auto-updated tools/time)
+- `mergeAllIngredients(items)`: Deduplicates flat ingredient list — same name+unit quantities are summed; bare entries (no qty/unit) are absorbed into quantified entries of the same name
 - `onIngredientHover(name)`: Emits event for Main to highlight matching steps
 - `highlightIngredients(names)`: Highlights ingredients used in focused step
 
