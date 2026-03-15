@@ -269,20 +269,23 @@ export default class GourmetLifePlugin extends Plugin {
 		// ── Vault Events ──
 
 		this.registerEvent(
-			this.app.metadataCache.on("changed", (file) => {
-				this.noteIndex.updateFile(file);
+			this.app.metadataCache.on("changed", async (file) => {
+				await this.noteIndex.updateFile(file);
+				this.refreshExplorers();
 			})
 		);
 
 		this.registerEvent(
 			this.app.vault.on("delete", (file) => {
 				this.noteIndex.removeFile(file.path);
+				this.refreshExplorers();
 			})
 		);
 
 		this.registerEvent(
 			this.app.vault.on("rename", (file, oldPath) => {
 				this.noteIndex.renameFile(oldPath, file.path);
+				this.refreshExplorers();
 			})
 		);
 	}
@@ -408,6 +411,13 @@ export default class GourmetLifePlugin extends Plugin {
 		});
 		if (selectOnMapPath) {
 			(leaf.view as ExplorerView).selectOnMap(selectOnMapPath);
+		}
+	}
+
+	private refreshExplorers(): void {
+		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_EXPLORER)) {
+			const view = leaf.view as ExplorerView;
+			if (!view.previewIsSaving) view.renderContent();
 		}
 	}
 

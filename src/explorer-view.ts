@@ -1,4 +1,4 @@
-import { ItemView, setIcon, TFile, WorkspaceLeaf } from "obsidian";
+import { ItemView, Scope, setIcon, TFile, WorkspaceLeaf } from "obsidian";
 import {
 	VIEW_TYPE_EXPLORER,
 	type ExplorerTab,
@@ -251,6 +251,7 @@ export class ExplorerView extends ItemView implements PreviewHost {
 			},
 			onCreateNote: () => this.createNote(),
 			onSurpriseMe: () => this.surpriseMe(),
+			onRefresh: () => this.onRefresh(),
 			onLayoutChange: (layout) => {
 				this.layout = layout;
 				updateLayoutButtons(this.wideRefs, this.layout, this.tab);
@@ -309,24 +310,15 @@ export class ExplorerView extends ItemView implements PreviewHost {
 		this.currentTier = getLayoutTier(container.clientWidth);
 		this.applyTierClasses(this.currentTier);
 
-		// Events
-		this.registerEvent(
-			this.app.metadataCache.on("changed", () => {
-				if (!this.previewIsSaving) this.renderContent();
-			})
-		);
-		this.registerEvent(this.app.vault.on("delete", () => this.renderContent()));
-		this.registerEvent(this.app.vault.on("rename", () => this.renderContent()));
-
-		// ESC closes the side preview panel
-		this.registerDomEvent(container, "keydown", (e: KeyboardEvent) => {
-			if (e.key === "Escape") {
-				if (this.narrowSearchOpen) {
-					this.closeNarrowSearch();
-				} else if (this.selectedPath) {
-					this.closePreviewAndSync();
-				}
+		// Scope: consume Escape so Obsidian won't navigate away
+		this.scope = new Scope(this.app.scope);
+		this.scope.register([], "Escape", (e) => {
+			if (this.narrowSearchOpen) {
+				this.closeNarrowSearch();
+			} else if (this.selectedPath) {
+				this.closePreviewAndSync();
 			}
+			return false; // consumed — prevent Obsidian default
 		});
 
 		this.refresh();
@@ -428,6 +420,7 @@ export class ExplorerView extends ItemView implements PreviewHost {
 			},
 			onCreateNote: () => this.createNote(),
 			onSurpriseMe: () => this.surpriseMe(),
+			onRefresh: () => this.onRefresh(),
 		});
 	}
 
@@ -845,6 +838,11 @@ export class ExplorerView extends ItemView implements PreviewHost {
 				}
 			}, 500);
 		}, this.plugin.noteIndex).open();
+	}
+
+	private async onRefresh(): Promise<void> {
+		await this.plugin.noteIndex.buildIndex();
+		this.refresh();
 	}
 
 	private surpriseMe(): void {
