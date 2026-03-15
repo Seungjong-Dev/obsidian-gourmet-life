@@ -40,6 +40,7 @@ export interface ToolbarCallbacks {
 	onCreateNote: () => void;
 	onSurpriseMe: () => void;
 	onLayoutChange: (layout: ExplorerLayout) => void;
+	onRefresh: () => void;
 	onToggleNarrowSearch: () => void;
 	onShowOverflowMenu: (e: MouseEvent | Event) => void;
 }
@@ -149,6 +150,15 @@ export function buildWideToolbar(
 	setIcon(surpriseBtn, "shuffle");
 	surpriseBtn.title = "Pick a random note";
 	surpriseBtn.addEventListener("click", () => callbacks.onSurpriseMe());
+
+	// Refresh button
+	const refreshBtn = right.createEl("button", {
+		cls: "gl-explorer__layout-btn",
+		attr: { "aria-label": "Refresh" },
+	});
+	setIcon(refreshBtn, "rotate-cw");
+	refreshBtn.title = "Rebuild index & refresh";
+	refreshBtn.addEventListener("click", () => callbacks.onRefresh());
 
 	const layoutCardBtn = right.createEl("button", {
 		cls: "gl-explorer__layout-btn",
@@ -276,6 +286,7 @@ export function showOverflowMenu(
 		onLayoutChange: (layout: ExplorerLayout) => void;
 		onCreateNote: () => void;
 		onSurpriseMe: () => void;
+		onRefresh: () => void;
 	}
 ): void {
 	const menu = new Menu();
@@ -343,6 +354,15 @@ export function showOverflowMenu(
 		item.setTitle("Surprise me!");
 		item.setIcon("shuffle");
 		item.onClick(() => callbacks.onSurpriseMe());
+	});
+
+	menu.addSeparator();
+
+	// Refresh
+	menu.addItem((item) => {
+		item.setTitle("Refresh");
+		item.setIcon("rotate-cw");
+		item.onClick(() => callbacks.onRefresh());
 	});
 
 	menu.showAtMouseEvent(e as MouseEvent);
