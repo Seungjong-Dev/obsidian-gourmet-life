@@ -554,12 +554,33 @@ function addDropdownField(
  * Merge ingredients across all sections by name+unit, summing numeric quantities.
  * - Same name + same unit → quantities summed (if both numeric)
  * - Same name + different unit → kept as separate items
- * - No quantity/unit → deduplicated by name alone
+ * - No quantity/unit → absorbed into any existing entry with the same name
  */
 function mergeAllIngredients(items: CooklangIngredient[]): CooklangIngredient[] {
+	// keyed map: name::unit → ingredient
 	const map = new Map<string, CooklangIngredient>();
+	// track which names have at least one entry with quantity
+	const namesWithQty = new Set<string>();
+
 	for (const ing of items) {
-		const key = `${ing.name.toLowerCase()}::${ing.unit.toLowerCase()}`;
+		const nameLower = ing.name.toLowerCase();
+		const hasQty = !!(ing.quantity || ing.unit);
+		const key = `${nameLower}::${ing.unit.toLowerCase()}`;
+
+		if (hasQty) {
+			namesWithQty.add(nameLower);
+			// Remove bare (no-qty) entry for this name if it exists
+			const bareKey = `${nameLower}::`;
+			if (map.has(bareKey)) {
+				map.delete(bareKey);
+			}
+		}
+
+		if (!hasQty && namesWithQty.has(nameLower)) {
+			// Skip bare entry — already represented by a quantified entry
+			continue;
+		}
+
 		if (map.has(key)) {
 			const existing = map.get(key)!;
 			const a = parseFloat(existing.quantity);
