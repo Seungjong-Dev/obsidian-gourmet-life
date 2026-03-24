@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-gourmet-life",
-	"version": "0.1.0",
+	"version": "1.0.0",
 	"description": "Culinary life management plugin for Obsidian — recipes, ingredients, and restaurants",
 	"main": "main.js",
 	"scripts": {
