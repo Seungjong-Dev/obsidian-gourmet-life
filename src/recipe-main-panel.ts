@@ -24,6 +24,7 @@ export interface MainPanelCallbacks {
 	onTitleChange: (newTitle: string) => void;
 	onShareCard?: () => void;
 	onDelete?: () => void;
+	onAddReview?: () => void;
 }
 
 export interface MainState {
@@ -155,9 +156,18 @@ function renderMainPanelViewer(
 
 	// Reviews
 	const reviewsContent = parseReviewsSection(bodyContent);
+	const reviewsSection = container.createDiv();
+	const reviewsHeader = reviewsSection.createDiv({ cls: "gl-section-header" });
+	reviewsHeader.createEl("h2", { text: "Reviews" });
+	if (callbacks.onAddReview) {
+		const addBtn = reviewsHeader.createEl("button", {
+			cls: "gl-review-add-btn",
+		});
+		setIcon(addBtn, "plus");
+		addBtn.appendText(" Add");
+		addBtn.addEventListener("click", () => callbacks.onAddReview?.());
+	}
 	if (reviewsContent.trim()) {
-		const reviewsSection = container.createDiv();
-		reviewsSection.createEl("h2", { text: "Reviews" });
 		renderReviewCards(reviewsSection, reviewsContent, resourcePath, app, recipePath, component);
 	}
 
