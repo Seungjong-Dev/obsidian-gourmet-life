@@ -23,6 +23,7 @@ export interface RestaurantMainCallbacks {
 	onNotesInput: () => void;
 	onReviewsInput: () => void;
 	onDelete?: () => void;
+	onAddReview?: () => void;
 }
 
 export interface RestaurantMainState {
@@ -109,7 +110,7 @@ export function renderRestaurantMainPanel(
 	const sections = parseRestaurantSections(bodyContent);
 
 	if (mode === "viewer") {
-		renderViewer(container, sections, app, notePath, component);
+		renderViewer(container, sections, callbacks, app, notePath, component);
 	} else {
 		renderEditor(container, sections, callbacks, app, notePath);
 	}
@@ -120,6 +121,7 @@ export function renderRestaurantMainPanel(
 function renderViewer(
 	container: HTMLElement,
 	sections: { menuHighlights: string; notes: string; reviews: string },
+	callbacks: RestaurantMainCallbacks,
 	app?: App,
 	notePath?: string,
 	component?: Component
@@ -158,9 +160,18 @@ function renderViewer(
 	}
 
 	// Reviews
+	const reviewsSection = container.createDiv();
+	const reviewsHeader = reviewsSection.createDiv({ cls: "gl-section-header" });
+	reviewsHeader.createEl("h2", { text: "Reviews" });
+	if (callbacks.onAddReview) {
+		const addBtn = reviewsHeader.createEl("button", {
+			cls: "gl-review-add-btn",
+		});
+		setIcon(addBtn, "plus");
+		addBtn.appendText(" Add");
+		addBtn.addEventListener("click", () => callbacks.onAddReview?.());
+	}
 	if (sections.reviews.trim()) {
-		const reviewsSection = container.createDiv();
-		reviewsSection.createEl("h2", { text: "Reviews" });
 		const visits = parseRestaurantVisits(sections.reviews);
 		renderVisitCards(reviewsSection, visits, app, notePath, component);
 	}
