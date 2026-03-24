@@ -100,8 +100,11 @@ export async function appendReviewToFile(
 }
 
 /**
- * Import an image file (from a File/Blob) into the vault's attachment folder
- * and return the vault-relative path.
+ * Import an image file (from a File/Blob) into the note type's folder
+ * under an `attachments/` subfolder and return the vault-relative path.
+ *
+ * For example, if the source note is in `Gourmet/Recipes/`,
+ * the image is saved to `Gourmet/Recipes/attachments/photo.jpg`.
  */
 export async function importImageToVault(
 	app: App,
@@ -109,25 +112,25 @@ export async function importImageToVault(
 	blob: ArrayBuffer,
 	filename: string
 ): Promise<string> {
-	// Use Obsidian's built-in attachment path resolution
-	const folder = app.fileManager.getNewFileParent(sourceFile.path);
-	const folderPath = folder.path === "/" ? "" : folder.path;
+	// Use the source note's parent folder + attachments/ subfolder
+	const parentFolder = sourceFile.parent?.path ?? "";
+	const folderPath = parentFolder
+		? `${parentFolder}/attachments`
+		: "attachments";
 
 	// Ensure unique filename
-	let targetPath = folderPath ? `${folderPath}/${filename}` : filename;
+	let targetPath = `${folderPath}/${filename}`;
 	let counter = 1;
 	while (app.vault.getAbstractFileByPath(targetPath)) {
 		const dotIdx = filename.lastIndexOf(".");
 		const base = dotIdx > 0 ? filename.substring(0, dotIdx) : filename;
 		const ext = dotIdx > 0 ? filename.substring(dotIdx) : "";
-		targetPath = folderPath
-			? `${folderPath}/${base}-${counter}${ext}`
-			: `${base}-${counter}${ext}`;
+		targetPath = `${folderPath}/${base}-${counter}${ext}`;
 		counter++;
 	}
 
-	// Create folder if needed
-	if (folderPath && !app.vault.getAbstractFileByPath(folderPath)) {
+	// Create attachments folder if needed
+	if (!app.vault.getAbstractFileByPath(folderPath)) {
 		await app.vault.createFolder(folderPath);
 	}
 
