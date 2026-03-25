@@ -3595,14 +3595,19 @@
 }
 
 .gl-review-card__menu-btn {
+	position: absolute;
+	top: 6px;
+	right: 6px;
 	background: none !important;
 	border: none !important;
 	box-shadow: none !important;
 	cursor: pointer;
 	color: var(--text-faint);
-	padding: 2px;
-	margin-left: auto;
-	flex-shrink: 0;
+	padding: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	line-height: 1;
 }
 
 .gl-review-card__menu-btn:hover {
