@@ -835,8 +835,8 @@ src/
 **recipe-main-panel.ts** — Main panel rendering
 - `renderTitleRow(titleRow, title, mode, callbacks)`: Renders title (display or input) + mode toggle + share button (viewer only) + add review button (viewer only) + delete button + view source button into the root-level title row element
 - `renderMainViewer(container, note)`: Read-only steps, review timeline cards, and references (in that order) with highlighted ingredient text
-- `parseReviewEntries(text)`: Parses `- YYYY-MM-DD text` (dated) and `- text` (dateless) into timeline cards; colon after date is optional; indented/continuation lines belong to previous entry; pre-entry text collected as preamble
-- `renderReviewCards(container, text)`: Renders preamble (if any) then timeline cards; dateless cards omit the date badge; falls back to plain text if no list items found
+- `parseReviewEntries(text)`: Parses `- YYYY-MM-DD text` (dated) and `- text` (dateless) into `ReviewEntry[]` with `rawText` for edit/delete; colon after date is optional; indented/continuation lines belong to previous entry; pre-entry text collected as preamble
+- `renderReviewCards(container, text, ..., file?, onReviewChanged?)`: Renders preamble (if any) then timeline cards with edit/delete action buttons; dateless cards omit the date badge; falls back to plain text if no list items found
 - `renderMainEditor(container, note)`: Editable steps with ingredient chip insertion
 - `onStepFocus(stepIndex)`: Emits event for Side to highlight used ingredients
 - `highlightSteps(ingredientName)`: Highlights steps using a given ingredient
@@ -880,23 +880,29 @@ src/
 **restaurant-parser.ts** — Restaurant body parser
 - `parseRestaurantSections(body)`: Split body by `##` headings into menuHighlights/notes/reviews
 - `parseMenuHighlights(text)`: Parse `- name — description` list items into `RestaurantMenuItem[]`
-- `parseRestaurantVisits(reviewsText)`: Parse visit entries with dates, `#rate/N` dish reviews, general comments into `RestaurantVisit[]`
+- `parseRestaurantVisits(reviewsText)`: Parse visit entries with dates, `#rate/N` dish reviews, general comments into `RestaurantVisit[]` with `rawText` for edit/delete
 - `computeVisitRating(visit)` / `computeOverallRating(visits)` / `computeVisitStats(visits)`: Rating calculations
 - `extractCoordsFromUrl(url)`: Sync rule-based regex extraction for Google, Naver, Kakao map URLs → `GeoCoords | null`
 - `fetchCoordsFromUrl(url)`: Async rule-based extraction for short URLs (Google `maps.app.goo.gl`), Kakao Place pages, Naver Place pages (redirect follow + HTML scrape) → `Promise<GeoCoords | null>`
 - `geocodeAddress(address)`: Nominatim API geocoding → `GeoCoords`
 
-**review-modal.ts** — Review creation modal
-- `ReviewModal`: Modal for adding reviews to recipe and restaurant notes, adapts form by `ReviewMode` (`"recipe" | "restaurant"`)
+**review-modal.ts** — Review creation and editing modal
+- `ReviewModal`: Modal for adding/editing reviews, adapts form by `ReviewMode` (`"recipe" | "restaurant"`)
 - Recipe mode: date picker, star rating (1–5), review text, photo attachments
 - Restaurant mode: date picker, dynamic dish rows (name + star rating + comment, add/remove), general comment, photo attachments
 - Photo sources: Camera (with `capture="environment"` for mobile), Gallery (file picker without capture), From vault (`ImageSuggestModal`)
-- On submit: imports device photos to `attachments/` subfolder via `importImageToVault()`, formats review markdown, appends to file via `appendReviewToFile()`, triggers view re-render
+- Edit mode: optional `prefill` (`ReviewPrefill`) pre-populates form fields, `onEditSubmit` callback replaces existing entry instead of appending; heading shows "Edit Review", button shows "Update Review"
+- On submit (new): imports device photos via `importImageToVault()`, formats markdown, appends via `appendReviewToFile()`
+- On submit (edit): formats markdown, calls `onEditSubmit(newMd)` which triggers `replaceReviewInFile()`
 
-**review-utils.ts** — Review formatting and file helpers
+**review-utils.ts** — Review formatting, file manipulation, and prefill helpers
 - `formatRecipeReview(date, text, photos, rating?)`: Formats `- YYYY-MM-DD #rate/N review text` with indented `![[photo]]` embeds
 - `formatRestaurantVisit(date, dishes, comment, photos)`: Formats visit entry with dish sub-items (`#rate/N`), general comment, `> [!gallery]` photo callout
 - `appendReviewToFile(app, file, reviewMd)`: Appends review markdown to `## Reviews` section (creates section if missing)
+- `replaceReviewInFile(app, file, oldRawText, newRawText)`: Replaces a review entry in `## Reviews` section by exact raw text match
+- `deleteReviewInFile(app, file, rawText)`: Removes a review entry from `## Reviews` section, cleans up blank lines
+- `extractRecipeReviewPrefill(entry)`: Extracts `ReviewPrefill` from a parsed `ReviewEntry` (rating from `#rate/N`, photos from `![[]]` embeds)
+- `extractRestaurantVisitPrefill(visit)`: Extracts `ReviewPrefill` from a parsed `RestaurantVisit` (dishes, comments, gallery photos)
 - `importImageToVault(app, sourceFile, blob, filename)`: Saves image to note's parent `attachments/` subfolder with unique filename
 - `isImageFile(filename)`: Checks against `IMAGE_EXTS` constant
 - `todayString()`: Returns `YYYY-MM-DD` formatted current date
