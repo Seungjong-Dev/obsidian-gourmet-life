@@ -216,7 +216,7 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app
 		// Kebab menu
 		if (app && file && onReviewChanged) {
 			const menuBtn = header.createEl("button", { cls: "gl-review-card__menu-btn" });
-			setIcon(menuBtn, "more-vertical");
+			setIcon(menuBtn, "more-horizontal");
 			menuBtn.addEventListener("click", (e) => {
 				const menu = new Menu();
 				menu.addItem((item) => {
