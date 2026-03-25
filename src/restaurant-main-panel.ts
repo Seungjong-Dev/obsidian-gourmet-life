@@ -174,10 +174,10 @@ function renderViewer(
 	}
 
 	// Reviews
-	if (sections.reviews.trim()) {
+	if (sections.reviews.trim() || (app && file && onReviewChanged)) {
 		const reviewsSection = container.createDiv();
 		reviewsSection.createEl("h2", { text: "Reviews" });
-		const visits = parseRestaurantVisits(sections.reviews);
+		const visits = sections.reviews.trim() ? parseRestaurantVisits(sections.reviews) : [];
 		renderVisitCards(reviewsSection, visits, app, notePath, component, file, onReviewChanged);
 	}
 }
@@ -305,6 +305,15 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app
 			}
 		}
 		flushImageGallery();
+	}
+
+	// Add review prompt at the bottom of timeline
+	if (app && file && onReviewChanged) {
+		const addCard = timeline.createDiv({ cls: "gl-restaurant__review-card gl-review-card--add" });
+		addCard.createSpan({ text: "Write a new review...", cls: "gl-review-card--add__text" });
+		addCard.addEventListener("click", () => {
+			new ReviewModal(app, "restaurant", file, onReviewChanged).open();
+		});
 	}
 }
 
