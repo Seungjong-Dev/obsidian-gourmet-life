@@ -727,6 +727,8 @@ src/
 ├── area-suggest.ts          # Best-effort area extraction from address string
 ├── input-suggest.ts         # Combobox autocomplete for <input> fields (cuisine, category)
 ├── textarea-suggest.ts      # Generic textarea inline autocomplete (image embed, etc.)
+├── review-modal.ts          # Review creation modal (recipe rating / restaurant dish reviews + photos)
+├── review-utils.ts          # Review formatting, file append, image import helpers
 ├── image-suggest-modal.ts   # FuzzySuggestModal for image selection (metadata)
 ├── note-create-modal.ts     # Note creation modal
 ├── ingredient-suggest.ts    # EditorSuggest for ingredient auto-link
@@ -831,7 +833,7 @@ src/
 - `highlightIngredients(names)`: Highlights ingredients used in focused step
 
 **recipe-main-panel.ts** — Main panel rendering
-- `renderTitleRow(titleRow, title, mode, callbacks)`: Renders title (display or input) + mode toggle + share button (viewer only) + delete button + view source button into the root-level title row element
+- `renderTitleRow(titleRow, title, mode, callbacks)`: Renders title (display or input) + mode toggle + share button (viewer only) + add review button (viewer only) + delete button + view source button into the root-level title row element
 - `renderMainViewer(container, note)`: Read-only steps, review timeline cards, and references (in that order) with highlighted ingredient text
 - `parseReviewEntries(text)`: Parses `- YYYY-MM-DD text` (dated) and `- text` (dateless) into timeline cards; colon after date is optional; indented/continuation lines belong to previous entry; pre-entry text collected as preamble
 - `renderReviewCards(container, text)`: Renders preamble (if any) then timeline cards; dateless cards omit the date badge; falls back to plain text if no list items found
@@ -869,7 +871,7 @@ src/
 - `renderLeafletMap()`: Creates Leaflet map instance with OpenStreetMap tiles, supports optional nearby markers (small gray SVG icons with tooltips and click handlers)
 
 **restaurant-main-panel.ts** — Restaurant main panel
-- `renderRestaurantTitleRow()`: Title (display/input) + mode toggle + delete button + view source button
+- `renderRestaurantTitleRow()`: Title (display/input) + mode toggle + add review button (viewer only) + delete button + view source button
 - `renderRestaurantMainPanel()`: Delegates to viewer/editor
 - Viewer: Menu Highlights list, Notes paragraphs, Reviews as timeline cards (sorted newest-first) with visit ratings, dish chips with stars, general comments; consecutive image-only comments grouped into `.gl-gallery` horizontal scroll strip with lightbox navigation
 - Editor: Three textareas (menu-highlights, notes, reviews)
@@ -883,6 +885,21 @@ src/
 - `extractCoordsFromUrl(url)`: Sync rule-based regex extraction for Google, Naver, Kakao map URLs → `GeoCoords | null`
 - `fetchCoordsFromUrl(url)`: Async rule-based extraction for short URLs (Google `maps.app.goo.gl`), Kakao Place pages, Naver Place pages (redirect follow + HTML scrape) → `Promise<GeoCoords | null>`
 - `geocodeAddress(address)`: Nominatim API geocoding → `GeoCoords`
+
+**review-modal.ts** — Review creation modal
+- `ReviewModal`: Modal for adding reviews to recipe and restaurant notes, adapts form by `ReviewMode` (`"recipe" | "restaurant"`)
+- Recipe mode: date picker, star rating (1–5), review text, photo attachments
+- Restaurant mode: date picker, dynamic dish rows (name + star rating + comment, add/remove), general comment, photo attachments
+- Photo sources: Camera (with `capture="environment"` for mobile), Gallery (file picker without capture), From vault (`ImageSuggestModal`)
+- On submit: imports device photos to `attachments/` subfolder via `importImageToVault()`, formats review markdown, appends to file via `appendReviewToFile()`, triggers view re-render
+
+**review-utils.ts** — Review formatting and file helpers
+- `formatRecipeReview(date, text, photos, rating?)`: Formats `- YYYY-MM-DD #rate/N review text` with indented `![[photo]]` embeds
+- `formatRestaurantVisit(date, dishes, comment, photos)`: Formats visit entry with dish sub-items (`#rate/N`), general comment, `> [!gallery]` photo callout
+- `appendReviewToFile(app, file, reviewMd)`: Appends review markdown to `## Reviews` section (creates section if missing)
+- `importImageToVault(app, sourceFile, blob, filename)`: Saves image to note's parent `attachments/` subfolder with unique filename
+- `isImageFile(filename)`: Checks against `IMAGE_EXTS` constant
+- `todayString()`: Returns `YYYY-MM-DD` formatted current date
 
 **ingredient-view.ts** — Ingredient 2-column view
 - Extends `ItemView`, registered as `VIEW_TYPE_INGREDIENT`
@@ -950,7 +967,7 @@ src/
 
 **explorer-preview.ts** — Explorer preview panel
 - `PreviewHost` interface: Defines the contract between ExplorerView and preview functions (app, plugin, state, DOM refs, methods)
-- `renderPreview(host)`: Main preview render — reads file, determines container (overlay for narrow, panel for wide/medium), renders header bar (open button routes by `fm.type` not `host.tab`), delegates to recipe, restaurant, or ingredient sub-renderer
+- `renderPreview(host)`: Main preview render — reads file, determines container (overlay for narrow, panel for wide/medium), renders header bar (open button routes by `fm.type` not `host.tab`, add review button for recipe/restaurant in viewer mode), delegates to recipe, restaurant, or ingredient sub-renderer
 - Recipe preview: reuses `renderSidePanel`/`renderMainPanel` from recipe panel modules
 - Restaurant preview: reuses restaurant equivalents, includes nearby markers and "Show on Map" button (hidden when already in map layout)
 - Ingredient preview: reuses `renderIngredientSidePanel`/`renderIngredientMainPanel` from ingredient panel modules, includes substitute navigation and recipe cross-references
