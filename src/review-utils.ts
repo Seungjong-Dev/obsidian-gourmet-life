@@ -245,8 +245,10 @@ export function extractRecipeReviewPrefill(entry: { date: string; lines: string[
 	let rating: number | undefined;
 
 	for (const line of entry.lines) {
-		// Check for embeds
-		const embedMatch = line.match(/^!\[\[([^\]]+)\]\]$/);
+		// Skip gallery callout marker
+		if (/^>\s*\[!gallery\]/.test(line)) continue;
+		// Check for embeds (plain or gallery callout format)
+		const embedMatch = line.match(/^>?\s*!\[\[([^\]]+)\]\]$/);
 		if (embedMatch) {
 			photos.push(embedMatch[1]);
 			continue;

@@ -114,7 +114,10 @@ export class ReviewModal extends Modal {
 			}
 		}
 
-		// Show existing photos as read-only thumbnails
+		// Photos section (must be built before prefilling photos)
+		this.buildPhotoSection(contentEl);
+
+		// Show existing photos as thumbnails
 		if (this.prefill?.photos && this.prefill.photos.length > 0) {
 			for (const vaultPath of this.prefill.photos) {
 				const entry: PhotoEntry = { name: vaultPath.split("/").pop() || vaultPath, vaultPath };
@@ -122,9 +125,6 @@ export class ReviewModal extends Modal {
 				this.renderPhotoThumb(entry);
 			}
 		}
-
-		// Photos section
-		this.buildPhotoSection(contentEl);
 
 		// Submit
 		new Setting(contentEl)
@@ -389,8 +389,15 @@ export class ReviewModal extends Modal {
 		if (entry.objectUrl) {
 			thumb.createEl("img", { attr: { src: entry.objectUrl } });
 		} else if (entry.vaultPath) {
-			const resourcePath = this.app.vault.adapter.getResourcePath(entry.vaultPath);
-			thumb.createEl("img", { attr: { src: resourcePath } });
+			// Resolve link path (may be filename-only or full path)
+			const resolved = this.app.metadataCache.getFirstLinkpathDest(entry.vaultPath, this.file.path);
+			if (resolved) {
+				const resourcePath = this.app.vault.getResourcePath(resolved);
+				thumb.createEl("img", { attr: { src: resourcePath } });
+			} else {
+				const resourcePath = this.app.vault.adapter.getResourcePath(entry.vaultPath);
+				thumb.createEl("img", { attr: { src: resourcePath } });
+			}
 		}
 
 		const nameEl = thumb.createSpan({
