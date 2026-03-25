@@ -774,7 +774,8 @@
 }
 
 .gl-recipe--single .gl-recipe__mode-toggle,
-.gl-recipe--single .gl-recipe__view-source {
+.gl-recipe--single .gl-recipe__view-source,
+.gl-recipe--single .gl-review-add-btn {
 	background: var(--background-secondary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
@@ -1839,7 +1840,8 @@
 /* Single-column button styling */
 
 .gl-restaurant--single .gl-recipe__mode-toggle,
-.gl-restaurant--single .gl-recipe__view-source {
+.gl-restaurant--single .gl-recipe__view-source,
+.gl-restaurant--single .gl-review-add-btn {
 	background: var(--background-secondary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
@@ -3583,40 +3585,23 @@
 	text-decoration: underline;
 }
 
-/* ── Section Header with Add button ── */
-
-.gl-section-header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 8px;
-}
-
-.gl-section-header h2 {
-	margin: 0;
-}
+/* ── Review Add Button (title bar) ── */
 
 .gl-review-add-btn {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	padding: 4px 12px;
-	border-radius: 16px;
-	border: 1px solid var(--background-modifier-border);
-	background: var(--interactive-normal);
-	color: var(--text-normal);
-	font-size: 0.85em;
+	background: none;
+	border: none;
 	cursor: pointer;
-	white-space: nowrap;
+	color: var(--text-muted);
+	padding: 4px 8px;
 }
 
 .gl-review-add-btn:hover {
-	background: var(--interactive-hover);
+	color: var(--text-normal);
 }
 
 .gl-review-add-btn .svg-icon {
-	width: 14px;
-	height: 14px;
+	width: 16px;
+	height: 16px;
 }
 
 /* ── Review Modal ── */
