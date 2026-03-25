@@ -763,6 +763,18 @@
 	color: var(--text-normal);
 }
 
+.gl-recipe__delete-btn {
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: var(--text-muted);
+	padding: 4px 8px;
+}
+
+.gl-recipe__delete-btn:hover {
+	color: var(--text-error);
+}
+
 /* Single-column: sticky title row */
 
 .gl-recipe--single .gl-recipe__title-row {
@@ -775,7 +787,8 @@
 
 .gl-recipe--single .gl-recipe__mode-toggle,
 .gl-recipe--single .gl-recipe__view-source,
-.gl-recipe--single .gl-review-add-btn {
+.gl-recipe--single .gl-review-add-btn,
+.gl-recipe--single .gl-recipe__delete-btn {
 	background: var(--background-secondary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
@@ -1841,7 +1854,8 @@
 
 .gl-restaurant--single .gl-recipe__mode-toggle,
 .gl-restaurant--single .gl-recipe__view-source,
-.gl-restaurant--single .gl-review-add-btn {
+.gl-restaurant--single .gl-review-add-btn,
+.gl-restaurant--single .gl-recipe__delete-btn {
 	background: var(--background-secondary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
@@ -3242,6 +3256,14 @@
 	z-index: 5;
 	background: var(--background-primary);
 	padding: 8px 20px;
+}
+
+.gl-ingredient--single .gl-recipe__mode-toggle,
+.gl-ingredient--single .gl-recipe__view-source,
+.gl-ingredient--single .gl-recipe__delete-btn {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
 }
 
 .gl-ingredient--single .gl-ingredient__side {
