@@ -836,7 +836,7 @@ src/
 - `renderTitleRow(titleRow, title, mode, callbacks)`: Renders title (display or input) + mode toggle + share button (viewer only) + add review button (viewer only) + delete button + view source button into the root-level title row element
 - `renderMainViewer(container, note)`: Read-only steps, review timeline cards, and references (in that order) with highlighted ingredient text
 - `parseReviewEntries(text)`: Parses `- YYYY-MM-DD text` (dated) and `- text` (dateless) into `ReviewEntry[]` with `rawText` for edit/delete; colon after date is optional; indented/continuation lines belong to previous entry; pre-entry text collected as preamble
-- `renderReviewCards(container, text, ..., file?, onReviewChanged?)`: Renders preamble (if any) then timeline cards with `···` kebab menu (Obsidian `Menu` dropdown for Edit/Delete); dateless cards omit the date badge; falls back to plain text if no list items found
+- `renderReviewCards(container, text, ..., file?, onReviewChanged?)`: Renders preamble (if any) then timeline cards with `···` kebab menu (Obsidian `Menu` dropdown for Edit/Delete); dateless cards omit the date badge; falls back to plain text if no list items found; appends dashed-border "Write a new review..." prompt card at timeline end (opens ReviewModal on click); Reviews section renders even with no entries when file context is available
 - `renderMainEditor(container, note)`: Editable steps with ingredient chip insertion
 - `onStepFocus(stepIndex)`: Emits event for Side to highlight used ingredients
 - `highlightSteps(ingredientName)`: Highlights steps using a given ingredient
