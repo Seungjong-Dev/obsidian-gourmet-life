@@ -207,6 +207,10 @@ export class ReviewModal extends Modal {
 			if (commentInput) {
 				commentInput.oninput = () => { this.dishes[i].comment = commentInput.value; };
 			}
+			const starsEl = row.querySelector(".gl-review-modal__dish-stars") as HTMLElement | null;
+			if (starsEl) {
+				this.renderDishStarPicker(starsEl, i, this.dishes[i].rating);
+			}
 		});
 	}
 
@@ -253,13 +257,21 @@ export class ReviewModal extends Modal {
 
 		const btnRow = section.createDiv({ cls: "gl-review-modal__photo-buttons" });
 
-		// From device
-		const deviceBtn = btnRow.createEl("button", {
+		// Camera (direct capture on mobile)
+		const cameraBtn = btnRow.createEl("button", {
 			cls: "gl-review-modal__photo-btn",
 		});
-		setIcon(deviceBtn, "camera");
-		deviceBtn.appendText(" From device");
-		deviceBtn.addEventListener("click", () => this.pickFromDevice());
+		setIcon(cameraBtn, "camera");
+		cameraBtn.appendText(" Camera");
+		cameraBtn.addEventListener("click", () => this.pickFromCamera());
+
+		// Gallery (file picker without capture)
+		const galleryBtn = btnRow.createEl("button", {
+			cls: "gl-review-modal__photo-btn",
+		});
+		setIcon(galleryBtn, "image-plus");
+		galleryBtn.appendText(" Gallery");
+		galleryBtn.addEventListener("click", () => this.pickFromGallery());
 
 		// From vault
 		const vaultBtn = btnRow.createEl("button", {
@@ -270,13 +282,22 @@ export class ReviewModal extends Modal {
 		vaultBtn.addEventListener("click", () => this.pickFromVault());
 	}
 
-	private pickFromDevice(): void {
+	private pickFromCamera(): void {
+		this.pickFromFileInput(true);
+	}
+
+	private pickFromGallery(): void {
+		this.pickFromFileInput(false);
+	}
+
+	private pickFromFileInput(useCapture: boolean): void {
 		const input = document.createElement("input");
 		input.type = "file";
 		input.accept = "image/*";
 		input.multiple = true;
-		// On mobile, this allows camera capture
-		input.setAttribute("capture", "environment");
+		if (useCapture) {
+			input.setAttribute("capture", "environment");
+		}
 		input.addEventListener("change", async () => {
 			if (!input.files) return;
 			for (const file of Array.from(input.files)) {
@@ -368,7 +389,7 @@ export class ReviewModal extends Modal {
 		let reviewMd: string;
 		if (this.mode === "recipe") {
 			const text = this.reviewText?.value?.trim() ?? "";
-			reviewMd = formatRecipeReview(date, text, photoPaths);
+			reviewMd = formatRecipeReview(date, text, photoPaths, this.ratingValue);
 		} else {
 			const validDishes = this.dishes.filter((d) => d.name.trim());
 			const comment = this.reviewText?.value?.trim() ?? "";

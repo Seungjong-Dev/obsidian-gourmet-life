@@ -9,11 +9,14 @@ import { IMAGE_EXTS } from "./constants";
 export function formatRecipeReview(
 	date: string,
 	text: string,
-	photos: string[]
+	photos: string[],
+	rating?: number
 ): string {
 	const lines: string[] = [];
+	const rateTag = rating && rating >= 1 && rating <= 5 ? `#rate/${rating}` : "";
 	const body = text.trim();
-	lines.push(`- ${date}${body ? " " + body : ""}`);
+	const parts = [date, rateTag, body].filter(Boolean).join(" ");
+	lines.push(`- ${parts}`);
 	for (const photo of photos) {
 		lines.push(`  ![[${photo}]]`);
 	}
@@ -89,7 +92,7 @@ export async function appendReviewToFile(
 		// Ensure there's a blank line before the new entry
 		const before = content.substring(0, insertPos).trimEnd();
 		const after = content.substring(insertPos);
-		newContent = before + "\n" + reviewMarkdown + "\n" + after;
+		newContent = before + "\n\n" + reviewMarkdown + "\n" + after;
 	} else {
 		// No ## Reviews section — add one at the end
 		const trimmed = content.trimEnd();
