@@ -7,6 +7,7 @@ import {
 	importImageToVault,
 	isImageFile,
 	todayString,
+	type ReviewPrefill,
 } from "./review-utils";
 
 interface DishEntry {
@@ -32,6 +33,8 @@ export class ReviewModal extends Modal {
 	private mode: ReviewMode;
 	private file: TFile;
 	private onDone: () => void;
+	private prefill?: ReviewPrefill;
+	private onEditSubmit?: (newReviewMd: string) => Promise<void>;
 
 	private dateInput: HTMLInputElement | null = null;
 	private ratingValue = 0;
@@ -45,12 +48,16 @@ export class ReviewModal extends Modal {
 		app: App,
 		mode: ReviewMode,
 		file: TFile,
-		onDone: () => void
+		onDone: () => void,
+		prefill?: ReviewPrefill,
+		onEditSubmit?: (newReviewMd: string) => Promise<void>
 	) {
 		super(app);
 		this.mode = mode;
 		this.file = file;
 		this.onDone = onDone;
+		this.prefill = prefill;
+		this.onEditSubmit = onEditSubmit;
 	}
 
 	onOpen(): void {
@@ -58,15 +65,18 @@ export class ReviewModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass("gl-modal", "gl-review-modal");
 
+		const isEdit = !!this.prefill;
 		contentEl.createEl("h2", {
-			text: this.mode === "recipe" ? "New Review" : "New Visit Review",
+			text: isEdit
+				? (this.mode === "recipe" ? "Edit Review" : "Edit Visit Review")
+				: (this.mode === "recipe" ? "New Review" : "New Visit Review"),
 		});
 
 		// Date
 		new Setting(contentEl)
 			.setName("Date")
 			.addText((text) => {
-				text.setValue(todayString());
+				text.setValue(this.prefill?.date || todayString());
 				text.inputEl.type = "date";
 				this.dateInput = text.inputEl;
 			});
@@ -77,6 +87,42 @@ export class ReviewModal extends Modal {
 			this.buildRestaurantForm(contentEl);
 		}
 
+		// Prefill recipe fields
+		if (this.prefill && this.mode === "recipe") {
+			if (this.prefill.rating) {
+				this.ratingValue = this.prefill.rating;
+				const starContainer = contentEl.querySelector(".gl-review-modal__star-picker") as HTMLElement | null;
+				if (starContainer) this.renderStarPicker(starContainer, this.ratingValue);
+			}
+			if (this.prefill.text && this.reviewText) {
+				this.reviewText.value = this.prefill.text;
+			}
+		}
+
+		// Prefill restaurant fields
+		if (this.prefill && this.mode === "restaurant") {
+			if (this.prefill.dishes && this.prefill.dishes.length > 0) {
+				// Remove the default empty row
+				this.dishes = [];
+				if (this.dishContainer) this.dishContainer.empty();
+				for (const dish of this.prefill.dishes) {
+					this.addDishRow(dish);
+				}
+			}
+			if (this.prefill.generalComment && this.reviewText) {
+				this.reviewText.value = this.prefill.generalComment;
+			}
+		}
+
+		// Show existing photos as read-only thumbnails
+		if (this.prefill?.photos && this.prefill.photos.length > 0) {
+			for (const vaultPath of this.prefill.photos) {
+				const entry: PhotoEntry = { name: vaultPath.split("/").pop() || vaultPath, vaultPath };
+				this.photos.push(entry);
+				this.renderPhotoThumb(entry);
+			}
+		}
+
 		// Photos section
 		this.buildPhotoSection(contentEl);
 
@@ -84,7 +130,7 @@ export class ReviewModal extends Modal {
 		new Setting(contentEl)
 			.addButton((btn) =>
 				btn
-					.setButtonText("Save Review")
+					.setButtonText(isEdit ? "Update Review" : "Save Review")
 					.setCta()
 					.onClick(() => this.handleSubmit())
 			);
@@ -149,10 +195,12 @@ export class ReviewModal extends Modal {
 			});
 	}
 
-	private addDishRow(): void {
+	private addDishRow(prefillDish?: { name: string; rating: number; comment: string }): void {
 		if (!this.dishContainer) return;
 
-		const entry: DishEntry = { name: "", rating: 0, comment: "" };
+		const entry: DishEntry = prefillDish
+			? { ...prefillDish }
+			: { name: "", rating: 0, comment: "" };
 		this.dishes.push(entry);
 		const idx = this.dishes.length - 1;
 
@@ -164,13 +212,14 @@ export class ReviewModal extends Modal {
 			type: "text",
 			placeholder: "Dish name",
 		}) as HTMLInputElement;
+		if (entry.name) nameInput.value = entry.name;
 		nameInput.addEventListener("input", () => {
 			this.dishes[idx].name = nameInput.value;
 		});
 
 		// Star rating
 		const starsEl = row.createDiv({ cls: "gl-review-modal__dish-stars" });
-		this.renderDishStarPicker(starsEl, idx, 0);
+		this.renderDishStarPicker(starsEl, idx, entry.rating);
 
 		// Comment
 		const commentInput = row.createEl("input", {
@@ -178,6 +227,7 @@ export class ReviewModal extends Modal {
 			type: "text",
 			placeholder: "Comment",
 		}) as HTMLInputElement;
+		if (entry.comment) commentInput.value = entry.comment;
 		commentInput.addEventListener("input", () => {
 			this.dishes[idx].comment = commentInput.value;
 		});
@@ -401,8 +451,13 @@ export class ReviewModal extends Modal {
 		}
 
 		try {
-			await appendReviewToFile(this.app, this.file, reviewMd);
-			new Notice("Review added!");
+			if (this.onEditSubmit) {
+				await this.onEditSubmit(reviewMd);
+				new Notice("Review updated!");
+			} else {
+				await appendReviewToFile(this.app, this.file, reviewMd);
+				new Notice("Review added!");
+			}
 			this.close();
 			this.onDone();
 		} catch (err) {

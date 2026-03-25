@@ -255,7 +255,7 @@ function renderRecipePreview(
 			new ReviewModal(host.app, "recipe", file, () => host.renderPreview()).open();
 		},
 	};
-	renderMainPanel(mainEl, bodyContent, fm.source, mode, mainCb, host.app, file.path, resourcePath, host as any);
+	renderMainPanel(mainEl, bodyContent, fm.source, mode, mainCb, host.app, file.path, resourcePath, host as any, file, () => host.renderPreview());
 }
 
 // ── Restaurant Preview ──
@@ -314,7 +314,7 @@ function renderRestaurantPreview(
 			new ReviewModal(host.app, "restaurant", file, () => host.renderPreview()).open();
 		},
 	};
-	renderRestaurantMainPanel(mainEl, bodyContent, mode, mainCb, host.app, file.path, host as any);
+	renderRestaurantMainPanel(mainEl, bodyContent, mode, mainCb, host.app, file.path, host as any, file, () => host.renderPreview());
 }
 
 // ── Ingredient Preview ──

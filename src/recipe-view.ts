@@ -300,7 +300,9 @@ export class RecipeView extends ItemView {
 			this.app,
 			this.filePath,
 			resourcePath,
-			this
+			this,
+			file,
+			() => this.render()
 		);
 
 		// Restore scroll positions
