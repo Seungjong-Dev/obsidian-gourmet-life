@@ -1,6 +1,7 @@
 import type { App, TFile } from "obsidian";
 import { splitFrontmatterBody } from "./view-utils";
 import { IMAGE_EXTS } from "./constants";
+import type { RestaurantVisit } from "./restaurant-parser";
 
 /**
  * Format a recipe review entry as markdown.
@@ -158,4 +159,146 @@ export function todayString(): string {
 	const m = String(d.getMonth() + 1).padStart(2, "0");
 	const day = String(d.getDate()).padStart(2, "0");
 	return `${y}-${m}-${day}`;
+}
+
+// ── Review Section Helpers ──
+
+/**
+ * Find the start and end offsets of the ## Reviews section content in file text.
+ * Returns the range after the heading line through the next ## heading or EOF.
+ */
+function findReviewsSectionRange(content: string): { start: number; end: number } | null {
+	const headingMatch = content.match(/^## Reviews\s*$/m);
+	if (!headingMatch || headingMatch.index == null) return null;
+	const start = headingMatch.index + headingMatch[0].length;
+	const rest = content.substring(start);
+	const nextHeading = rest.match(/\n## /);
+	const end = nextHeading?.index != null ? start + nextHeading.index : content.length;
+	return { start, end };
+}
+
+/**
+ * Replace a review entry in the ## Reviews section by matching its raw text.
+ */
+export async function replaceReviewInFile(
+	app: App,
+	file: TFile,
+	oldRawText: string,
+	newRawText: string
+): Promise<void> {
+	const content = await app.vault.read(file);
+	const range = findReviewsSectionRange(content);
+	if (!range) return;
+
+	const section = content.substring(range.start, range.end);
+	const idx = section.indexOf(oldRawText);
+	if (idx < 0) return;
+
+	const before = content.substring(0, range.start + idx);
+	const after = content.substring(range.start + idx + oldRawText.length);
+	await app.vault.modify(file, before + newRawText + after);
+}
+
+/**
+ * Delete a review entry from the ## Reviews section by matching its raw text.
+ */
+export async function deleteReviewInFile(
+	app: App,
+	file: TFile,
+	rawText: string
+): Promise<void> {
+	const content = await app.vault.read(file);
+	const range = findReviewsSectionRange(content);
+	if (!range) return;
+
+	const section = content.substring(range.start, range.end);
+	const idx = section.indexOf(rawText);
+	if (idx < 0) return;
+
+	const before = content.substring(0, range.start + idx);
+	const after = content.substring(range.start + idx + rawText.length);
+	// Clean up double blank lines
+	const cleaned = (before + after).replace(/\n{3,}/g, "\n\n");
+	await app.vault.modify(file, cleaned);
+}
+
+// ── Review Prefill Extraction ──
+
+export interface ReviewPrefill {
+	date: string;
+	rating?: number;
+	text?: string;
+	dishes?: { name: string; rating: number; comment: string }[];
+	generalComment?: string;
+	photos?: string[];
+}
+
+const EMBED_RE = /!\[\[([^\]]+)\]\]/g;
+const RATE_TAG_RE = /#rate\/(\d)/;
+
+/**
+ * Extract prefill data from a parsed recipe review entry.
+ */
+export function extractRecipeReviewPrefill(entry: { date: string; lines: string[] }): ReviewPrefill {
+	const photos: string[] = [];
+	const textParts: string[] = [];
+	let rating: number | undefined;
+
+	for (const line of entry.lines) {
+		// Check for embeds
+		const embedMatch = line.match(/^!\[\[([^\]]+)\]\]$/);
+		if (embedMatch) {
+			photos.push(embedMatch[1]);
+			continue;
+		}
+		// Check for rating tag
+		const rateMatch = line.match(RATE_TAG_RE);
+		if (rateMatch && !rating) {
+			rating = parseInt(rateMatch[1], 10);
+			const cleaned = line.replace(RATE_TAG_RE, "").trim();
+			if (cleaned) textParts.push(cleaned);
+		} else {
+			textParts.push(line);
+		}
+	}
+
+	return {
+		date: entry.date,
+		rating,
+		text: textParts.join("\n"),
+		photos,
+	};
+}
+
+/**
+ * Extract prefill data from a parsed restaurant visit.
+ */
+export function extractRestaurantVisitPrefill(visit: RestaurantVisit): ReviewPrefill {
+	const photos: string[] = [];
+	const commentParts: string[] = [];
+
+	for (const c of visit.generalComments) {
+		// Extract image embeds from gallery callouts
+		const embedMatch = c.match(/^>?\s*!\[\[([^\]]+)\]\]$/);
+		if (embedMatch) {
+			photos.push(embedMatch[1]);
+			continue;
+		}
+		// Skip gallery callout marker
+		if (/^>\s*\[!gallery\]/.test(c)) continue;
+		commentParts.push(c);
+	}
+
+	const dishes = visit.dishReviews.map((d) => ({
+		name: d.name,
+		rating: d.rating ?? 0,
+		comment: d.comment,
+	}));
+
+	return {
+		date: visit.date,
+		dishes,
+		generalComment: commentParts.join("\n"),
+		photos,
+	};
 }

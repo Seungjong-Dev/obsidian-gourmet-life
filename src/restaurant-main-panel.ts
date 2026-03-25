@@ -13,6 +13,9 @@ import { createImageSuggest, type TextareaSuggest } from "./textarea-suggest";
 import { attachIndentHandler } from "./textarea-indent";
 import { renderStarsDom } from "./render-utils";
 import { showImageLightbox, type GalleryInfo } from "./recipe-main-panel";
+import { ReviewModal } from "./review-modal";
+import { ConfirmDeleteModal } from "./confirm-delete-modal";
+import { extractRestaurantVisitPrefill, replaceReviewInFile, deleteReviewInFile } from "./review-utils";
 import { isGalleryCalloutMarker, transformGalleryCallouts, isImageOnlyLine } from "./gallery-utils";
 
 export interface RestaurantMainCallbacks {
@@ -103,7 +106,9 @@ export function renderRestaurantMainPanel(
 	callbacks: RestaurantMainCallbacks,
 	app?: App,
 	notePath?: string,
-	component?: Component
+	component?: Component,
+	file?: TFile,
+	onReviewChanged?: () => void
 ): void {
 	// Cleanup previous image suggests
 	const prev = (container as any).__glSuggests as TextareaSuggest<unknown>[] | undefined;
@@ -117,7 +122,7 @@ export function renderRestaurantMainPanel(
 	const sections = parseRestaurantSections(bodyContent);
 
 	if (mode === "viewer") {
-		renderViewer(container, sections, callbacks, app, notePath, component);
+		renderViewer(container, sections, callbacks, app, notePath, component, file, onReviewChanged);
 	} else {
 		renderEditor(container, sections, callbacks, app, notePath);
 	}
@@ -131,7 +136,9 @@ function renderViewer(
 	callbacks: RestaurantMainCallbacks,
 	app?: App,
 	notePath?: string,
-	component?: Component
+	component?: Component,
+	file?: TFile,
+	onReviewChanged?: () => void
 ): void {
 	// Menu Highlights
 	if (sections.menuHighlights.trim()) {
@@ -171,13 +178,13 @@ function renderViewer(
 		const reviewsSection = container.createDiv();
 		reviewsSection.createEl("h2", { text: "Reviews" });
 		const visits = parseRestaurantVisits(sections.reviews);
-		renderVisitCards(reviewsSection, visits, app, notePath, component);
+		renderVisitCards(reviewsSection, visits, app, notePath, component, file, onReviewChanged);
 	}
 }
 
 // ── Visit Cards ──
 
-function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app?: App, notePath?: string, component?: Component): void {
+function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app?: App, notePath?: string, component?: Component, file?: TFile, onReviewChanged?: () => void): void {
 	// Sort by date descending
 	const sorted = [...visits].sort((a, b) => {
 		if (!a.date && !b.date) return 0;
@@ -203,6 +210,32 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app
 			ratingEl.createSpan({
 				text: ` ${visitRating.toFixed(1)}`,
 				cls: "gl-restaurant__review-rating-num",
+			});
+		}
+
+		// Edit/Delete buttons
+		if (app && file && onReviewChanged) {
+			const actions = header.createDiv({ cls: "gl-review-card__actions" });
+
+			const editBtn = actions.createEl("button", { cls: "gl-review-card__action-btn" });
+			editBtn.title = "Edit review";
+			setIcon(editBtn, "pencil");
+			editBtn.addEventListener("click", () => {
+				const prefill = extractRestaurantVisitPrefill(visit);
+				new ReviewModal(app, "restaurant", file, onReviewChanged, prefill, async (newMd) => {
+					await replaceReviewInFile(app, file, visit.rawText, newMd);
+				}).open();
+			});
+
+			const deleteBtn = actions.createEl("button", { cls: "gl-review-card__action-btn gl-review-card__action-btn--danger" });
+			deleteBtn.title = "Delete review";
+			setIcon(deleteBtn, "trash-2");
+			deleteBtn.addEventListener("click", () => {
+				new ConfirmDeleteModal(app, `visit from ${visit.date || "unknown date"}`, async (confirmed) => {
+					if (!confirmed) return;
+					await deleteReviewInFile(app, file, visit.rawText);
+					onReviewChanged();
+				}).open();
 			});
 		}
 

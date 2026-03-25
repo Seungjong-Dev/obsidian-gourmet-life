@@ -11,6 +11,9 @@ import {
 import { createImageSuggest, type TextareaSuggest } from "./textarea-suggest";
 import { isGalleryCalloutMarker, transformGalleryCallouts } from "./gallery-utils";
 import { attachIndentHandler } from "./textarea-indent";
+import { ReviewModal } from "./review-modal";
+import { ConfirmDeleteModal } from "./confirm-delete-modal";
+import { extractRecipeReviewPrefill, replaceReviewInFile, deleteReviewInFile } from "./review-utils";
 import type { TFile } from "obsidian";
 
 export interface MainPanelCallbacks {
@@ -117,7 +120,9 @@ export function renderMainPanel(
 	app?: App,
 	recipePath?: string,
 	resourcePath?: (path: string) => string,
-	component?: Component
+	component?: Component,
+	file?: TFile,
+	onReviewChanged?: () => void
 ): void {
 	// Clean up previous TextareaSuggest instances
 	const prev = (container as any).__glSuggests as TextareaSuggest<unknown>[] | undefined;
@@ -129,7 +134,7 @@ export function renderMainPanel(
 	container.empty();
 
 	if (mode === "viewer") {
-		renderMainPanelViewer(container, bodyContent, source, callbacks, resourcePath, app, recipePath, component);
+		renderMainPanelViewer(container, bodyContent, source, callbacks, resourcePath, app, recipePath, component, file, onReviewChanged);
 	} else {
 		renderMainPanelEditor(container, bodyContent, source, callbacks, app, recipePath);
 	}
@@ -146,7 +151,9 @@ function renderMainPanelViewer(
 	resourcePath?: (path: string) => string,
 	app?: App,
 	recipePath?: string,
-	component?: Component
+	component?: Component,
+	file?: TFile,
+	onReviewChanged?: () => void
 ): void {
 	// Recipe section — rendered chips
 	const bodySection = container.createDiv({ cls: "gl-recipe__steps" });
@@ -166,7 +173,7 @@ function renderMainPanelViewer(
 	if (reviewsContent.trim()) {
 		const reviewsSection = container.createDiv();
 		reviewsSection.createEl("h2", { text: "Reviews" });
-		renderReviewCards(reviewsSection, reviewsContent, resourcePath, app, recipePath, component);
+		renderReviewCards(reviewsSection, reviewsContent, resourcePath, app, recipePath, component, file, onReviewChanged);
 	}
 
 	// References — at the bottom
@@ -545,6 +552,7 @@ function renderTextContent(
 interface ReviewEntry {
 	date: string;
 	lines: string[];
+	rawText: string;
 }
 
 /**
@@ -560,21 +568,35 @@ function parseReviewEntries(text: string): { preamble: string; entries: ReviewEn
 	const preambleLines: string[] = [];
 	const datedRe = /^-\s*(\d{4}-\d{2}-\d{2})\s*:?\s*(.*)/;
 	const itemRe = /^-\s+(.*)/;
+	let rawLines: string[] = [];
 
 	for (const line of lines) {
 		const dm = line.match(datedRe);
 		if (dm) {
-			entries.push({ date: dm[1], lines: dm[2].trim() ? [dm[2].trim()] : [] });
+			if (entries.length > 0) {
+				entries[entries.length - 1].rawText = rawLines.join("\n");
+			}
+			rawLines = [line];
+			entries.push({ date: dm[1], lines: dm[2].trim() ? [dm[2].trim()] : [], rawText: "" });
 		} else {
 			const im = line.match(itemRe);
 			if (im) {
-				entries.push({ date: "", lines: im[1].trim() ? [im[1].trim()] : [] });
+				if (entries.length > 0) {
+					entries[entries.length - 1].rawText = rawLines.join("\n");
+				}
+				rawLines = [line];
+				entries.push({ date: "", lines: im[1].trim() ? [im[1].trim()] : [], rawText: "" });
 			} else if (entries.length > 0 && line.trim()) {
+				rawLines.push(line);
 				entries[entries.length - 1].lines.push(line.trim());
 			} else if (entries.length === 0 && line.trim()) {
 				preambleLines.push(line.trim());
 			}
 		}
+	}
+
+	if (entries.length > 0) {
+		entries[entries.length - 1].rawText = rawLines.join("\n");
 	}
 
 	if (entries.length === 0) return null;
@@ -591,7 +613,9 @@ function renderReviewCards(
 	resourcePath?: (path: string) => string,
 	app?: App,
 	sourcePath?: string,
-	component?: Component
+	component?: Component,
+	file?: TFile,
+	onReviewChanged?: () => void
 ): void {
 	const result = parseReviewEntries(text);
 	if (!result) {
@@ -606,9 +630,38 @@ function renderReviewCards(
 	const timeline = container.createDiv({ cls: "gl-recipe__review-timeline" });
 	for (const entry of result.entries) {
 		const card = timeline.createDiv({ cls: "gl-recipe__review-card" });
+
+		const header = card.createDiv({ cls: "gl-recipe__review-header" });
 		if (entry.date) {
-			card.createDiv({ text: entry.date, cls: "gl-recipe__review-date" });
+			header.createSpan({ text: entry.date, cls: "gl-recipe__review-date" });
 		}
+
+		// Edit/Delete buttons (only when file is available — viewer mode)
+		if (app && file && onReviewChanged) {
+			const actions = header.createDiv({ cls: "gl-review-card__actions" });
+
+			const editBtn = actions.createEl("button", { cls: "gl-review-card__action-btn" });
+			editBtn.title = "Edit review";
+			setIcon(editBtn, "pencil");
+			editBtn.addEventListener("click", () => {
+				const prefill = extractRecipeReviewPrefill(entry);
+				new ReviewModal(app, "recipe", file, onReviewChanged, prefill, async (newMd) => {
+					await replaceReviewInFile(app, file, entry.rawText, newMd);
+				}).open();
+			});
+
+			const deleteBtn = actions.createEl("button", { cls: "gl-review-card__action-btn gl-review-card__action-btn--danger" });
+			deleteBtn.title = "Delete review";
+			setIcon(deleteBtn, "trash-2");
+			deleteBtn.addEventListener("click", () => {
+				new ConfirmDeleteModal(app, `review from ${entry.date || "unknown date"}`, async (confirmed) => {
+					if (!confirmed) return;
+					await deleteReviewInFile(app, file, entry.rawText);
+					onReviewChanged();
+				}).open();
+			});
+		}
+
 		const body = card.createDiv({ cls: "gl-recipe__review-body" });
 		const content = entry.lines.join("\n");
 		if (content) {
