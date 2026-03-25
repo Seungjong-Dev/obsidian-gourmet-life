@@ -23,6 +23,7 @@ import { hasExplorerGraph, updateGraphSelection } from "./explorer-graph";
 import { suppressGhostClick, type LayoutTier } from "./device";
 import { renderStarsDom } from "./render-utils";
 import { ConfirmDeleteModal } from "./confirm-delete-modal";
+import { ReviewModal } from "./review-modal";
 import { AUTO_SAVE_DELAY_MS, SAVE_FLAG_RESET_MS, MAX_NEARBY_RESTAURANTS, NEARBY_RADIUS_DEG } from "./constants";
 import { splitFrontmatterBody } from "./view-utils";
 import type GourmetLifePlugin from "./main";
@@ -173,6 +174,18 @@ export async function renderPreview(host: PreviewHost): Promise<void> {
 		return match ? host.app.vault.getResourcePath(match as TFile) : "";
 	};
 
+	// Add Review button for recipe/restaurant in viewer mode
+	if (host.previewMode === "viewer" && (fm.type === "recipe" || fm.type === "restaurant")) {
+		const addReviewBtn = headerBtns.createEl("button", { cls: "gl-explorer__preview-btn" });
+		addReviewBtn.title = "Add review";
+		setIcon(addReviewBtn, "message-square-plus");
+		// Insert before delete button to keep delete near the end
+		headerBtns.insertBefore(addReviewBtn, deleteBtn);
+		addReviewBtn.addEventListener("click", () => {
+			new ReviewModal(host.app, fm.type as "recipe" | "restaurant", file, () => host.renderPreview()).open();
+		});
+	}
+
 	const mode = host.previewMode;
 	const previewBody = targetContainer.createDiv();
 
@@ -238,6 +251,9 @@ function renderRecipePreview(
 			host.renderPreview();
 		},
 		onTitleChange: () => {},
+		onAddReview: () => {
+			new ReviewModal(host.app, "recipe", file, () => host.renderPreview()).open();
+		},
 	};
 	renderMainPanel(mainEl, bodyContent, fm.source, mode, mainCb, host.app, file.path, resourcePath, host as any);
 }
@@ -294,6 +310,9 @@ function renderRestaurantPreview(
 		onMenuInput: () => schedulePreviewAutoSave(host),
 		onNotesInput: () => schedulePreviewAutoSave(host),
 		onReviewsInput: () => schedulePreviewAutoSave(host),
+		onAddReview: () => {
+			new ReviewModal(host.app, "restaurant", file, () => host.renderPreview()).open();
+		},
 	};
 	renderRestaurantMainPanel(mainEl, bodyContent, mode, mainCb, host.app, file.path, host as any);
 }

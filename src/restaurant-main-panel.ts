@@ -72,6 +72,13 @@ export function renderRestaurantTitleRow(
 	setIcon(toggleBtn, mode === "viewer" ? "pencil" : "eye");
 	toggleBtn.addEventListener("click", callbacks.onToggleMode);
 
+	if (mode === "viewer" && callbacks.onAddReview) {
+		const addReviewBtn = btnGroup.createEl("button", { cls: "gl-review-add-btn" });
+		addReviewBtn.title = "Add review";
+		setIcon(addReviewBtn, "message-square-plus");
+		addReviewBtn.addEventListener("click", () => callbacks.onAddReview?.());
+	}
+
 	if (callbacks.onDelete) {
 		const deleteBtn = btnGroup.createEl("button", { cls: "gl-recipe__delete-btn" });
 		deleteBtn.title = "Delete";
@@ -160,18 +167,9 @@ function renderViewer(
 	}
 
 	// Reviews
-	const reviewsSection = container.createDiv();
-	const reviewsHeader = reviewsSection.createDiv({ cls: "gl-section-header" });
-	reviewsHeader.createEl("h2", { text: "Reviews" });
-	if (callbacks.onAddReview) {
-		const addBtn = reviewsHeader.createEl("button", {
-			cls: "gl-review-add-btn",
-		});
-		setIcon(addBtn, "plus");
-		addBtn.appendText(" Add");
-		addBtn.addEventListener("click", () => callbacks.onAddReview?.());
-	}
 	if (sections.reviews.trim()) {
+		const reviewsSection = container.createDiv();
+		reviewsSection.createEl("h2", { text: "Reviews" });
 		const visits = parseRestaurantVisits(sections.reviews);
 		renderVisitCards(reviewsSection, visits, app, notePath, component);
 	}

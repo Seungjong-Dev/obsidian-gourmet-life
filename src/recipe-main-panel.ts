@@ -83,6 +83,13 @@ export function renderTitleRow(
 		shareBtn.addEventListener("click", callbacks.onShareCard);
 	}
 
+	if (mode === "viewer" && callbacks.onAddReview) {
+		const addReviewBtn = btnGroup.createEl("button", { cls: "gl-review-add-btn" });
+		addReviewBtn.title = "Add review";
+		setIcon(addReviewBtn, "message-square-plus");
+		addReviewBtn.addEventListener("click", () => callbacks.onAddReview?.());
+	}
+
 	if (callbacks.onDelete) {
 		const deleteBtn = btnGroup.createEl("button", { cls: "gl-recipe__delete-btn" });
 		deleteBtn.title = "Delete";
@@ -156,18 +163,9 @@ function renderMainPanelViewer(
 
 	// Reviews
 	const reviewsContent = parseReviewsSection(bodyContent);
-	const reviewsSection = container.createDiv();
-	const reviewsHeader = reviewsSection.createDiv({ cls: "gl-section-header" });
-	reviewsHeader.createEl("h2", { text: "Reviews" });
-	if (callbacks.onAddReview) {
-		const addBtn = reviewsHeader.createEl("button", {
-			cls: "gl-review-add-btn",
-		});
-		setIcon(addBtn, "plus");
-		addBtn.appendText(" Add");
-		addBtn.addEventListener("click", () => callbacks.onAddReview?.());
-	}
 	if (reviewsContent.trim()) {
+		const reviewsSection = container.createDiv();
+		reviewsSection.createEl("h2", { text: "Reviews" });
 		renderReviewCards(reviewsSection, reviewsContent, resourcePath, app, recipePath, component);
 	}
 
