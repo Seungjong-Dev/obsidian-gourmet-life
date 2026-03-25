@@ -1,4 +1,4 @@
-import { MarkdownRenderer, setIcon, type App, type Component } from "obsidian";
+import { MarkdownRenderer, Menu, setIcon, type App, type Component } from "obsidian";
 import type { RecipeViewMode } from "./types";
 import { SECTION_HEADING_RE, RECIPE_END_SECTIONS, EMBED_RE, IMAGE_EXTS } from "./constants";
 import {
@@ -636,29 +636,30 @@ function renderReviewCards(
 			header.createSpan({ text: entry.date, cls: "gl-recipe__review-date" });
 		}
 
-		// Edit/Delete buttons (only when file is available — viewer mode)
+		// Kebab menu (only when file is available — viewer mode)
 		if (app && file && onReviewChanged) {
-			const actions = header.createDiv({ cls: "gl-review-card__actions" });
-
-			const editBtn = actions.createEl("button", { cls: "gl-review-card__action-btn" });
-			editBtn.title = "Edit review";
-			setIcon(editBtn, "pencil");
-			editBtn.addEventListener("click", () => {
-				const prefill = extractRecipeReviewPrefill(entry);
-				new ReviewModal(app, "recipe", file, onReviewChanged, prefill, async (newMd) => {
-					await replaceReviewInFile(app, file, entry.rawText, newMd);
-				}).open();
-			});
-
-			const deleteBtn = actions.createEl("button", { cls: "gl-review-card__action-btn gl-review-card__action-btn--danger" });
-			deleteBtn.title = "Delete review";
-			setIcon(deleteBtn, "trash-2");
-			deleteBtn.addEventListener("click", () => {
-				new ConfirmDeleteModal(app, `review from ${entry.date || "unknown date"}`, async (confirmed) => {
-					if (!confirmed) return;
-					await deleteReviewInFile(app, file, entry.rawText);
-					onReviewChanged();
-				}).open();
+			const menuBtn = header.createEl("button", { cls: "gl-review-card__menu-btn" });
+			setIcon(menuBtn, "more-vertical");
+			menuBtn.addEventListener("click", (e) => {
+				const menu = new Menu();
+				menu.addItem((item) => {
+					item.setTitle("Edit").setIcon("pencil").onClick(() => {
+						const prefill = extractRecipeReviewPrefill(entry);
+						new ReviewModal(app, "recipe", file, onReviewChanged, prefill, async (newMd) => {
+							await replaceReviewInFile(app, file, entry.rawText, newMd);
+						}).open();
+					});
+				});
+				menu.addItem((item) => {
+					item.setTitle("Delete").setIcon("trash-2").onClick(() => {
+						new ConfirmDeleteModal(app, `review from ${entry.date || "unknown date"}`, async (confirmed) => {
+							if (!confirmed) return;
+							await deleteReviewInFile(app, file, entry.rawText);
+							onReviewChanged();
+						}).open();
+					});
+				});
+				menu.showAtMouseEvent(e as MouseEvent);
 			});
 		}
 
