@@ -35,6 +35,7 @@ export class ReviewModal extends Modal {
 	private onDone: () => void;
 	private prefill?: ReviewPrefill;
 	private onEditSubmit?: (newReviewMd: string) => Promise<void>;
+	private mediaFolder: string;
 
 	private dateInput: HTMLInputElement | null = null;
 	private ratingValue = 0;
@@ -50,7 +51,8 @@ export class ReviewModal extends Modal {
 		file: TFile,
 		onDone: () => void,
 		prefill?: ReviewPrefill,
-		onEditSubmit?: (newReviewMd: string) => Promise<void>
+		onEditSubmit?: (newReviewMd: string) => Promise<void>,
+		mediaFolder = "media"
 	) {
 		super(app);
 		this.mode = mode;
@@ -58,6 +60,7 @@ export class ReviewModal extends Modal {
 		this.onDone = onDone;
 		this.prefill = prefill;
 		this.onEditSubmit = onEditSubmit;
+		this.mediaFolder = mediaFolder;
 	}
 
 	onOpen(): void {
@@ -433,7 +436,8 @@ export class ReviewModal extends Modal {
 						this.app,
 						this.file,
 						photo.buffer,
-						photo.name
+						photo.name,
+						this.mediaFolder
 					);
 					photoPaths.push(path);
 				} catch (err) {

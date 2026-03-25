@@ -107,20 +107,21 @@ export async function appendReviewToFile(
  * Import an image file (from a File/Blob) into the note type's folder
  * under an `attachments/` subfolder and return the vault-relative path.
  *
- * For example, if the source note is in `Gourmet/Recipes/`,
- * the image is saved to `Gourmet/Recipes/attachments/photo.jpg`.
+ * For example, if the source note is in `Gourmet/Recipes/` and mediaFolder is "media",
+ * the image is saved to `Gourmet/Recipes/media/photo.jpg`.
  */
 export async function importImageToVault(
 	app: App,
 	sourceFile: TFile,
 	blob: ArrayBuffer,
-	filename: string
+	filename: string,
+	mediaFolder = "media"
 ): Promise<string> {
-	// Use the source note's parent folder + attachments/ subfolder
+	// Use the source note's parent folder + media subfolder
 	const parentFolder = sourceFile.parent?.path ?? "";
 	const folderPath = parentFolder
-		? `${parentFolder}/attachments`
-		: "attachments";
+		? `${parentFolder}/${mediaFolder}`
+		: mediaFolder;
 
 	// Ensure unique filename
 	let targetPath = `${folderPath}/${filename}`;

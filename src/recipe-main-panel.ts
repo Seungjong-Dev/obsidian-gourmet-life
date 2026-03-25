@@ -122,7 +122,8 @@ export function renderMainPanel(
 	resourcePath?: (path: string) => string,
 	component?: Component,
 	file?: TFile,
-	onReviewChanged?: () => void
+	onReviewChanged?: () => void,
+	mediaFolder?: string
 ): void {
 	// Clean up previous TextareaSuggest instances
 	const prev = (container as any).__glSuggests as TextareaSuggest<unknown>[] | undefined;
@@ -134,7 +135,7 @@ export function renderMainPanel(
 	container.empty();
 
 	if (mode === "viewer") {
-		renderMainPanelViewer(container, bodyContent, source, callbacks, resourcePath, app, recipePath, component, file, onReviewChanged);
+		renderMainPanelViewer(container, bodyContent, source, callbacks, resourcePath, app, recipePath, component, file, onReviewChanged, mediaFolder);
 	} else {
 		renderMainPanelEditor(container, bodyContent, source, callbacks, app, recipePath);
 	}
@@ -153,7 +154,8 @@ function renderMainPanelViewer(
 	recipePath?: string,
 	component?: Component,
 	file?: TFile,
-	onReviewChanged?: () => void
+	onReviewChanged?: () => void,
+	mediaFolder?: string
 ): void {
 	// Recipe section — rendered chips
 	const bodySection = container.createDiv({ cls: "gl-recipe__steps" });
@@ -173,7 +175,7 @@ function renderMainPanelViewer(
 	if (reviewsContent.trim() || (app && file && onReviewChanged)) {
 		const reviewsSection = container.createDiv();
 		reviewsSection.createEl("h2", { text: "Reviews" });
-		renderReviewCards(reviewsSection, reviewsContent, resourcePath, app, recipePath, component, file, onReviewChanged);
+		renderReviewCards(reviewsSection, reviewsContent, resourcePath, app, recipePath, component, file, onReviewChanged, mediaFolder);
 	}
 
 	// References — at the bottom
@@ -615,7 +617,8 @@ function renderReviewCards(
 	sourcePath?: string,
 	component?: Component,
 	file?: TFile,
-	onReviewChanged?: () => void
+	onReviewChanged?: () => void,
+	mediaFolder?: string
 ): void {
 	const result = text.trim() ? parseReviewEntries(text) : null;
 	if (!result && text.trim()) {
@@ -646,7 +649,7 @@ function renderReviewCards(
 						const prefill = extractRecipeReviewPrefill(entry);
 						new ReviewModal(app, "recipe", file, onReviewChanged, prefill, async (newMd) => {
 							await replaceReviewInFile(app, file, entry.rawText, newMd);
-						}).open();
+						}, mediaFolder).open();
 					});
 				});
 				menu.addItem((item) => {
@@ -681,7 +684,7 @@ function renderReviewCards(
 		const addCard = timeline.createDiv({ cls: "gl-recipe__review-card gl-review-card--add" });
 		addCard.createSpan({ text: "Write a new review...", cls: "gl-review-card--add__text" });
 		addCard.addEventListener("click", () => {
-			new ReviewModal(app, "recipe", file, onReviewChanged).open();
+			new ReviewModal(app, "recipe", file, onReviewChanged, undefined, undefined, mediaFolder).open();
 		});
 	}
 }

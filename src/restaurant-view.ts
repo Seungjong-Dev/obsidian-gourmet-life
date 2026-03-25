@@ -224,7 +224,7 @@ export class RestaurantView extends ItemView {
 				onAddReview: () => {
 					const file = this.app.vault.getAbstractFileByPath(this.filePath);
 					if (!file || !(file instanceof TFile)) return;
-					new ReviewModal(this.app, "restaurant", file, () => this.render()).open();
+					new ReviewModal(this.app, "restaurant", file, () => this.render(), undefined, undefined, this.plugin.settings.mediaFolder).open();
 				},
 			};
 
@@ -235,7 +235,7 @@ export class RestaurantView extends ItemView {
 			}
 
 			try {
-				renderRestaurantMainPanel(this.mainContainer, bodyContent, this.mode, callbacks, this.app, this.filePath, this, file, () => this.render());
+				renderRestaurantMainPanel(this.mainContainer, bodyContent, this.mode, callbacks, this.app, this.filePath, this, file, () => this.render(), this.plugin.settings.mediaFolder);
 			} catch (err) {
 				console.error("[GourmetLife] Main panel render failed:", err);
 			}
