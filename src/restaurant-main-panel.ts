@@ -108,7 +108,8 @@ export function renderRestaurantMainPanel(
 	notePath?: string,
 	component?: Component,
 	file?: TFile,
-	onReviewChanged?: () => void
+	onReviewChanged?: () => void,
+	mediaFolder?: string
 ): void {
 	// Cleanup previous image suggests
 	const prev = (container as any).__glSuggests as TextareaSuggest<unknown>[] | undefined;
@@ -122,7 +123,7 @@ export function renderRestaurantMainPanel(
 	const sections = parseRestaurantSections(bodyContent);
 
 	if (mode === "viewer") {
-		renderViewer(container, sections, callbacks, app, notePath, component, file, onReviewChanged);
+		renderViewer(container, sections, callbacks, app, notePath, component, file, onReviewChanged, mediaFolder);
 	} else {
 		renderEditor(container, sections, callbacks, app, notePath);
 	}
@@ -138,7 +139,8 @@ function renderViewer(
 	notePath?: string,
 	component?: Component,
 	file?: TFile,
-	onReviewChanged?: () => void
+	onReviewChanged?: () => void,
+	mediaFolder?: string
 ): void {
 	// Menu Highlights
 	if (sections.menuHighlights.trim()) {
@@ -178,13 +180,13 @@ function renderViewer(
 		const reviewsSection = container.createDiv();
 		reviewsSection.createEl("h2", { text: "Reviews" });
 		const visits = sections.reviews.trim() ? parseRestaurantVisits(sections.reviews) : [];
-		renderVisitCards(reviewsSection, visits, app, notePath, component, file, onReviewChanged);
+		renderVisitCards(reviewsSection, visits, app, notePath, component, file, onReviewChanged, mediaFolder);
 	}
 }
 
 // ── Visit Cards ──
 
-function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app?: App, notePath?: string, component?: Component, file?: TFile, onReviewChanged?: () => void): void {
+function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app?: App, notePath?: string, component?: Component, file?: TFile, onReviewChanged?: () => void, mediaFolder?: string): void {
 	// Sort by date descending
 	const sorted = [...visits].sort((a, b) => {
 		if (!a.date && !b.date) return 0;
@@ -224,7 +226,7 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app
 						const prefill = extractRestaurantVisitPrefill(visit);
 						new ReviewModal(app, "restaurant", file, onReviewChanged, prefill, async (newMd) => {
 							await replaceReviewInFile(app, file, visit.rawText, newMd);
-						}).open();
+						}, mediaFolder).open();
 					});
 				});
 				menu.addItem((item) => {
@@ -312,7 +314,7 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app
 		const addCard = timeline.createDiv({ cls: "gl-restaurant__review-card gl-review-card--add" });
 		addCard.createSpan({ text: "Write a new review...", cls: "gl-review-card--add__text" });
 		addCard.addEventListener("click", () => {
-			new ReviewModal(app, "restaurant", file, onReviewChanged).open();
+			new ReviewModal(app, "restaurant", file, onReviewChanged, undefined, undefined, mediaFolder).open();
 		});
 	}
 }

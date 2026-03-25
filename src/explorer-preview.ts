@@ -182,7 +182,7 @@ export async function renderPreview(host: PreviewHost): Promise<void> {
 		// Insert before delete button to keep delete near the end
 		headerBtns.insertBefore(addReviewBtn, deleteBtn);
 		addReviewBtn.addEventListener("click", () => {
-			new ReviewModal(host.app, fm.type as "recipe" | "restaurant", file, () => host.renderPreview()).open();
+			new ReviewModal(host.app, fm.type as "recipe" | "restaurant", file, () => host.renderPreview(), undefined, undefined, host.plugin.settings.mediaFolder).open();
 		});
 	}
 
@@ -252,10 +252,10 @@ function renderRecipePreview(
 		},
 		onTitleChange: () => {},
 		onAddReview: () => {
-			new ReviewModal(host.app, "recipe", file, () => host.renderPreview()).open();
+			new ReviewModal(host.app, "recipe", file, () => host.renderPreview(), undefined, undefined, host.plugin.settings.mediaFolder).open();
 		},
 	};
-	renderMainPanel(mainEl, bodyContent, fm.source, mode, mainCb, host.app, file.path, resourcePath, host as any, file, () => host.renderPreview());
+	renderMainPanel(mainEl, bodyContent, fm.source, mode, mainCb, host.app, file.path, resourcePath, host as any, file, () => host.renderPreview(), host.plugin.settings.mediaFolder);
 }
 
 // ── Restaurant Preview ──
@@ -311,10 +311,10 @@ function renderRestaurantPreview(
 		onNotesInput: () => schedulePreviewAutoSave(host),
 		onReviewsInput: () => schedulePreviewAutoSave(host),
 		onAddReview: () => {
-			new ReviewModal(host.app, "restaurant", file, () => host.renderPreview()).open();
+			new ReviewModal(host.app, "restaurant", file, () => host.renderPreview(), undefined, undefined, host.plugin.settings.mediaFolder).open();
 		},
 	};
-	renderRestaurantMainPanel(mainEl, bodyContent, mode, mainCb, host.app, file.path, host as any, file, () => host.renderPreview());
+	renderRestaurantMainPanel(mainEl, bodyContent, mode, mainCb, host.app, file.path, host as any, file, () => host.renderPreview(), host.plugin.settings.mediaFolder);
 }
 
 // ── Ingredient Preview ──

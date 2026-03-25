@@ -238,7 +238,7 @@ export class RecipeView extends ItemView {
 			onAddReview: () => {
 				const file = this.app.vault.getAbstractFileByPath(this.filePath);
 				if (!file || !(file instanceof TFile)) return;
-				new ReviewModal(this.app, "recipe", file, () => this.render()).open();
+				new ReviewModal(this.app, "recipe", file, () => this.render(), undefined, undefined, this.plugin.settings.mediaFolder).open();
 			},
 		};
 
@@ -302,7 +302,8 @@ export class RecipeView extends ItemView {
 			resourcePath,
 			this,
 			file,
-			() => this.render()
+			() => this.render(),
+			this.plugin.settings.mediaFolder
 		);
 
 		// Restore scroll positions
