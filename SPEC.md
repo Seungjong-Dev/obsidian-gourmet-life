@@ -891,7 +891,7 @@ src/
 - Recipe mode: date picker, star rating (1–5), review text, photo attachments
 - Restaurant mode: date picker, dynamic dish rows (name + star rating + comment, add/remove), general comment, photo attachments
 - Photo sources: Camera (with `capture="environment"` for mobile), Gallery (file picker without capture), From vault (`ImageSuggestModal`)
-- Edit mode: optional `prefill` (`ReviewPrefill`) pre-populates form fields, `onEditSubmit` callback replaces existing entry instead of appending; heading shows "Edit Review", button shows "Update Review"
+- Edit mode: optional `prefill` (`ReviewPrefill`) pre-populates form fields, `onEditSubmit` callback replaces existing entry instead of appending; heading shows "Edit Review", button shows "Update Review"; existing photos resolved via `metadataCache.getFirstLinkpathDest` for thumbnail display
 - On submit (new): imports device photos via `importImageToVault()`, formats markdown, appends via `appendReviewToFile()`
 - On submit (edit): formats markdown, calls `onEditSubmit(newMd)` which triggers `replaceReviewInFile()`
 
@@ -901,7 +901,7 @@ src/
 - `appendReviewToFile(app, file, reviewMd)`: Appends review markdown to `## Reviews` section (creates section if missing)
 - `replaceReviewInFile(app, file, oldRawText, newRawText)`: Replaces a review entry in `## Reviews` section by exact raw text match
 - `deleteReviewInFile(app, file, rawText)`: Removes a review entry from `## Reviews` section, cleans up blank lines
-- `extractRecipeReviewPrefill(entry)`: Extracts `ReviewPrefill` from a parsed `ReviewEntry` (rating from `#rate/N`, photos from `![[]]` embeds)
+- `extractRecipeReviewPrefill(entry)`: Extracts `ReviewPrefill` from a parsed `ReviewEntry` (rating from `#rate/N`, photos from `![[]]` and gallery callout `> ![[]]` embeds, skips `> [!gallery]` markers)
 - `extractRestaurantVisitPrefill(visit)`: Extracts `ReviewPrefill` from a parsed `RestaurantVisit` (dishes, comments, gallery photos)
 - `importImageToVault(app, sourceFile, blob, filename)`: Saves image to note's parent `attachments/` subfolder with unique filename
 - `isImageFile(filename)`: Checks against `IMAGE_EXTS` constant
