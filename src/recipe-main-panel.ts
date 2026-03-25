@@ -170,7 +170,7 @@ function renderMainPanelViewer(
 
 	// Reviews
 	const reviewsContent = parseReviewsSection(bodyContent);
-	if (reviewsContent.trim()) {
+	if (reviewsContent.trim() || (app && file && onReviewChanged)) {
 		const reviewsSection = container.createDiv();
 		reviewsSection.createEl("h2", { text: "Reviews" });
 		renderReviewCards(reviewsSection, reviewsContent, resourcePath, app, recipePath, component, file, onReviewChanged);
@@ -617,18 +617,17 @@ function renderReviewCards(
 	file?: TFile,
 	onReviewChanged?: () => void
 ): void {
-	const result = parseReviewEntries(text);
-	if (!result) {
+	const result = text.trim() ? parseReviewEntries(text) : null;
+	if (!result && text.trim()) {
 		renderTextContent(container, text, resourcePath, app, sourcePath, component);
-		return;
 	}
 
-	if (result.preamble) {
+	if (result?.preamble) {
 		renderTextContent(container, result.preamble, resourcePath, app, sourcePath, component);
 	}
 
 	const timeline = container.createDiv({ cls: "gl-recipe__review-timeline" });
-	for (const entry of result.entries) {
+	for (const entry of result?.entries ?? []) {
 		const card = timeline.createDiv({ cls: "gl-recipe__review-card" });
 
 		const header = card.createDiv({ cls: "gl-recipe__review-header" });
@@ -675,6 +674,15 @@ function renderReviewCards(
 				renderTextWithEmbeds(body, content, resourcePath);
 			}
 		}
+	}
+
+	// Add review prompt at the bottom of timeline
+	if (app && file && onReviewChanged) {
+		const addCard = timeline.createDiv({ cls: "gl-recipe__review-card gl-review-card--add" });
+		addCard.createSpan({ text: "Write a new review...", cls: "gl-review-card--add__text" });
+		addCard.addEventListener("click", () => {
+			new ReviewModal(app, "recipe", file, onReviewChanged).open();
+		});
 	}
 }
 
