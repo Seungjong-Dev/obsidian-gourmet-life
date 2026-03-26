@@ -896,14 +896,14 @@ src/
 - On submit (edit): formats markdown, calls `onEditSubmit(newMd)` which triggers `replaceReviewInFile()`
 
 **review-utils.ts** — Review formatting, file manipulation, and prefill helpers
-- `formatRecipeReview(date, text, photos, rating?)`: Formats `- YYYY-MM-DD #rate/N review text` with indented `![[photo]]` embeds
+- `formatRecipeReview(date, text, photos, rating?)`: Formats `- YYYY-MM-DD #rate/N review text` with `> [!gallery]` callout photo embeds (same format as restaurant visits)
 - `formatRestaurantVisit(date, dishes, comment, photos)`: Formats visit entry with dish sub-items (`#rate/N`), general comment, `> [!gallery]` photo callout
 - `appendReviewToFile(app, file, reviewMd)`: Appends review markdown to `## Reviews` section (creates section if missing)
 - `replaceReviewInFile(app, file, oldRawText, newRawText)`: Replaces a review entry in `## Reviews` section by exact raw text match
 - `deleteReviewInFile(app, file, rawText)`: Removes a review entry from `## Reviews` section, cleans up blank lines within reviews section only
 - `extractRecipeReviewPrefill(entry)`: Extracts `ReviewPrefill` from a parsed `ReviewEntry` (rating from `#rate/N`, photos from `![[]]` and gallery callout `> ![[]]` embeds, skips `> [!gallery]` markers)
 - `extractRestaurantVisitPrefill(visit)`: Extracts `ReviewPrefill` from a parsed `RestaurantVisit` (dishes, comments, gallery photos)
-- `importImageToVault(app, sourceFile, blob, filename, mediaFolder?)`: Saves image to note's parent `{mediaFolder}/` subfolder (default `"media"`, configurable via settings) with unique filename
+- `importImageToVault(app, sourceFile, blob, filename, mediaFolder?)`: Saves image to note's parent `{mediaFolder}/` subfolder (default `"media"`, configurable via settings); filename uses note basename with original extension (e.g. `냉제육.jpg`), incrementally numbered on collision (`냉제육-1.jpg`, `냉제육-2.jpg`)
 - `isImageFile(filename)`: Checks against `IMAGE_EXTS` constant
 - `todayString()`: Returns `YYYY-MM-DD` formatted current date
 
