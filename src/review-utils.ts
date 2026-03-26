@@ -17,8 +17,11 @@ export function formatRecipeReview(
 	const body = text.trim();
 	const parts = [date, rateTag, body].filter(Boolean).join(" ");
 	lines.push(`- ${parts}`);
-	for (const photo of photos) {
-		lines.push(`  ![[${photo}]]`);
+	if (photos.length > 0) {
+		lines.push(`  > [!gallery]`);
+		for (const photo of photos) {
+			lines.push(`  > ![[${photo}]]`);
+		}
 	}
 	return lines.join("\n");
 }
@@ -122,14 +125,14 @@ export async function importImageToVault(
 		? `${parentFolder}/${mediaFolder}`
 		: mediaFolder;
 
-	// Ensure unique filename
-	let targetPath = `${folderPath}/${filename}`;
+	// Use note name as base filename with original extension
+	const ext = filename.substring(filename.lastIndexOf("."));
+	const baseName = sourceFile.basename;
+
+	let targetPath = `${folderPath}/${baseName}${ext}`;
 	let counter = 1;
 	while (app.vault.getAbstractFileByPath(targetPath)) {
-		const dotIdx = filename.lastIndexOf(".");
-		const base = dotIdx > 0 ? filename.substring(0, dotIdx) : filename;
-		const ext = dotIdx > 0 ? filename.substring(dotIdx) : "";
-		targetPath = `${folderPath}/${base}-${counter}${ext}`;
+		targetPath = `${folderPath}/${baseName}-${counter}${ext}`;
 		counter++;
 	}
 
