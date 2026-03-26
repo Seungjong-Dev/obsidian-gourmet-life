@@ -241,9 +241,9 @@ export class ReviewModal extends Modal {
 		});
 		setIcon(removeBtn, "x");
 		removeBtn.addEventListener("click", () => {
-			this.dishes.splice(idx, 1);
+			const currentIdx = this.dishes.indexOf(entry);
+			if (currentIdx >= 0) this.dishes.splice(currentIdx, 1);
 			row.remove();
-			// Re-index remaining rows
 			this.reindexDishRows();
 		});
 	}

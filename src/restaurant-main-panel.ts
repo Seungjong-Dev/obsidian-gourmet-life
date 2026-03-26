@@ -218,6 +218,8 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app
 		// Kebab menu
 		if (app && file && onReviewChanged) {
 			const menuBtn = header.createEl("button", { cls: "gl-review-card__menu-btn" });
+			menuBtn.setAttr("aria-label", "Review actions");
+			menuBtn.title = "Review actions";
 			setIcon(menuBtn, "more-horizontal");
 			menuBtn.addEventListener("click", (e) => {
 				const menu = new Menu();
@@ -312,9 +314,15 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app
 	// Add review prompt at the bottom of timeline
 	if (app && file && onReviewChanged) {
 		const addCard = timeline.createDiv({ cls: "gl-restaurant__review-card gl-review-card--add" });
+		addCard.setAttr("role", "button");
+		addCard.setAttr("tabindex", "0");
 		addCard.createSpan({ text: "Write a new review...", cls: "gl-review-card--add__text" });
-		addCard.addEventListener("click", () => {
+		const openModal = () => {
 			new ReviewModal(app, "restaurant", file, onReviewChanged, undefined, undefined, mediaFolder).open();
+		};
+		addCard.addEventListener("click", openModal);
+		addCard.addEventListener("keydown", (e: KeyboardEvent) => {
+			if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openModal(); }
 		});
 	}
 }
