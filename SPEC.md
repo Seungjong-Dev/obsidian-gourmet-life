@@ -836,7 +836,7 @@ src/
 - `renderTitleRow(titleRow, title, mode, callbacks)`: Renders title (display or input) + mode toggle + share button (viewer only) + add review button (viewer only) + delete button + view source button into the root-level title row element
 - `renderMainViewer(container, note)`: Read-only steps, review timeline cards, and references (in that order) with highlighted ingredient text
 - `parseReviewEntries(text)`: Parses `- YYYY-MM-DD text` (dated) and `- text` (dateless) into `ReviewEntry[]` with `rawText` for edit/delete; colon after date is optional; indented/continuation lines belong to previous entry; pre-entry text collected as preamble
-- `renderReviewCards(container, text, ..., file?, onReviewChanged?)`: Renders preamble (if any) then timeline cards with `···` kebab menu (Obsidian `Menu` dropdown for Edit/Delete); dateless cards omit the date badge; falls back to plain text if no list items found; appends dashed-border "Write a new review..." prompt card at timeline end (opens ReviewModal on click); Reviews section renders even with no entries when file context is available
+- `renderReviewCards(container, text, ..., file?, onReviewChanged?)`: Renders preamble (if any) then timeline cards with `···` kebab menu (`aria-label`, Obsidian `Menu` dropdown for Edit/Delete); dateless cards omit the date badge; falls back to plain text if no list items found; appends dashed-border "Write a new review..." prompt card at timeline end (`role="button"`, keyboard accessible, opens ReviewModal); Reviews section renders even with no entries when file context is available
 - `renderMainEditor(container, note)`: Editable steps with ingredient chip insertion
 - `onStepFocus(stepIndex)`: Emits event for Side to highlight used ingredients
 - `highlightSteps(ingredientName)`: Highlights steps using a given ingredient
@@ -900,7 +900,7 @@ src/
 - `formatRestaurantVisit(date, dishes, comment, photos)`: Formats visit entry with dish sub-items (`#rate/N`), general comment, `> [!gallery]` photo callout
 - `appendReviewToFile(app, file, reviewMd)`: Appends review markdown to `## Reviews` section (creates section if missing)
 - `replaceReviewInFile(app, file, oldRawText, newRawText)`: Replaces a review entry in `## Reviews` section by exact raw text match
-- `deleteReviewInFile(app, file, rawText)`: Removes a review entry from `## Reviews` section, cleans up blank lines
+- `deleteReviewInFile(app, file, rawText)`: Removes a review entry from `## Reviews` section, cleans up blank lines within reviews section only
 - `extractRecipeReviewPrefill(entry)`: Extracts `ReviewPrefill` from a parsed `ReviewEntry` (rating from `#rate/N`, photos from `![[]]` and gallery callout `> ![[]]` embeds, skips `> [!gallery]` markers)
 - `extractRestaurantVisitPrefill(visit)`: Extracts `ReviewPrefill` from a parsed `RestaurantVisit` (dishes, comments, gallery photos)
 - `importImageToVault(app, sourceFile, blob, filename, mediaFolder?)`: Saves image to note's parent `{mediaFolder}/` subfolder (default `"media"`, configurable via settings) with unique filename
