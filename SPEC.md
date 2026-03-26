@@ -697,7 +697,7 @@ src/
 ├── constants.ts             # Centralized magic numbers/strings (breakpoints, timers, regex, section names)
 ├── view-utils.ts            # Shared view helpers (titleFromPath, resolveResourcePath, splitFrontmatterBody)
 ├── confirm-delete-modal.ts  # Reusable delete confirmation modal (shared by all views)
-├── settings.ts              # PluginSettingTab
+├── settings.ts              # PluginSettingTab (7 settings)
 ├── note-index.ts            # Vault scanner/indexer (auto-link, recipe view, ingredient search)
 ├── frontmatter-utils.ts     # Frontmatter read/write helpers + type guard
 ├── bases-generator.ts       # Auto-generate .base files for dashboard
@@ -748,7 +748,7 @@ src/
 **types.ts** — Type definitions
 - `GourmetNote`: Union type with discriminated `type` field
 - `RecipeFrontmatter`, `IngredientFrontmatter`, `RestaurantFrontmatter`
-- `GourmetLifeSettings` + `DEFAULT_SETTINGS`
+- `GourmetLifeSettings` + `DEFAULT_SETTINGS` (includes `mediaFolder` for review photo subfolder name, default `"media"`)
 - `VIEW_TYPE_RECIPE`, `VIEW_TYPE_RESTAURANT`, `VIEW_TYPE_INGREDIENT`, `VIEW_TYPE_EXPLORER` constants
 - `ExplorerTab`: `'recipe' | 'restaurant' | 'ingredient'`
 - `ExplorerLayout`: `'card' | 'list' | 'graph' | 'map'`
@@ -903,7 +903,7 @@ src/
 - `deleteReviewInFile(app, file, rawText)`: Removes a review entry from `## Reviews` section, cleans up blank lines
 - `extractRecipeReviewPrefill(entry)`: Extracts `ReviewPrefill` from a parsed `ReviewEntry` (rating from `#rate/N`, photos from `![[]]` and gallery callout `> ![[]]` embeds, skips `> [!gallery]` markers)
 - `extractRestaurantVisitPrefill(visit)`: Extracts `ReviewPrefill` from a parsed `RestaurantVisit` (dishes, comments, gallery photos)
-- `importImageToVault(app, sourceFile, blob, filename)`: Saves image to note's parent `attachments/` subfolder with unique filename
+- `importImageToVault(app, sourceFile, blob, filename, mediaFolder?)`: Saves image to note's parent `{mediaFolder}/` subfolder (default `"media"`, configurable via settings) with unique filename
 - `isImageFile(filename)`: Checks against `IMAGE_EXTS` constant
 - `todayString()`: Returns `YYYY-MM-DD` formatted current date
 
