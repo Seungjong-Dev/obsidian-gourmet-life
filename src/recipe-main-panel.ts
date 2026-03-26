@@ -588,9 +588,11 @@ function parseReviewEntries(text: string): { preamble: string; entries: ReviewEn
 				}
 				rawLines = [line];
 				entries.push({ date: "", lines: im[1].trim() ? [im[1].trim()] : [], rawText: "" });
-			} else if (entries.length > 0 && line.trim()) {
+			} else if (entries.length > 0) {
 				rawLines.push(line);
-				entries[entries.length - 1].lines.push(line.trim());
+				if (line.trim()) {
+					entries[entries.length - 1].lines.push(line.trim());
+				}
 			} else if (entries.length === 0 && line.trim()) {
 				preambleLines.push(line.trim());
 			}

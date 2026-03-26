@@ -189,9 +189,12 @@ export function parseRestaurantVisits(reviewsText: string): RestaurantVisit[] {
 		}
 
 		// Continuation text for the last visit
-		if (line.trim() && visits.length > 0) {
+		if (visits.length > 0) {
 			rawLines.push(line);
-			visits[visits.length - 1].generalComments.push(line.trim());
+			const trimmed = line.trim();
+			if (trimmed) {
+				visits[visits.length - 1].generalComments.push(trimmed);
+			}
 		}
 	}
 

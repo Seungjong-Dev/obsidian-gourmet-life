@@ -61,11 +61,8 @@ export class GourmetLifeSettingTab extends PluginSettingTab {
 					.setPlaceholder("media")
 					.setValue(this.plugin.settings.mediaFolder)
 					.onChange(async (value) => {
-						const trimmed = value.trim();
-						if (trimmed) {
-							this.plugin.settings.mediaFolder = trimmed;
-							await this.plugin.saveSettings();
-						}
+						this.plugin.settings.mediaFolder = value.trim() || "media";
+						await this.plugin.saveSettings();
 					})
 			);
 
