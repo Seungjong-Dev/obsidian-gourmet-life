@@ -216,9 +216,9 @@ export class ReviewModal extends Modal {
 			placeholder: "Dish name",
 		}) as HTMLInputElement;
 		if (entry.name) nameInput.value = entry.name;
-		nameInput.addEventListener("input", () => {
+		nameInput.oninput = () => {
 			this.dishes[idx].name = nameInput.value;
-		});
+		};
 
 		// Star rating
 		const starsEl = row.createDiv({ cls: "gl-review-modal__dish-stars" });
@@ -231,9 +231,9 @@ export class ReviewModal extends Modal {
 			placeholder: "Comment",
 		}) as HTMLInputElement;
 		if (entry.comment) commentInput.value = entry.comment;
-		commentInput.addEventListener("input", () => {
+		commentInput.oninput = () => {
 			this.dishes[idx].comment = commentInput.value;
-		});
+		};
 
 		// Remove button
 		const removeBtn = row.createEl("button", {
@@ -450,6 +450,10 @@ export class ReviewModal extends Modal {
 		let reviewMd: string;
 		if (this.mode === "recipe") {
 			const text = this.reviewText?.value?.trim() ?? "";
+			if (!this.ratingValue && !text && photoPaths.length === 0) {
+				new Notice("Please add at least a rating, comment, or photo.");
+				return;
+			}
 			reviewMd = formatRecipeReview(date, text, photoPaths, this.ratingValue);
 		} else {
 			const validDishes = this.dishes.filter((d) => d.name.trim());

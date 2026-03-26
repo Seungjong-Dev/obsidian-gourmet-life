@@ -1,5 +1,4 @@
 import type { App, TFile } from "obsidian";
-import { splitFrontmatterBody } from "./view-utils";
 import { IMAGE_EXTS } from "./constants";
 import type { RestaurantVisit } from "./restaurant-parser";
 
@@ -105,7 +104,7 @@ export async function appendReviewToFile(
 
 /**
  * Import an image file (from a File/Blob) into the note type's folder
- * under an `attachments/` subfolder and return the vault-relative path.
+ * under a configurable subfolder and return the vault-relative path.
  *
  * For example, if the source note is in `Gourmet/Recipes/` and mediaFolder is "media",
  * the image is saved to `Gourmet/Recipes/media/photo.jpg`.
@@ -216,11 +215,17 @@ export async function deleteReviewInFile(
 	const idx = section.indexOf(rawText);
 	if (idx < 0) return;
 
-	const before = content.substring(0, range.start + idx);
-	const after = content.substring(range.start + idx + rawText.length);
-	// Clean up double blank lines
-	const cleaned = (before + after).replace(/\n{3,}/g, "\n\n");
-	await app.vault.modify(file, cleaned);
+	// Clean up within the reviews section only to avoid reformatting other sections
+	const sectionBefore = section.substring(0, idx);
+	const sectionAfter = section.substring(idx + rawText.length);
+	const cleanedSection = (sectionBefore + sectionAfter).replace(/\n{3,}/g, "\n\n");
+
+	const newContent =
+		content.substring(0, range.start) +
+		cleanedSection +
+		content.substring(range.end);
+
+	await app.vault.modify(file, newContent);
 }
 
 // ── Review Prefill Extraction ──
@@ -234,7 +239,6 @@ export interface ReviewPrefill {
 	photos?: string[];
 }
 
-const EMBED_RE = /!\[\[([^\]]+)\]\]/g;
 const RATE_TAG_RE = /#rate\/(\d)/;
 
 /**
