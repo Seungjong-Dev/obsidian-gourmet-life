@@ -187,17 +187,9 @@ function renderViewer(
 // ── Visit Cards ──
 
 function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app?: App, notePath?: string, component?: Component, file?: TFile, onReviewChanged?: () => void, mediaFolder?: string): void {
-	// Sort by date descending
-	const sorted = [...visits].sort((a, b) => {
-		if (!a.date && !b.date) return 0;
-		if (!a.date) return 1;
-		if (!b.date) return -1;
-		return b.date.localeCompare(a.date);
-	});
-
 	const timeline = container.createDiv({ cls: "gl-restaurant__review-timeline" });
 
-	for (const visit of sorted) {
+	for (const visit of visits) {
 		const card = timeline.createDiv({ cls: "gl-restaurant__review-card" });
 
 		// Header: date + visit rating
