@@ -310,15 +310,7 @@ export class ReviewModal extends Modal {
 
 		const btnRow = section.createDiv({ cls: "gl-review-modal__photo-buttons" });
 
-		// Camera (direct capture on mobile)
-		const cameraBtn = btnRow.createEl("button", {
-			cls: "gl-review-modal__photo-btn",
-		});
-		setIcon(cameraBtn, "camera");
-		cameraBtn.appendText(" Camera");
-		cameraBtn.addEventListener("click", () => this.pickFromCamera());
-
-		// Gallery (file picker without capture)
+		// Gallery (file picker)
 		const galleryBtn = btnRow.createEl("button", {
 			cls: "gl-review-modal__photo-btn",
 		});
@@ -335,22 +327,11 @@ export class ReviewModal extends Modal {
 		vaultBtn.addEventListener("click", () => this.pickFromVault());
 	}
 
-	private pickFromCamera(): void {
-		this.pickFromFileInput(true);
-	}
-
 	private pickFromGallery(): void {
-		this.pickFromFileInput(false);
-	}
-
-	private pickFromFileInput(useCapture: boolean): void {
 		const input = document.createElement("input");
 		input.type = "file";
 		input.accept = "image/*";
 		input.multiple = true;
-		if (useCapture) {
-			input.setAttribute("capture", "environment");
-		}
 		input.addEventListener("change", async () => {
 			if (!input.files) return;
 			for (const file of Array.from(input.files)) {
