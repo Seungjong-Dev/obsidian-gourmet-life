@@ -890,7 +890,7 @@ src/
 - `ReviewModal`: Modal for adding/editing reviews, adapts form by `ReviewMode` (`"recipe" | "restaurant"`)
 - Recipe mode: date picker, star rating (1–5), review text, photo attachments
 - Restaurant mode: date picker, dynamic dish rows (name + star rating + comment, add/remove), general comment, photo attachments
-- Photo sources: Camera (with `capture="environment"` for mobile), Gallery (file picker without capture), From vault (`ImageSuggestModal`)
+- Photo sources: Gallery (file picker), From vault (`ImageSuggestModal`)
 - Edit mode: optional `prefill` (`ReviewPrefill`) pre-populates form fields, `onEditSubmit` callback replaces existing entry instead of appending; heading shows "Edit Review", button shows "Update Review"; existing photos resolved via `metadataCache.getFirstLinkpathDest` for thumbnail display
 - On submit (new): imports device photos via `importImageToVault()`, formats markdown, appends via `appendReviewToFile()`
 - On submit (edit): formats markdown, calls `onEditSubmit(newMd)` which triggers `replaceReviewInFile()`
