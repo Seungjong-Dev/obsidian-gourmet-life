@@ -561,7 +561,7 @@ A Leaflet.js mini-map is rendered in the side panel when `lat`/`lng` coordinates
 - **Viewer mode**: Read-only map with marker, click opens full map in external browser. "Show on Map" overlay button (bottom-right) opens Explorer map view and flies to/selects the marker (hidden when already in map layout). Nearby restaurants (~5km / 0.05° radius, max 15) shown as small gray markers with name tooltips; click navigates to that restaurant note
 - **Editor mode**: Interactive map — click to update coordinates, "Extract from URL" button parses coordinates from Google/Naver/Kakao Maps URLs (sync regex, then async fetch for short/place URLs), "Search by address" button geocodes via Nominatim API. Coordinates auto-extracted on editor open when URL is present but lat/lng are missing
 - Custom SVG map marker icon (red pin with white center), nearby markers use smaller gray variant (14×21)
-- OpenStreetMap tiles, attribution preserved
+- OpenStreetMap tiles fetched via `requestUrl` with `Referer` header to satisfy OSM tile usage policy in Electron, attribution preserved
 
 #### Restaurant Parser
 
@@ -868,7 +868,7 @@ src/
 - Viewer: Image with lightbox, Leaflet map (or fallback) with "Show on Map" overlay button and nearby gray markers, info grid (address, area, cuisine, category, price range, rating, URL, tags), visit summary
 - Editor: Image editor, metadata form fields with InputSuggest combobox for cuisine and category, coordinate section with "Extract from URL" (sync + async) and "Search by address" buttons, auto-extract on open when URL exists but no coords, interactive Leaflet map
 - `collectRestaurantSideState()`: Collects form values (including category) for auto-save
-- `renderLeafletMap()`: Creates Leaflet map instance with OpenStreetMap tiles, supports optional nearby markers (small gray SVG icons with tooltips and click handlers)
+- `renderLeafletMap()`: Creates Leaflet map instance with OpenStreetMap tiles via `osmTileLayer()`, supports optional nearby markers (small gray SVG icons with tooltips and click handlers)
 
 **restaurant-main-panel.ts** — Restaurant main panel
 - `renderRestaurantTitleRow()`: Title (display/input) + mode toggle + add review button (viewer only) + delete button + view source button
@@ -1020,7 +1020,7 @@ src/
 - Initial render with `selectedPath` also triggers flyTo + popup (supports `selectOnMap` navigation from restaurant view)
 - `destroyExplorerMap(container)` / `hasExplorerMap(container)`: Lifecycle management via `WeakMap`; `destroyExplorerMap` removes `gl-explorer__map-container` class from container — restoring normal scroll behavior for card/list views
 - `updateTooltipVisibility(map, markers)`: Shows permanent tooltips at high zoom, suppresses overlapping ones (pixel-distance threshold)
-- OpenStreetMap tiles, scale control, `zoomSnap: 0` for fractional zoom
+- OpenStreetMap tiles via shared `osmTileLayer()` (`requestUrl` + `Referer` header), scale control, `zoomSnap: 0` for fractional zoom
 - Touch/mobile: larger markers (32×44 vs 18×27), larger popup close button (32×32), enlarged nav buttons (44×44), nav control offset for Obsidian bottom bar (`margin-bottom: calc(52px + safe-area)`), increased `fitBounds` padding (50px vs 30px), map content area fills full height with no scroll/padding override
 - Custom touch handlers (mobile): Leaflet's built-in `L.Draggable`/`L.TouchZoom` use pointer events (`pointermove`/`pointerup`) registered on `document`, which Obsidian Mobile blocks from bubbling. On touch devices, Leaflet's `touchZoom`, `dragging`, and `tap` options are disabled; `setupMapTouchHandlers()` provides custom `touchstart`/`touchmove`/`touchend` handlers with: single-finger drag via `map.panBy()`, two-finger pinch-zoom via `map.setZoomAround()` (zoom at pinch center + pan by center movement), tap detection (distance < 10px, time < 300ms) hitting nearest marker within 40px radius, inertia with exponential deceleration (0.92 factor, rAF loop), and smooth pinch-to-drag transition when lifting one finger. Pattern mirrors `explorer-graph.ts` custom touch handling
 
