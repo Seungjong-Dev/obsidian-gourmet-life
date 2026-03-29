@@ -308,6 +308,28 @@ export class ReviewModal extends Modal {
 
 		this.photoStrip = section.createDiv({ cls: "gl-review-modal__photo-strip" });
 
+		// Drag-and-drop support
+		section.addEventListener("dragover", (e) => {
+			e.preventDefault();
+			section.addClass("gl-review-modal__photo-section--dragover");
+		});
+		section.addEventListener("dragenter", (e) => {
+			e.preventDefault();
+			section.addClass("gl-review-modal__photo-section--dragover");
+		});
+		section.addEventListener("dragleave", (e) => {
+			if (!section.contains(e.relatedTarget as Node)) {
+				section.removeClass("gl-review-modal__photo-section--dragover");
+			}
+		});
+		section.addEventListener("drop", (e) => {
+			e.preventDefault();
+			section.removeClass("gl-review-modal__photo-section--dragover");
+			if (e.dataTransfer?.files) {
+				this.addExternalFiles(e.dataTransfer.files);
+			}
+		});
+
 		const btnRow = section.createDiv({ cls: "gl-review-modal__photo-buttons" });
 
 		// Gallery (file picker)
@@ -327,25 +349,28 @@ export class ReviewModal extends Modal {
 		vaultBtn.addEventListener("click", () => this.pickFromVault());
 	}
 
+	private async addExternalFiles(files: FileList): Promise<void> {
+		for (const file of Array.from(files)) {
+			if (!isImageFile(file.name)) continue;
+			const buffer = await file.arrayBuffer();
+			const objectUrl = URL.createObjectURL(file);
+			const entry: PhotoEntry = {
+				name: file.name,
+				buffer,
+				objectUrl,
+			};
+			this.photos.push(entry);
+			this.renderPhotoThumb(entry);
+		}
+	}
+
 	private pickFromGallery(): void {
 		const input = document.createElement("input");
 		input.type = "file";
 		input.accept = "image/*";
 		input.multiple = true;
-		input.addEventListener("change", async () => {
-			if (!input.files) return;
-			for (const file of Array.from(input.files)) {
-				if (!isImageFile(file.name)) continue;
-				const buffer = await file.arrayBuffer();
-				const objectUrl = URL.createObjectURL(file);
-				const entry: PhotoEntry = {
-					name: file.name,
-					buffer,
-					objectUrl,
-				};
-				this.photos.push(entry);
-				this.renderPhotoThumb(entry);
-			}
+		input.addEventListener("change", () => {
+			if (input.files) this.addExternalFiles(input.files);
 		});
 		input.click();
 	}

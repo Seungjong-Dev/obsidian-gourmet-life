@@ -3817,6 +3817,14 @@
 
 .gl-review-modal__photo-section {
 	margin-top: 8px;
+	border-radius: 8px;
+	border: 2px dashed transparent;
+	transition: border-color 0.15s, background-color 0.15s;
+}
+
+.gl-review-modal__photo-section--dragover {
+	border-color: var(--interactive-accent);
+	background-color: var(--background-modifier-hover);
 }
 
 .gl-review-modal__photo-buttons {
