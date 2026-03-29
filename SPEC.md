@@ -551,7 +551,7 @@ When a restaurant note is opened via the Gourmet Explorer or a command, the plug
 **Main Panel** (right, scrollable):
 - Menu Highlights: parsed `- name — description` list
 - Notes: free-text paragraphs
-- Reviews: timeline of visit cards sorted newest-first, each showing date, per-dish ratings with star display, and general comments
+- Reviews: timeline of visit cards in chronological order (oldest-first, matching file order), each showing date, per-dish ratings with star display, and general comments
 - Editor mode: three textareas (menu highlights, notes, reviews) with same indent/auto-prefix keyboard shortcuts as Recipe View (see [Editor Textarea Keyboard Shortcuts](#editor-textarea-keyboard-shortcuts))
 
 #### Leaflet Map Integration
@@ -873,7 +873,7 @@ src/
 **restaurant-main-panel.ts** — Restaurant main panel
 - `renderRestaurantTitleRow()`: Title (display/input) + mode toggle + add review button (viewer only) + delete button + view source button
 - `renderRestaurantMainPanel()`: Delegates to viewer/editor
-- Viewer: Menu Highlights list, Notes paragraphs, Reviews as timeline cards (sorted newest-first) with visit ratings, dish chips with stars, general comments; consecutive image-only comments grouped into `.gl-gallery` horizontal scroll strip with lightbox navigation
+- Viewer: Menu Highlights list, Notes paragraphs, Reviews as timeline cards in chronological order (file order, oldest-first) with visit ratings, dish chips with stars, general comments; consecutive image-only comments grouped into `.gl-gallery` horizontal scroll strip with lightbox navigation
 - Editor: Three textareas (menu-highlights, notes, reviews)
 - `collectRestaurantMainState()`: Collects textarea values for auto-save
 
