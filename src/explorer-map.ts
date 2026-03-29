@@ -1,6 +1,6 @@
 import * as L from "leaflet";
 import type { GourmetNote, RestaurantFrontmatter } from "./types";
-import { LEAFLET_CSS } from "./restaurant-side-panel";
+import { LEAFLET_CSS, osmTileLayer } from "./restaurant-side-panel";
 import { renderStarsHtml } from "./render-utils";
 import { isTouchDevice } from "./device";
 
@@ -134,12 +134,7 @@ export function renderMapView(
 			ro.observe(mapEl);
 			activeObservers.set(container, ro);
 
-			const tileLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-				maxZoom: 19,
-				detectRetina: true,
-				updateWhenZooming: false,
-				keepBuffer: 4,
-			}).addTo(map);
+			const tileLayer = osmTileLayer().addTo(map);
 			enableSmoothWheelZoom(map, tileLayer);
 
 			L.control.scale({ metric: true, imperial: false }).addTo(map);

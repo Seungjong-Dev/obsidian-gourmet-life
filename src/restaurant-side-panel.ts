@@ -1,4 +1,4 @@
-import { Notice, setIcon, type App } from "obsidian";
+import { Notice, requestUrl, setIcon, type App } from "obsidian";
 import type { RestaurantFrontmatter, RestaurantViewMode } from "./types";
 import { PRICE_RANGES } from "./types";
 import { InputSuggest } from "./input-suggest";
@@ -500,12 +500,7 @@ function renderLeafletMap(
 			// Store reference for cleanup immediately so destroyLeafletMap always finds it
 			activeMaps.set(sideContainer, map);
 
-			L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-				maxZoom: 19,
-				detectRetina: true,
-				updateWhenZooming: false,
-				keepBuffer: 4,
-			}).addTo(map);
+			osmTileLayer().addTo(map);
 
 			const markerIcon = L.divIcon({
 				className: "gl-map-marker",
@@ -616,6 +611,29 @@ function addDropdownField(
 function setFieldValue(container: HTMLElement, field: string, value: string): void {
 	const el = container.querySelector(`[data-field="${field}"]`) as HTMLInputElement | null;
 	if (el) el.value = value;
+}
+
+/** OSM tile layer that fetches tiles via Obsidian's requestUrl to send a valid Referer header. */
+export function osmTileLayer(): L.TileLayer {
+	const OsmLayer = L.TileLayer.extend({
+		createTile(coords: L.Coords, done: L.DoneCallback) {
+			const tile = document.createElement("img") as HTMLImageElement;
+			const url = (this as any).getTileUrl(coords);
+			requestUrl({ url, headers: { Referer: "https://obsidian.md/" } })
+				.then((res) => {
+					tile.src = URL.createObjectURL(new Blob([res.arrayBuffer]));
+					done(null, tile);
+				})
+				.catch(() => done(new Error("tile fetch failed"), tile));
+			return tile;
+		},
+	});
+	return new OsmLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+		maxZoom: 19,
+		detectRetina: true,
+		updateWhenZooming: false,
+		keepBuffer: 4,
+	}) as L.TileLayer;
 }
 
 // Minimal inline Leaflet CSS (just what's needed for rendering)
