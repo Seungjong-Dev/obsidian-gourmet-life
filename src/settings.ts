@@ -51,6 +51,21 @@ export class GourmetLifeSettingTab extends PluginSettingTab {
 			}
 		);
 
+		// ── Media ──
+
+		new Setting(containerEl)
+			.setName("Media folder name")
+			.setDesc("Subfolder name for review photos (created inside each note type folder)")
+			.addText((text) =>
+				text
+					.setPlaceholder("media")
+					.setValue(this.plugin.settings.mediaFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.mediaFolder = value.trim() || "media";
+						await this.plugin.saveSettings();
+					})
+			);
+
 		// ── Auto-Link ──
 
 		new Setting(containerEl)

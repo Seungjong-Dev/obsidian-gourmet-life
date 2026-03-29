@@ -763,6 +763,18 @@
 	color: var(--text-normal);
 }
 
+.gl-recipe__delete-btn {
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: var(--text-muted);
+	padding: 4px 8px;
+}
+
+.gl-recipe__delete-btn:hover {
+	color: var(--text-error);
+}
+
 /* Single-column: sticky title row */
 
 .gl-recipe--single .gl-recipe__title-row {
@@ -774,7 +786,9 @@
 }
 
 .gl-recipe--single .gl-recipe__mode-toggle,
-.gl-recipe--single .gl-recipe__view-source {
+.gl-recipe--single .gl-recipe__view-source,
+.gl-recipe--single .gl-review-add-btn,
+.gl-recipe--single .gl-recipe__delete-btn {
 	background: var(--background-secondary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
@@ -1748,6 +1762,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	gap: 8px;
 	margin-bottom: 8px;
 }
 
@@ -1839,7 +1854,9 @@
 /* Single-column button styling */
 
 .gl-restaurant--single .gl-recipe__mode-toggle,
-.gl-restaurant--single .gl-recipe__view-source {
+.gl-restaurant--single .gl-recipe__view-source,
+.gl-restaurant--single .gl-review-add-btn,
+.gl-restaurant--single .gl-recipe__delete-btn {
 	background: var(--background-secondary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
@@ -3242,6 +3259,14 @@
 	padding: 8px 20px;
 }
 
+.gl-ingredient--single .gl-recipe__mode-toggle,
+.gl-ingredient--single .gl-recipe__view-source,
+.gl-ingredient--single .gl-recipe__delete-btn {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+}
+
 .gl-ingredient--single .gl-ingredient__side {
 	border-right: none;
 	border-bottom: 1px solid var(--background-modifier-border);
@@ -3573,6 +3598,45 @@
 	gap: 4px;
 }
 
+/* ── Add Review Card (timeline bottom) ── */
+
+.gl-review-card--add {
+	border-style: dashed !important;
+	border-color: var(--background-modifier-border) !important;
+	background: transparent !important;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 12px 16px;
+}
+
+.gl-review-card--add:hover {
+	border-color: var(--text-muted) !important;
+	background: var(--background-secondary) !important;
+}
+
+.gl-review-card--add::before {
+	background: transparent !important;
+	border: 2px solid var(--background-modifier-border) !important;
+	width: 6px !important;
+	height: 6px !important;
+}
+
+.gl-review-card--add:hover::before {
+	border-color: var(--text-muted) !important;
+}
+
+.gl-review-card--add__text {
+	color: var(--text-faint);
+	font-size: 0.85em;
+	font-style: italic;
+}
+
+.gl-review-card--add:hover .gl-review-card--add__text {
+	color: var(--text-muted);
+}
+
 .gl-explorer__unresolved-recipe-link {
 	color: var(--text-accent);
 	cursor: pointer;
@@ -3581,6 +3645,266 @@
 
 .gl-explorer__unresolved-recipe-link:hover {
 	text-decoration: underline;
+}
+
+/* ── Review Card Header & Actions ── */
+
+.gl-recipe__review-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+}
+
+.gl-review-card__menu-btn {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	background: none !important;
+	border: none !important;
+	box-shadow: none !important;
+	cursor: pointer;
+	color: var(--text-faint);
+	padding: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	line-height: 1;
+}
+
+.gl-review-card__menu-btn:hover {
+	background: none !important;
+	color: var(--text-muted);
+}
+
+.gl-review-card__menu-btn .svg-icon {
+	width: 14px;
+	height: 14px;
+}
+
+/* ── Review Add Button (title bar) ── */
+
+.gl-review-add-btn {
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: var(--text-muted);
+	padding: 4px 8px;
+}
+
+.gl-review-add-btn:hover {
+	color: var(--text-normal);
+}
+
+.gl-review-add-btn .svg-icon {
+	width: 16px;
+	height: 16px;
+}
+
+/* ── Review Modal ── */
+
+.gl-review-modal {
+	max-width: 540px;
+	width: 100%;
+}
+
+.gl-review-modal__section-title {
+	margin: 12px 0 6px;
+	font-size: 1em;
+	font-weight: 600;
+}
+
+.gl-review-modal__textarea {
+	width: 100% !important;
+	min-height: 80px;
+	resize: vertical;
+}
+
+/* Star picker (interactive) */
+
+.gl-review-modal__star-picker {
+	display: flex;
+	gap: 2px;
+}
+
+.gl-review-modal__star {
+	font-size: 1.4em;
+	cursor: pointer;
+	transition: transform 0.1s;
+	user-select: none;
+}
+
+.gl-review-modal__star:hover {
+	transform: scale(1.2);
+}
+
+/* Dish list */
+
+.gl-review-modal__dish-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.gl-review-modal__dish-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.gl-review-modal__dish-name {
+	flex: 1 1 120px;
+	min-width: 80px;
+	padding: 4px 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+}
+
+.gl-review-modal__dish-stars {
+	display: flex;
+	gap: 1px;
+}
+
+.gl-review-modal__dish-stars .gl-review-modal__star {
+	font-size: 1.1em;
+}
+
+.gl-review-modal__dish-comment {
+	flex: 2 1 150px;
+	min-width: 80px;
+	padding: 4px 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+}
+
+.gl-review-modal__dish-remove {
+	padding: 2px 4px;
+	border: none;
+	background: none;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.gl-review-modal__dish-remove:hover {
+	color: var(--text-error);
+}
+
+.gl-review-modal__add-dish-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 12px;
+	margin: 6px 0 12px;
+	border-radius: 4px;
+	border: 1px dashed var(--background-modifier-border);
+	background: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 0.85em;
+}
+
+.gl-review-modal__add-dish-btn:hover {
+	color: var(--text-normal);
+	border-color: var(--text-muted);
+}
+
+/* Photo section */
+
+.gl-review-modal__photo-section {
+	margin-top: 8px;
+}
+
+.gl-review-modal__photo-buttons {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.gl-review-modal__photo-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 6px 12px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--interactive-normal);
+	color: var(--text-normal);
+	cursor: pointer;
+	font-size: 0.85em;
+}
+
+.gl-review-modal__photo-btn:hover {
+	background: var(--interactive-hover);
+}
+
+.gl-review-modal__photo-btn .svg-icon {
+	width: 14px;
+	height: 14px;
+}
+
+.gl-review-modal__photo-strip {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+	margin-bottom: 8px;
+}
+
+.gl-review-modal__photo-thumb {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	width: 80px;
+}
+
+.gl-review-modal__photo-thumb img {
+	width: 80px;
+	height: 80px;
+	object-fit: cover;
+	border-radius: 6px;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.gl-review-modal__photo-name {
+	font-size: 0.7em;
+	color: var(--text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 80px;
+	text-align: center;
+}
+
+.gl-review-modal__photo-remove {
+	position: absolute;
+	top: -4px;
+	right: -4px;
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border-radius: 50%;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-muted);
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.gl-review-modal__photo-remove:hover {
+	color: var(--text-error);
+	background: var(--background-secondary);
+}
+
+.gl-review-modal__photo-remove .svg-icon {
+	width: 12px;
+	height: 12px;
 }
 
 
