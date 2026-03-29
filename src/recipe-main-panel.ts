@@ -1,4 +1,4 @@
-import { MarkdownRenderer, setIcon, type App, type Component } from "obsidian";
+import { MarkdownRenderer, Menu, setIcon, type App, type Component } from "obsidian";
 import type { RecipeViewMode } from "./types";
 import { SECTION_HEADING_RE, RECIPE_END_SECTIONS, EMBED_RE, IMAGE_EXTS } from "./constants";
 import {
@@ -11,6 +11,9 @@ import {
 import { createImageSuggest, type TextareaSuggest } from "./textarea-suggest";
 import { isGalleryCalloutMarker, transformGalleryCallouts } from "./gallery-utils";
 import { attachIndentHandler } from "./textarea-indent";
+import { ReviewModal } from "./review-modal";
+import { ConfirmDeleteModal } from "./confirm-delete-modal";
+import { extractRecipeReviewPrefill, replaceReviewInFile, deleteReviewInFile } from "./review-utils";
 import type { TFile } from "obsidian";
 
 export interface MainPanelCallbacks {
@@ -24,6 +27,7 @@ export interface MainPanelCallbacks {
 	onTitleChange: (newTitle: string) => void;
 	onShareCard?: () => void;
 	onDelete?: () => void;
+	onAddReview?: () => void;
 }
 
 export interface MainState {
@@ -82,6 +86,13 @@ export function renderTitleRow(
 		shareBtn.addEventListener("click", callbacks.onShareCard);
 	}
 
+	if (mode === "viewer" && callbacks.onAddReview) {
+		const addReviewBtn = btnGroup.createEl("button", { cls: "gl-review-add-btn" });
+		addReviewBtn.title = "Add review";
+		setIcon(addReviewBtn, "message-square-plus");
+		addReviewBtn.addEventListener("click", () => callbacks.onAddReview?.());
+	}
+
 	if (callbacks.onDelete) {
 		const deleteBtn = btnGroup.createEl("button", { cls: "gl-recipe__delete-btn" });
 		deleteBtn.title = "Delete";
@@ -109,7 +120,10 @@ export function renderMainPanel(
 	app?: App,
 	recipePath?: string,
 	resourcePath?: (path: string) => string,
-	component?: Component
+	component?: Component,
+	file?: TFile,
+	onReviewChanged?: () => void,
+	mediaFolder?: string
 ): void {
 	// Clean up previous TextareaSuggest instances
 	const prev = (container as any).__glSuggests as TextareaSuggest<unknown>[] | undefined;
@@ -121,7 +135,7 @@ export function renderMainPanel(
 	container.empty();
 
 	if (mode === "viewer") {
-		renderMainPanelViewer(container, bodyContent, source, callbacks, resourcePath, app, recipePath, component);
+		renderMainPanelViewer(container, bodyContent, source, callbacks, resourcePath, app, recipePath, component, file, onReviewChanged, mediaFolder);
 	} else {
 		renderMainPanelEditor(container, bodyContent, source, callbacks, app, recipePath);
 	}
@@ -138,7 +152,10 @@ function renderMainPanelViewer(
 	resourcePath?: (path: string) => string,
 	app?: App,
 	recipePath?: string,
-	component?: Component
+	component?: Component,
+	file?: TFile,
+	onReviewChanged?: () => void,
+	mediaFolder?: string
 ): void {
 	// Recipe section — rendered chips
 	const bodySection = container.createDiv({ cls: "gl-recipe__steps" });
@@ -155,10 +172,10 @@ function renderMainPanelViewer(
 
 	// Reviews
 	const reviewsContent = parseReviewsSection(bodyContent);
-	if (reviewsContent.trim()) {
+	if (reviewsContent.trim() || (app && file && onReviewChanged)) {
 		const reviewsSection = container.createDiv();
 		reviewsSection.createEl("h2", { text: "Reviews" });
-		renderReviewCards(reviewsSection, reviewsContent, resourcePath, app, recipePath, component);
+		renderReviewCards(reviewsSection, reviewsContent, resourcePath, app, recipePath, component, file, onReviewChanged, mediaFolder);
 	}
 
 	// References — at the bottom
@@ -537,6 +554,7 @@ function renderTextContent(
 interface ReviewEntry {
 	date: string;
 	lines: string[];
+	rawText: string;
 }
 
 /**
@@ -552,21 +570,37 @@ function parseReviewEntries(text: string): { preamble: string; entries: ReviewEn
 	const preambleLines: string[] = [];
 	const datedRe = /^-\s*(\d{4}-\d{2}-\d{2})\s*:?\s*(.*)/;
 	const itemRe = /^-\s+(.*)/;
+	let rawLines: string[] = [];
 
 	for (const line of lines) {
 		const dm = line.match(datedRe);
 		if (dm) {
-			entries.push({ date: dm[1], lines: dm[2].trim() ? [dm[2].trim()] : [] });
+			if (entries.length > 0) {
+				entries[entries.length - 1].rawText = rawLines.join("\n");
+			}
+			rawLines = [line];
+			entries.push({ date: dm[1], lines: dm[2].trim() ? [dm[2].trim()] : [], rawText: "" });
 		} else {
 			const im = line.match(itemRe);
 			if (im) {
-				entries.push({ date: "", lines: im[1].trim() ? [im[1].trim()] : [] });
-			} else if (entries.length > 0 && line.trim()) {
-				entries[entries.length - 1].lines.push(line.trim());
+				if (entries.length > 0) {
+					entries[entries.length - 1].rawText = rawLines.join("\n");
+				}
+				rawLines = [line];
+				entries.push({ date: "", lines: im[1].trim() ? [im[1].trim()] : [], rawText: "" });
+			} else if (entries.length > 0) {
+				rawLines.push(line);
+				if (line.trim()) {
+					entries[entries.length - 1].lines.push(line.trim());
+				}
 			} else if (entries.length === 0 && line.trim()) {
 				preambleLines.push(line.trim());
 			}
 		}
+	}
+
+	if (entries.length > 0) {
+		entries[entries.length - 1].rawText = rawLines.join("\n");
 	}
 
 	if (entries.length === 0) return null;
@@ -583,24 +617,58 @@ function renderReviewCards(
 	resourcePath?: (path: string) => string,
 	app?: App,
 	sourcePath?: string,
-	component?: Component
+	component?: Component,
+	file?: TFile,
+	onReviewChanged?: () => void,
+	mediaFolder?: string
 ): void {
-	const result = parseReviewEntries(text);
-	if (!result) {
+	const result = text.trim() ? parseReviewEntries(text) : null;
+	if (!result && text.trim()) {
 		renderTextContent(container, text, resourcePath, app, sourcePath, component);
-		return;
 	}
 
-	if (result.preamble) {
+	if (result?.preamble) {
 		renderTextContent(container, result.preamble, resourcePath, app, sourcePath, component);
 	}
 
 	const timeline = container.createDiv({ cls: "gl-recipe__review-timeline" });
-	for (const entry of result.entries) {
+	for (const entry of result?.entries ?? []) {
 		const card = timeline.createDiv({ cls: "gl-recipe__review-card" });
+
+		const header = card.createDiv({ cls: "gl-recipe__review-header" });
 		if (entry.date) {
-			card.createDiv({ text: entry.date, cls: "gl-recipe__review-date" });
+			header.createSpan({ text: entry.date, cls: "gl-recipe__review-date" });
 		}
+
+		// Kebab menu (only when file is available — viewer mode)
+		if (app && file && onReviewChanged) {
+			const menuBtn = header.createEl("button", { cls: "gl-review-card__menu-btn" });
+			menuBtn.setAttr("aria-label", "Review actions");
+			menuBtn.title = "Review actions";
+			setIcon(menuBtn, "more-horizontal");
+			menuBtn.addEventListener("click", (e) => {
+				const menu = new Menu();
+				menu.addItem((item) => {
+					item.setTitle("Edit").setIcon("pencil").onClick(() => {
+						const prefill = extractRecipeReviewPrefill(entry);
+						new ReviewModal(app, "recipe", file, onReviewChanged, prefill, async (newMd) => {
+							await replaceReviewInFile(app, file, entry.rawText, newMd);
+						}, mediaFolder).open();
+					});
+				});
+				menu.addItem((item) => {
+					item.setTitle("Delete").setIcon("trash-2").onClick(() => {
+						new ConfirmDeleteModal(app, `review from ${entry.date || "unknown date"}`, async (confirmed) => {
+							if (!confirmed) return;
+							await deleteReviewInFile(app, file, entry.rawText);
+							onReviewChanged();
+						}).open();
+					});
+				});
+				menu.showAtMouseEvent(e as MouseEvent);
+			});
+		}
+
 		const body = card.createDiv({ cls: "gl-recipe__review-body" });
 		const content = entry.lines.join("\n");
 		if (content) {
@@ -613,6 +681,21 @@ function renderReviewCards(
 				renderTextWithEmbeds(body, content, resourcePath);
 			}
 		}
+	}
+
+	// Add review prompt at the bottom of timeline
+	if (app && file && onReviewChanged) {
+		const addCard = timeline.createDiv({ cls: "gl-recipe__review-card gl-review-card--add" });
+		addCard.setAttr("role", "button");
+		addCard.setAttr("tabindex", "0");
+		addCard.createSpan({ text: "Write a new review...", cls: "gl-review-card--add__text" });
+		const openModal = () => {
+			new ReviewModal(app, "recipe", file, onReviewChanged, undefined, undefined, mediaFolder).open();
+		};
+		addCard.addEventListener("click", openModal);
+		addCard.addEventListener("keydown", (e: KeyboardEvent) => {
+			if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openModal(); }
+		});
 	}
 }
 

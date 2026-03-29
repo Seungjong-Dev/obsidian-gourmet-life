@@ -15,6 +15,7 @@ import {
 	collectRestaurantMainState,
 } from "./restaurant-main-panel";
 import { buildFrontmatterString } from "./frontmatter-utils";
+import { ReviewModal } from "./review-modal";
 import type GourmetLifePlugin from "./main";
 
 interface RestaurantViewState {
@@ -220,6 +221,11 @@ export class RestaurantView extends ItemView {
 				onNotesInput: () => this.scheduleAutoSave(),
 				onReviewsInput: () => this.scheduleAutoSave(),
 				onDelete: () => this.handleDelete(),
+				onAddReview: () => {
+					const file = this.app.vault.getAbstractFileByPath(this.filePath);
+					if (!file || !(file instanceof TFile)) return;
+					new ReviewModal(this.app, "restaurant", file, () => this.render(), undefined, undefined, this.plugin.settings.mediaFolder).open();
+				},
 			};
 
 			try {
@@ -229,7 +235,7 @@ export class RestaurantView extends ItemView {
 			}
 
 			try {
-				renderRestaurantMainPanel(this.mainContainer, bodyContent, this.mode, callbacks, this.app, this.filePath, this);
+				renderRestaurantMainPanel(this.mainContainer, bodyContent, this.mode, callbacks, this.app, this.filePath, this, file, () => this.render(), this.plugin.settings.mediaFolder);
 			} catch (err) {
 				console.error("[GourmetLife] Main panel render failed:", err);
 			}

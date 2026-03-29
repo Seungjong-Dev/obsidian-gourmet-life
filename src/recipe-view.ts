@@ -18,6 +18,7 @@ import {
 } from "./recipe-main-panel";
 import { buildFrontmatterString } from "./frontmatter-utils";
 import { exportShareCard } from "./recipe-share-card";
+import { ReviewModal } from "./review-modal";
 import type GourmetLifePlugin from "./main";
 
 interface RecipeViewState {
@@ -234,6 +235,11 @@ export class RecipeView extends ItemView {
 				exportShareCard(this.app, this.filePath, fm, bodyContent, titleFromPath(this.filePath));
 			},
 			onDelete: () => this.handleDelete(),
+			onAddReview: () => {
+				const file = this.app.vault.getAbstractFileByPath(this.filePath);
+				if (!file || !(file instanceof TFile)) return;
+				new ReviewModal(this.app, "recipe", file, () => this.render(), undefined, undefined, this.plugin.settings.mediaFolder).open();
+			},
 		};
 
 		const editorCallbacks = {
@@ -294,7 +300,10 @@ export class RecipeView extends ItemView {
 			this.app,
 			this.filePath,
 			resourcePath,
-			this
+			this,
+			file,
+			() => this.render(),
+			this.plugin.settings.mediaFolder
 		);
 
 		// Restore scroll positions

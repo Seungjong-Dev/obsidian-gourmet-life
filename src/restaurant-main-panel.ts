@@ -1,4 +1,4 @@
-import { MarkdownRenderer, setIcon, type App, type Component, type TFile } from "obsidian";
+import { MarkdownRenderer, Menu, setIcon, type App, type Component, type TFile } from "obsidian";
 import type { RestaurantViewMode } from "./types";
 import { EMBED_RE, IMAGE_EXTS } from "./constants";
 import {
@@ -13,6 +13,9 @@ import { createImageSuggest, type TextareaSuggest } from "./textarea-suggest";
 import { attachIndentHandler } from "./textarea-indent";
 import { renderStarsDom } from "./render-utils";
 import { showImageLightbox, type GalleryInfo } from "./recipe-main-panel";
+import { ReviewModal } from "./review-modal";
+import { ConfirmDeleteModal } from "./confirm-delete-modal";
+import { extractRestaurantVisitPrefill, replaceReviewInFile, deleteReviewInFile } from "./review-utils";
 import { isGalleryCalloutMarker, transformGalleryCallouts, isImageOnlyLine } from "./gallery-utils";
 
 export interface RestaurantMainCallbacks {
@@ -23,6 +26,7 @@ export interface RestaurantMainCallbacks {
 	onNotesInput: () => void;
 	onReviewsInput: () => void;
 	onDelete?: () => void;
+	onAddReview?: () => void;
 }
 
 export interface RestaurantMainState {
@@ -71,6 +75,13 @@ export function renderRestaurantTitleRow(
 	setIcon(toggleBtn, mode === "viewer" ? "pencil" : "eye");
 	toggleBtn.addEventListener("click", callbacks.onToggleMode);
 
+	if (mode === "viewer" && callbacks.onAddReview) {
+		const addReviewBtn = btnGroup.createEl("button", { cls: "gl-review-add-btn" });
+		addReviewBtn.title = "Add review";
+		setIcon(addReviewBtn, "message-square-plus");
+		addReviewBtn.addEventListener("click", () => callbacks.onAddReview?.());
+	}
+
 	if (callbacks.onDelete) {
 		const deleteBtn = btnGroup.createEl("button", { cls: "gl-recipe__delete-btn" });
 		deleteBtn.title = "Delete";
@@ -95,7 +106,10 @@ export function renderRestaurantMainPanel(
 	callbacks: RestaurantMainCallbacks,
 	app?: App,
 	notePath?: string,
-	component?: Component
+	component?: Component,
+	file?: TFile,
+	onReviewChanged?: () => void,
+	mediaFolder?: string
 ): void {
 	// Cleanup previous image suggests
 	const prev = (container as any).__glSuggests as TextareaSuggest<unknown>[] | undefined;
@@ -109,7 +123,7 @@ export function renderRestaurantMainPanel(
 	const sections = parseRestaurantSections(bodyContent);
 
 	if (mode === "viewer") {
-		renderViewer(container, sections, app, notePath, component);
+		renderViewer(container, sections, callbacks, app, notePath, component, file, onReviewChanged, mediaFolder);
 	} else {
 		renderEditor(container, sections, callbacks, app, notePath);
 	}
@@ -120,9 +134,13 @@ export function renderRestaurantMainPanel(
 function renderViewer(
 	container: HTMLElement,
 	sections: { menuHighlights: string; notes: string; reviews: string },
+	callbacks: RestaurantMainCallbacks,
 	app?: App,
 	notePath?: string,
-	component?: Component
+	component?: Component,
+	file?: TFile,
+	onReviewChanged?: () => void,
+	mediaFolder?: string
 ): void {
 	// Menu Highlights
 	if (sections.menuHighlights.trim()) {
@@ -158,17 +176,17 @@ function renderViewer(
 	}
 
 	// Reviews
-	if (sections.reviews.trim()) {
+	if (sections.reviews.trim() || (app && file && onReviewChanged)) {
 		const reviewsSection = container.createDiv();
 		reviewsSection.createEl("h2", { text: "Reviews" });
-		const visits = parseRestaurantVisits(sections.reviews);
-		renderVisitCards(reviewsSection, visits, app, notePath, component);
+		const visits = sections.reviews.trim() ? parseRestaurantVisits(sections.reviews) : [];
+		renderVisitCards(reviewsSection, visits, app, notePath, component, file, onReviewChanged, mediaFolder);
 	}
 }
 
 // ── Visit Cards ──
 
-function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app?: App, notePath?: string, component?: Component): void {
+function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app?: App, notePath?: string, component?: Component, file?: TFile, onReviewChanged?: () => void, mediaFolder?: string): void {
 	// Sort by date descending
 	const sorted = [...visits].sort((a, b) => {
 		if (!a.date && !b.date) return 0;
@@ -194,6 +212,35 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app
 			ratingEl.createSpan({
 				text: ` ${visitRating.toFixed(1)}`,
 				cls: "gl-restaurant__review-rating-num",
+			});
+		}
+
+		// Kebab menu
+		if (app && file && onReviewChanged) {
+			const menuBtn = header.createEl("button", { cls: "gl-review-card__menu-btn" });
+			menuBtn.setAttr("aria-label", "Review actions");
+			menuBtn.title = "Review actions";
+			setIcon(menuBtn, "more-horizontal");
+			menuBtn.addEventListener("click", (e) => {
+				const menu = new Menu();
+				menu.addItem((item) => {
+					item.setTitle("Edit").setIcon("pencil").onClick(() => {
+						const prefill = extractRestaurantVisitPrefill(visit);
+						new ReviewModal(app, "restaurant", file, onReviewChanged, prefill, async (newMd) => {
+							await replaceReviewInFile(app, file, visit.rawText, newMd);
+						}, mediaFolder).open();
+					});
+				});
+				menu.addItem((item) => {
+					item.setTitle("Delete").setIcon("trash-2").onClick(() => {
+						new ConfirmDeleteModal(app, `visit from ${visit.date || "unknown date"}`, async (confirmed) => {
+							if (!confirmed) return;
+							await deleteReviewInFile(app, file, visit.rawText);
+							onReviewChanged();
+						}).open();
+					});
+				});
+				menu.showAtMouseEvent(e as MouseEvent);
 			});
 		}
 
@@ -262,6 +309,21 @@ function renderVisitCards(container: HTMLElement, visits: RestaurantVisit[], app
 			}
 		}
 		flushImageGallery();
+	}
+
+	// Add review prompt at the bottom of timeline
+	if (app && file && onReviewChanged) {
+		const addCard = timeline.createDiv({ cls: "gl-restaurant__review-card gl-review-card--add" });
+		addCard.setAttr("role", "button");
+		addCard.setAttr("tabindex", "0");
+		addCard.createSpan({ text: "Write a new review...", cls: "gl-review-card--add__text" });
+		const openModal = () => {
+			new ReviewModal(app, "restaurant", file, onReviewChanged, undefined, undefined, mediaFolder).open();
+		};
+		addCard.addEventListener("click", openModal);
+		addCard.addEventListener("keydown", (e: KeyboardEvent) => {
+			if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openModal(); }
+		});
 	}
 }
 

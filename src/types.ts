@@ -107,6 +107,7 @@ export interface GourmetLifeSettings {
 	restaurantsFolder: string;
 	autoLinkEnabled: boolean;
 	autoLinkMinChars: number;
+	mediaFolder: string;
 	graphSettings: GraphSettings;
 }
 
@@ -116,6 +117,7 @@ export const DEFAULT_SETTINGS: GourmetLifeSettings = {
 	restaurantsFolder: "Gourmet/Restaurants",
 	autoLinkEnabled: true,
 	autoLinkMinChars: 2,
+	mediaFolder: "media",
 	graphSettings: { ...DEFAULT_GRAPH_SETTINGS },
 };
 

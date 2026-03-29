@@ -15,6 +15,7 @@ export interface RestaurantVisit {
 	date: string;
 	dishReviews: DishReview[];
 	generalComments: string[];
+	rawText: string;
 }
 
 export interface RestaurantMenuItem {
@@ -131,11 +132,16 @@ function parseDishOrComment(text: string): { dish: DishReview | null; comment: s
 export function parseRestaurantVisits(reviewsText: string): RestaurantVisit[] {
 	const visits: RestaurantVisit[] = [];
 	const lines = reviewsText.split("\n");
+	let rawLines: string[] = [];
 
 	for (const line of lines) {
 		// Top-level list item
 		const topMatch = line.match(/^-\s+(.*)/);
 		if (topMatch) {
+			if (visits.length > 0) {
+				visits[visits.length - 1].rawText = rawLines.join("\n");
+			}
+			rawLines = [line];
 			const content = topMatch[1].trim();
 			// Check if starts with date
 			const dateMatch = content.match(/^(\d{4}-\d{2}-\d{2})\s*(.*)/);
@@ -146,6 +152,7 @@ export function parseRestaurantVisits(reviewsText: string): RestaurantVisit[] {
 					date,
 					dishReviews: [],
 					generalComments: [],
+					rawText: "",
 				};
 				if (rest) {
 					const { dish, comment } = parseDishOrComment(rest);
@@ -159,6 +166,7 @@ export function parseRestaurantVisits(reviewsText: string): RestaurantVisit[] {
 					date: "",
 					dishReviews: [],
 					generalComments: [],
+					rawText: "",
 				};
 				const { dish, comment } = parseDishOrComment(content);
 				if (dish) visit.dishReviews.push(dish);
@@ -171,6 +179,7 @@ export function parseRestaurantVisits(reviewsText: string): RestaurantVisit[] {
 		// Sub-level list item (indented)
 		const subMatch = line.match(/^\s+-\s+(.*)/);
 		if (subMatch && visits.length > 0) {
+			rawLines.push(line);
 			const content = subMatch[1].trim();
 			const { dish, comment } = parseDishOrComment(content);
 			const currentVisit = visits[visits.length - 1];
@@ -180,9 +189,17 @@ export function parseRestaurantVisits(reviewsText: string): RestaurantVisit[] {
 		}
 
 		// Continuation text for the last visit
-		if (line.trim() && visits.length > 0) {
-			visits[visits.length - 1].generalComments.push(line.trim());
+		if (visits.length > 0) {
+			rawLines.push(line);
+			const trimmed = line.trim();
+			if (trimmed) {
+				visits[visits.length - 1].generalComments.push(trimmed);
+			}
 		}
+	}
+
+	if (visits.length > 0) {
+		visits[visits.length - 1].rawText = rawLines.join("\n");
 	}
 
 	return visits;
