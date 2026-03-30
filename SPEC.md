@@ -844,6 +844,7 @@ src/
 - Inline image rendering: `![[image.ext]]` embeds rendered as thumbnails with click-to-expand lightbox
 - Gallery grouping: Consecutive image-only lines/steps are merged into a single `.gl-gallery` horizontal scroll strip (120×120 thumbnails, single row, `overflow-x: auto`). Applies to both Cooklang steps and notes/reviews text
 - Lightbox navigation: Gallery images open in a lightbox with `‹`/`›` prev/next buttons, keyboard arrow key support, `Escape` to close, and an image counter (`1 / N`). Single images open without navigation controls
+- Lightbox zoom & pan: Mouse wheel zooms toward cursor position (desktop), pinch-to-zoom on touch (mobile), double-click/double-tap toggles between 1× and 2.5× zoom. When zoomed, drag to pan (pointer on desktop, single-finger on mobile). Translation is clamped so the image cannot be panned entirely off-screen. Zoom resets automatically on gallery image navigation. Overlay click-to-close is suppressed while zoomed; `Escape` always closes
 
 **recipe-share-card.ts** — Share card export
 - `exportShareCard(app, filePath, fm, bodyContent, title)`: Public entry point — builds card DOM, captures PNG, outputs to clipboard or native share
@@ -1179,8 +1180,11 @@ gl-recipe__refs        — References section
 gl-recipe__editor-meta  — Editor metadata accordion wrapper (card in single-column)
 gl-recipe__editor-meta-header — Accordion header (hidden in 2-column)
 gl-recipe__editor-meta-body   — Accordion body (collapsed in single-column)
-gl-lightbox            — Fullscreen image lightbox overlay (click background to dismiss)
-gl-lightbox__image     — Lightbox displayed image
+gl-lightbox            — Fullscreen image lightbox overlay (click background to dismiss, suppressed while zoomed)
+gl-lightbox__image     — Lightbox displayed image (touch-action: none, will-change: transform)
+gl-lightbox__image--zoomed      — Applied when scale > 1 (cursor: grab)
+gl-lightbox__image--no-transition — Disables transform transition during drag/pinch
+gl-lightbox--grabbing  — Applied during active drag (cursor: grabbing)
 gl-lightbox__nav       — Circular prev/next navigation button (gallery mode only)
 gl-lightbox__nav--prev — Left arrow button
 gl-lightbox__nav--next — Right arrow button
