@@ -840,6 +840,7 @@ class LightboxZoom {
 	private swipeStartX = 0;
 	private swipeStartY = 0;
 	private swipeX = 0;
+	private lastTouchEndTime = 0;
 	private singleTapTimer: ReturnType<typeof setTimeout> | null = null;
 	private singleClickTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -980,6 +981,7 @@ class LightboxZoom {
 					}
 				}
 				this.endDrag();
+				this.lastTouchEndTime = Date.now();
 			}
 		};
 
@@ -989,9 +991,10 @@ class LightboxZoom {
 			this.toggleZoom(e.clientX, e.clientY);
 		};
 
-		// Desktop single-click → chrome toggle (delayed to distinguish from dblclick)
+		// Desktop single-click → chrome toggle (skip synthetic clicks from touch)
 		this.onClick = (e) => {
 			e.stopPropagation();
+			if (Date.now() - this.lastTouchEndTime < 500) return;
 			if (this.isZoomed()) return;
 			if (this.singleClickTimer) clearTimeout(this.singleClickTimer);
 			this.singleClickTimer = setTimeout(() => {
