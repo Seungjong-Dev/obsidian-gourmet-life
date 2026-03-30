@@ -1,4 +1,4 @@
-import { App, Modal, Notice, Setting, TFile, setIcon } from "obsidian";
+import { App, Modal, Notice, Platform, Setting, TFile, setIcon } from "obsidian";
 import { ImageSuggestModal } from "./image-suggest-modal";
 import {
 	formatRecipeReview,
@@ -44,6 +44,8 @@ export class ReviewModal extends Modal {
 	private dishContainer: HTMLElement | null = null;
 	private photos: PhotoEntry[] = [];
 	private photoStrip: HTMLElement | null = null;
+	private _focusHandler: ((e: FocusEvent) => void) | null = null;
+	private _blurHandler: (() => void) | null = null;
 
 	constructor(
 		app: App,
@@ -137,9 +139,40 @@ export class ReviewModal extends Modal {
 					.setCta()
 					.onClick(() => this.handleSubmit())
 			);
+
+		// Mobile keyboard: pre-constrain content height & scroll on focus
+		if (Platform.isMobile) {
+			const initialHeight = window.innerHeight;
+			contentEl.style.setProperty("max-height", `${initialHeight * 0.7}px`, "important");
+			contentEl.style.setProperty("overflow-y", "auto", "important");
+
+			this._focusHandler = (e: FocusEvent) => {
+				const target = e.target;
+				if (target instanceof HTMLElement &&
+					(target.tagName === "INPUT" || target.tagName === "TEXTAREA")) {
+					contentEl.style.paddingBottom = "40vh";
+					setTimeout(() => {
+						target.scrollIntoView({ behavior: "smooth", block: "center" });
+					}, 300);
+				}
+			};
+			this._blurHandler = () => {
+				contentEl.style.paddingBottom = "";
+			};
+			contentEl.addEventListener("focusin", this._focusHandler);
+			contentEl.addEventListener("focusout", this._blurHandler);
+		}
 	}
 
 	onClose(): void {
+		if (this._focusHandler) {
+			this.contentEl.removeEventListener("focusin", this._focusHandler);
+			this._focusHandler = null;
+		}
+		if (this._blurHandler) {
+			this.contentEl.removeEventListener("focusout", this._blurHandler);
+			this._blurHandler = null;
+		}
 		// Revoke object URLs
 		for (const p of this.photos) {
 			if (p.objectUrl) URL.revokeObjectURL(p.objectUrl);

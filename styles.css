@@ -3708,6 +3708,10 @@
 	width: 100%;
 }
 
+.is-mobile .gl-review-modal {
+	padding-bottom: 48px;
+}
+
 .gl-review-modal__section-title {
 	margin: 12px 0 6px;
 	font-size: 1em;
