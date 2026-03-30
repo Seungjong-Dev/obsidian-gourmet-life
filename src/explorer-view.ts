@@ -313,6 +313,8 @@ export class ExplorerView extends ItemView implements PreviewHost {
 		// Scope: consume Escape so Obsidian won't navigate away
 		this.scope = new Scope(this.app.scope);
 		this.scope.register([], "Escape", (e) => {
+			// Let lightbox handle its own Escape
+			if (document.querySelector(".gl-lightbox")) return;
 			if (this.narrowSearchOpen) {
 				this.closeNarrowSearch();
 			} else if (this.selectedPath) {

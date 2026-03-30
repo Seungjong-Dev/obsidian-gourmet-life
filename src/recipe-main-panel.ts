@@ -974,8 +974,11 @@ class LightboxZoom {
 	private zoomTo(newScale: number, cx: number, cy: number, noTransition = false): void {
 		const clamped = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newScale));
 		const ratio = clamped / this.scale;
-		this.tx = cx - ratio * (cx - this.tx);
-		this.ty = cy - ratio * (cy - this.ty);
+		// Adjust for transform-origin at image center (viewport center due to flex)
+		const ox = window.innerWidth / 2;
+		const oy = window.innerHeight / 2;
+		this.tx = (cx - ox) * (1 - ratio) + ratio * this.tx;
+		this.ty = (cy - oy) * (1 - ratio) + ratio * this.ty;
 		this.scale = clamped;
 		this.clampTranslation();
 		if (noTransition) this.img.classList.add("gl-lightbox__image--no-transition");
@@ -1108,6 +1111,8 @@ export function showImageLightbox(
 		});
 
 		const onKeydown = (e: KeyboardEvent) => {
+			e.stopPropagation();
+			e.preventDefault();
 			if (e.key === "ArrowLeft") {
 				currentIndex = (currentIndex - 1 + gallery.srcs.length) % gallery.srcs.length;
 				update();
@@ -1116,19 +1121,31 @@ export function showImageLightbox(
 				update();
 			} else if (e.key === "Escape") {
 				close();
-				document.removeEventListener("keydown", onKeydown);
+				document.removeEventListener("keydown", onKeydown, true);
 			}
 		};
-		document.addEventListener("keydown", onKeydown);
+		document.addEventListener("keydown", onKeydown, true);
+		overlay.addEventListener("click", () => {
+			if (!zoom.isZoomed()) {
+				close();
+				document.removeEventListener("keydown", onKeydown, true);
+			}
+		});
+	} else {
+		const onKeydown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				e.stopPropagation();
+				e.preventDefault();
+				close();
+				document.removeEventListener("keydown", onKeydown, true);
+			}
+		};
+		document.addEventListener("keydown", onKeydown, true);
 		overlay.addEventListener("click", () => {
 			if (!zoom.isZoomed()) {
 				close();
 				document.removeEventListener("keydown", onKeydown);
 			}
-		});
-	} else {
-		overlay.addEventListener("click", () => {
-			if (!zoom.isZoomed()) close();
 		});
 	}
 }
