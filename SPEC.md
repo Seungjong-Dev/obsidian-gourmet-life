@@ -843,8 +843,10 @@ src/
 - Attaches `TextareaSuggest` to all three textareas (recipe body, notes, reviews) for `![[image]]` inline autocomplete
 - Inline image rendering: `![[image.ext]]` embeds rendered as thumbnails with click-to-expand lightbox
 - Gallery grouping: Consecutive image-only lines/steps are merged into a single `.gl-gallery` horizontal scroll strip (120×120 thumbnails, single row, `overflow-x: auto`). Applies to both Cooklang steps and notes/reviews text
-- Lightbox navigation: Gallery images open in a lightbox with `‹`/`›` prev/next buttons, keyboard arrow key support, `Escape` to close, and an image counter (`1 / N`). Single images open without navigation controls
-- Lightbox zoom & pan: Mouse wheel zooms toward cursor position (desktop), pinch-to-zoom on touch (mobile), double-click/double-tap toggles between 1× and 2.5× zoom. When zoomed, drag to pan (pointer on desktop, single-finger on mobile). Translation is clamped so the image cannot be panned entirely off-screen. Zoom resets automatically on gallery image navigation. Overlay click-to-close is suppressed while zoomed; `Escape` always closes
+- Lightbox gallery: Gallery images open in a full-screen lightbox with a bottom thumbnail strip for navigation (48×48, active image highlighted with white border, auto-scrolls to current). `×` close button at top-right. Single images open without thumbnail strip. `Escape` always closes. Safe-area insets respected for notch/home indicator
+- Lightbox swipe: Left/right swipe navigates gallery images when not zoomed (visual feedback follows finger, snaps back if below 50px threshold). Keyboard arrow keys also navigate
+- Lightbox chrome toggle: Single tap/click hides close button and thumbnail strip (background darkens to 0.95 opacity); tap again to restore. Distinguishes from double-tap zoom via 300ms delay
+- Lightbox zoom & pan: Mouse wheel zooms toward cursor position (desktop), pinch-to-zoom on touch (mobile), double-click/double-tap toggles between 1× and 2.5× zoom. When zoomed, drag to pan (pointer on desktop, single-finger on mobile). Translation is clamped so the image cannot be panned entirely off-screen. Zoom resets automatically on gallery image navigation. Overlay click-to-close is suppressed while zoomed
 
 **recipe-share-card.ts** — Share card export
 - `exportShareCard(app, filePath, fm, bodyContent, title)`: Public entry point — builds card DOM, captures PNG, outputs to clipboard or native share
@@ -1183,12 +1185,13 @@ gl-recipe__editor-meta-body   — Accordion body (collapsed in single-column)
 gl-lightbox            — Fullscreen image lightbox overlay (click background to dismiss, suppressed while zoomed)
 gl-lightbox__image     — Lightbox displayed image (touch-action: none, will-change: transform)
 gl-lightbox__image--zoomed      — Applied when scale > 1 (cursor: grab)
-gl-lightbox__image--no-transition — Disables transform transition during drag/pinch
+gl-lightbox__image--no-transition — Disables transform transition during drag/pinch/swipe
 gl-lightbox--grabbing  — Applied during active drag (cursor: grabbing)
-gl-lightbox__nav       — Circular prev/next navigation button (gallery mode only)
-gl-lightbox__nav--prev — Left arrow button
-gl-lightbox__nav--next — Right arrow button
-gl-lightbox__counter   — Image counter label ("1 / N", bottom-center)
+gl-lightbox--chrome-hidden — UI chrome hidden state (darker background, close/strip hidden)
+gl-lightbox__close     — Top-right close button (safe-area-inset-top aware)
+gl-lightbox__strip     — Bottom thumbnail navigation bar (safe-area-inset-bottom aware)
+gl-lightbox__thumb     — Gallery thumbnail (48×48, opacity 0.5)
+gl-lightbox__thumb--active — Current image thumbnail (opacity 1, white border)
 gl-suggest             — Textarea autocomplete popup (position: fixed)
 gl-suggest__item       — Popup item row
 gl-suggest__item--active — Keyboard/hover-selected item
