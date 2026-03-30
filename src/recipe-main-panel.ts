@@ -815,6 +815,13 @@ const ZOOM_STEP = 0.002;
 const DOUBLE_TAP_MS = 300;
 const DOUBLE_TAP_DIST = 30;
 const TOGGLE_ZOOM = 2.5;
+const SWIPE_THRESHOLD = 50;
+
+interface LightboxCallbacks {
+	onSwipeLeft?: () => void;
+	onSwipeRight?: () => void;
+	onSingleTap?: () => void;
+}
 
 class LightboxZoom {
 	private scale = 1;
@@ -822,6 +829,7 @@ class LightboxZoom {
 	private ty = 0;
 	private isDragging = false;
 	private isPinching = false;
+	private isSwiping = false;
 	private lastX = 0;
 	private lastY = 0;
 	private pinchStartDist = 0;
@@ -829,6 +837,11 @@ class LightboxZoom {
 	private lastTapTime = 0;
 	private lastTapX = 0;
 	private lastTapY = 0;
+	private swipeStartX = 0;
+	private swipeStartY = 0;
+	private swipeX = 0;
+	private singleTapTimer: ReturnType<typeof setTimeout> | null = null;
+	private singleClickTimer: ReturnType<typeof setTimeout> | null = null;
 
 	private readonly onWheel: (e: WheelEvent) => void;
 	private readonly onPointerDown: (e: PointerEvent) => void;
@@ -838,10 +851,12 @@ class LightboxZoom {
 	private readonly onTouchMove: (e: TouchEvent) => void;
 	private readonly onTouchEnd: (e: TouchEvent) => void;
 	private readonly onDblClick: (e: MouseEvent) => void;
+	private readonly onClick: (e: MouseEvent) => void;
 
 	constructor(
 		private overlay: HTMLElement,
-		private img: HTMLImageElement
+		private img: HTMLImageElement,
+		private callbacks: LightboxCallbacks = {}
 	) {
 		this.onWheel = (e) => {
 			e.preventDefault();
@@ -872,6 +887,8 @@ class LightboxZoom {
 				e.preventDefault();
 				this.isPinching = true;
 				this.isDragging = false;
+				this.isSwiping = false;
+				if (this.singleTapTimer) { clearTimeout(this.singleTapTimer); this.singleTapTimer = null; }
 				this.pinchStartDist = this.touchDist(e.touches);
 				this.pinchStartScale = this.scale;
 				this.img.classList.add("gl-lightbox__image--no-transition");
@@ -880,11 +897,14 @@ class LightboxZoom {
 				const now = Date.now();
 				const dx = t.clientX - this.lastTapX;
 				const dy = t.clientY - this.lastTapY;
+
+				// Double-tap detection
 				if (
 					now - this.lastTapTime < DOUBLE_TAP_MS &&
 					Math.hypot(dx, dy) < DOUBLE_TAP_DIST
 				) {
 					e.preventDefault();
+					if (this.singleTapTimer) { clearTimeout(this.singleTapTimer); this.singleTapTimer = null; }
 					this.toggleZoom(t.clientX, t.clientY);
 					this.lastTapTime = 0;
 				} else {
@@ -893,6 +913,12 @@ class LightboxZoom {
 					this.lastTapY = t.clientY;
 					if (this.isZoomed()) {
 						this.startDrag(t.clientX, t.clientY);
+					} else {
+						// Start swipe tracking
+						this.swipeStartX = t.clientX;
+						this.swipeStartY = t.clientY;
+						this.swipeX = 0;
+						this.isSwiping = false;
 					}
 				}
 			}
@@ -908,6 +934,20 @@ class LightboxZoom {
 			} else if (this.isDragging && e.touches.length === 1) {
 				e.preventDefault();
 				this.moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+			} else if (!this.isZoomed() && e.touches.length === 1) {
+				// Swipe tracking
+				const t = e.touches[0];
+				const dx = t.clientX - this.swipeStartX;
+				const dy = t.clientY - this.swipeStartY;
+				if (!this.isSwiping && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+					this.isSwiping = true;
+					this.img.classList.add("gl-lightbox__image--no-transition");
+				}
+				if (this.isSwiping) {
+					e.preventDefault();
+					this.swipeX = dx;
+					this.img.style.transform = `translateX(${dx}px)`;
+				}
 			}
 		};
 
@@ -918,13 +958,46 @@ class LightboxZoom {
 				if (this.scale < MIN_ZOOM) this.zoomTo(MIN_ZOOM, window.innerWidth / 2, window.innerHeight / 2);
 			}
 			if (e.touches.length === 0) {
+				if (this.isSwiping) {
+					this.img.classList.remove("gl-lightbox__image--no-transition");
+					if (Math.abs(this.swipeX) > SWIPE_THRESHOLD) {
+						if (this.swipeX > 0) this.callbacks.onSwipeRight?.();
+						else this.callbacks.onSwipeLeft?.();
+					}
+					// Snap back
+					this.img.style.transform = "";
+					this.isSwiping = false;
+					this.swipeX = 0;
+				} else if (!this.isDragging && !this.isPinching) {
+					// Single-tap detection: if finger barely moved
+					const ct = e.changedTouches[0];
+					const moved = Math.hypot(ct.clientX - this.swipeStartX, ct.clientY - this.swipeStartY);
+					if (moved < 10 && !this.isZoomed()) {
+						this.singleTapTimer = setTimeout(() => {
+							this.singleTapTimer = null;
+							this.callbacks.onSingleTap?.();
+						}, DOUBLE_TAP_MS);
+					}
+				}
 				this.endDrag();
 			}
 		};
 
 		this.onDblClick = (e) => {
 			e.stopPropagation();
+			if (this.singleClickTimer) { clearTimeout(this.singleClickTimer); this.singleClickTimer = null; }
 			this.toggleZoom(e.clientX, e.clientY);
+		};
+
+		// Desktop single-click → chrome toggle (delayed to distinguish from dblclick)
+		this.onClick = (e) => {
+			e.stopPropagation();
+			if (this.isZoomed()) return;
+			if (this.singleClickTimer) clearTimeout(this.singleClickTimer);
+			this.singleClickTimer = setTimeout(() => {
+				this.singleClickTimer = null;
+				this.callbacks.onSingleTap?.();
+			}, DOUBLE_TAP_MS);
 		};
 
 		img.addEventListener("wheel", this.onWheel, { passive: false });
@@ -936,6 +1009,7 @@ class LightboxZoom {
 		img.addEventListener("touchmove", this.onTouchMove, { passive: false });
 		img.addEventListener("touchend", this.onTouchEnd);
 		img.addEventListener("dblclick", this.onDblClick);
+		img.addEventListener("click", this.onClick);
 	}
 
 	isZoomed(): boolean {
@@ -948,10 +1022,15 @@ class LightboxZoom {
 		this.ty = 0;
 		this.isDragging = false;
 		this.isPinching = false;
-		this.applyTransform();
+		this.isSwiping = false;
+		this.img.style.transform = "";
+		this.img.classList.remove("gl-lightbox__image--zoomed");
+		this.overlay.style.cursor = "zoom-in";
 	}
 
 	destroy(): void {
+		if (this.singleTapTimer) clearTimeout(this.singleTapTimer);
+		if (this.singleClickTimer) clearTimeout(this.singleClickTimer);
 		this.img.removeEventListener("wheel", this.onWheel);
 		this.img.removeEventListener("pointerdown", this.onPointerDown);
 		this.img.removeEventListener("pointermove", this.onPointerMove);
@@ -961,6 +1040,7 @@ class LightboxZoom {
 		this.img.removeEventListener("touchmove", this.onTouchMove);
 		this.img.removeEventListener("touchend", this.onTouchEnd);
 		this.img.removeEventListener("dblclick", this.onDblClick);
+		this.img.removeEventListener("click", this.onClick);
 	}
 
 	private toggleZoom(cx: number, cy: number): void {
@@ -974,7 +1054,6 @@ class LightboxZoom {
 	private zoomTo(newScale: number, cx: number, cy: number, noTransition = false): void {
 		const clamped = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newScale));
 		const ratio = clamped / this.scale;
-		// Adjust for transform-origin at image center (viewport center due to flex)
 		const ox = window.innerWidth / 2;
 		const oy = window.innerHeight / 2;
 		this.tx = (cx - ox) * (1 - ratio) + ratio * this.tx;
@@ -984,7 +1063,6 @@ class LightboxZoom {
 		if (noTransition) this.img.classList.add("gl-lightbox__image--no-transition");
 		this.applyTransform();
 		if (noTransition) {
-			// Force reflow then remove
 			void this.img.offsetHeight;
 			this.img.classList.remove("gl-lightbox__image--no-transition");
 		}
@@ -1009,7 +1087,6 @@ class LightboxZoom {
 
 	private applyTransform(): void {
 		this.img.style.transform = `translate(${this.tx}px, ${this.ty}px) scale(${this.scale})`;
-
 		if (this.isZoomed()) {
 			this.img.classList.add("gl-lightbox__image--zoomed");
 			this.overlay.style.cursor = this.scale >= MAX_ZOOM ? "zoom-out" : "default";
@@ -1068,83 +1145,116 @@ export function showImageLightbox(
 	img.src = src;
 	img.alt = alt;
 
-	const zoom = new LightboxZoom(overlay, img);
+	// Close button (always visible unless chrome hidden)
+	const closeBtn = overlay.createEl("button", {
+		cls: "gl-lightbox__close",
+		text: "\u00D7",
+	});
 
-	// Prevent clicks on image/nav from closing overlay
-	img.addEventListener("click", (e) => e.stopPropagation());
+	let chromeVisible = true;
+	const toggleChrome = () => {
+		chromeVisible = !chromeVisible;
+		overlay.classList.toggle("gl-lightbox--chrome-hidden", !chromeVisible);
+	};
+
+	let zoom: LightboxZoom;
 
 	const close = () => {
 		zoom.destroy();
 		overlay.remove();
 	};
 
+	const onKeydown = (e: KeyboardEvent) => {
+		e.stopPropagation();
+		e.preventDefault();
+		if (e.key === "Escape") {
+			close();
+			document.removeEventListener("keydown", onKeydown, true);
+		}
+	};
+
+	closeBtn.addEventListener("click", (e) => {
+		e.stopPropagation();
+		close();
+		document.removeEventListener("keydown", onKeydown, true);
+	});
+
 	if (gallery && gallery.srcs.length > 1) {
 		let currentIndex = gallery.index;
 
-		const prevBtn = overlay.createEl("button", {
-			cls: "gl-lightbox__nav gl-lightbox__nav--prev",
-			text: "\u2039",
-		});
-		const nextBtn = overlay.createEl("button", {
-			cls: "gl-lightbox__nav gl-lightbox__nav--next",
-			text: "\u203A",
-		});
-		const counter = overlay.createDiv({ cls: "gl-lightbox__counter" });
+		// Thumbnail strip
+		const strip = overlay.createDiv({ cls: "gl-lightbox__strip" });
+		const thumbs: HTMLImageElement[] = [];
+		for (let i = 0; i < gallery.srcs.length; i++) {
+			const thumb = strip.createEl("img", { cls: "gl-lightbox__thumb" });
+			thumb.src = gallery.srcs[i];
+			thumb.alt = gallery.alts[i];
+			const idx = i;
+			thumb.addEventListener("click", (e) => {
+				e.stopPropagation();
+				currentIndex = idx;
+				update();
+			});
+			thumbs.push(thumb);
+		}
 
 		const update = () => {
 			img.src = gallery.srcs[currentIndex];
 			img.alt = gallery.alts[currentIndex];
-			counter.textContent = `${currentIndex + 1} / ${gallery.srcs.length}`;
 			zoom.reset();
+			// Update active thumbnail
+			for (let i = 0; i < thumbs.length; i++) {
+				thumbs[i].classList.toggle("gl-lightbox__thumb--active", i === currentIndex);
+			}
+			thumbs[currentIndex].scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
 		};
-		update();
 
-		prevBtn.addEventListener("click", (e) => {
-			e.stopPropagation();
-			currentIndex = (currentIndex - 1 + gallery.srcs.length) % gallery.srcs.length;
-			update();
-		});
-		nextBtn.addEventListener("click", (e) => {
-			e.stopPropagation();
+		const goNext = () => {
 			currentIndex = (currentIndex + 1) % gallery.srcs.length;
 			update();
+		};
+		const goPrev = () => {
+			currentIndex = (currentIndex - 1 + gallery.srcs.length) % gallery.srcs.length;
+			update();
+		};
+
+		zoom = new LightboxZoom(overlay, img, {
+			onSwipeLeft: goNext,
+			onSwipeRight: goPrev,
+			onSingleTap: toggleChrome,
 		});
 
-		const onKeydown = (e: KeyboardEvent) => {
+		update();
+
+		// Extend keydown for arrow navigation
+		const galleryKeydown = (e: KeyboardEvent) => {
 			e.stopPropagation();
 			e.preventDefault();
-			if (e.key === "ArrowLeft") {
-				currentIndex = (currentIndex - 1 + gallery.srcs.length) % gallery.srcs.length;
-				update();
-			} else if (e.key === "ArrowRight") {
-				currentIndex = (currentIndex + 1) % gallery.srcs.length;
-				update();
-			} else if (e.key === "Escape") {
+			if (e.key === "ArrowLeft") goPrev();
+			else if (e.key === "ArrowRight") goNext();
+			else if (e.key === "Escape") {
 				close();
-				document.removeEventListener("keydown", onKeydown, true);
+				document.removeEventListener("keydown", galleryKeydown, true);
 			}
 		};
-		document.addEventListener("keydown", onKeydown, true);
+		document.addEventListener("keydown", galleryKeydown, true);
+
 		overlay.addEventListener("click", () => {
 			if (!zoom.isZoomed()) {
 				close();
-				document.removeEventListener("keydown", onKeydown, true);
+				document.removeEventListener("keydown", galleryKeydown, true);
 			}
 		});
 	} else {
-		const onKeydown = (e: KeyboardEvent) => {
-			if (e.key === "Escape") {
-				e.stopPropagation();
-				e.preventDefault();
-				close();
-				document.removeEventListener("keydown", onKeydown, true);
-			}
-		};
+		zoom = new LightboxZoom(overlay, img, {
+			onSingleTap: toggleChrome,
+		});
+
 		document.addEventListener("keydown", onKeydown, true);
 		overlay.addEventListener("click", () => {
 			if (!zoom.isZoomed()) {
 				close();
-				document.removeEventListener("keydown", onKeydown);
+				document.removeEventListener("keydown", onKeydown, true);
 			}
 		});
 	}
